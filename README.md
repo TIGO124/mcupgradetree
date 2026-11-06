@@ -1,4 +1,4 @@
-# UpgradeTree 2.0 — Minecraft 26.3 Altıgen Yükseltme Ağacı
+# UpgradeTree 2.1 — Minecraft 26.3 Altıgen Yükseltme Ağacı
 
 Roblox tarzı yükseltme ağacı. Sandık menüsü yerine oyuncunun önünde, sadece ona görünen 3B bir panel açılır:
 yıldızlı uzay arka planında petek gibi dizilmiş altıgen düğümler. Bir düğüm alınınca ondan sonraki düğümler
@@ -8,7 +8,7 @@ ortaya çıkar (kademeli açılma).
 
 ## Kurulum
 1. Sunucu: Paper 26.3 (veya Purpur/Leaf gibi bir Paper türevi), Java 25.
-2. `UpgradeTree-2.0.0.jar` dosyasını sunucunun `plugins` klasörüne at, sunucuyu yeniden başlat.
+2. `UpgradeTree-2.1.0.jar` dosyasını sunucunun `plugins` klasörüne at, sunucuyu yeniden başlat.
 3. Ayarlar: `plugins/UpgradeTree/config.yml`, ağaçlar: `trees/*.yml` (her dosya bir sekme), mesajlar: `lang/tr.yml`, `lang/en.yml`.
 4. 1.x'ten geçiş: eski `tree.yml` kendiliğinden `trees/ana.yml` olur, oyuncu verileri olduğu gibi kalır.
 
@@ -27,11 +27,13 @@ ortaya çıkar (kademeli açılma).
 - **Veri:** YAML, SQLite veya MySQL. Değişiklikler toplu kaydedilir. YAML verisi boş veritabanına kendiliğinden aktarılır.
 - **Erişim:** komut, isteğe bağlı menü eşyası, etiketli NPC (`/yukselt npc`), "yeni yükseltme alınabilir" bildirimi.
 - **Kısıtlar:** `restrictions.disabled-worlds`, savaştan sonra menü bekleme süresi.
+- **Serbest hareket:** panel açıldığı yerde kalır, oyuncu yürümeye devam eder. Panele bakarken tıklamalar menüye gider, başka yere bakınca oyun normal çalışır. `menu.max-distance` bloktan uzaklaşınca menü kapanır. Eski kilitli davranış için `menu.lock-player: true`.
+- **Admin paneli (sadece OP):** `/yukselt admin [oyuncu]`. Oyuncu listesi, puan/prestij düzenleme, düğüm seviyeleri (sol +1, sağ −1, Shift+sol maks, Shift+sağ 0), hepsini maks/sıfırla, bonus temizleme, tek tıkla ayarlar (kademeli açılma, tıkla-al, oyuncu kilidi, para birimi, menü türü), hologram, yenileme ve ağaç kontrolü. "3B ağaçta düzenle" ile oyuncunun ağacı altıgen panelde açılır: tüm düğümler görünür, tıklayınca seviye değişir.
 
 ## Kullanım
 - `/yukselt` (veya /upgrade, /agac, /ut) menüyü açar/kapatır.
-- Nişangâhla bir altıgene bak, **sol tık** ile satın al. 10 ve üstü bedellerde ikinci tık onay ister (`menu.confirm-cost`).
-- Üstteki sekmelerle ağaç değiştir. **↺ Sıfırla** ve **★ Prestij** butonları iki tıkla çalışır. **Shift** veya X kapatır.
+- Nişangâhla bir altıgene bak, **sol tık** ile satın al. Panel yerinde kalır, etrafında yürüyebilirsin. 10 ve üstü bedellerde ikinci tık onay ister (`menu.confirm-cost`).
+- Üstteki sekmelerle ağaç değiştir. **↺ Sıfırla** ve **★ Prestij** butonları iki tıkla çalışır. Panele bakarken **Shift** veya X kapatır.
 
 | Komut | Açıklama |
 |---|---|
@@ -42,7 +44,7 @@ ortaya çıkar (kademeli açılma).
 | `/yukselt menu <panel\|sandik\|otomatik>` | Menü türü |
 | `/yukselt gunluk` | Günlük ödül (POINTS) |
 
-Yönetici (`upgradetree.admin`): `yenile`, `kontrol` (ağaç hataları: döngü, ulaşılamayan, üst üste düğüm),
+OP'ler için `/yukselt admin [oyuncu]` paneli. Yönetici komutları (`upgradetree.admin`): `yenile`, `kontrol` (ağaç hataları: döngü, ulaşılamayan, üst üste düğüm),
 `sifirla <oyuncu>`, `ayarla <oyuncu> <düğüm> <seviye>`, `puan <ver|al|ayarla> <oyuncu> <miktar>`,
 `prestij ayarla <oyuncu> <seviye>`, `temizle <oyuncu|herkes>`, `npc`, `top koy|kaldir`, `ac <oyuncu>`,
 `debug <onizleme|konum|hedef|varlik> <oyuncu> [düğüm]`.
@@ -88,7 +90,7 @@ Eventler (`com.upgradetree.api.event`): `UpgradePurchaseEvent` (iptal edilebilir
 
 ## Derleme ve test
 ```bash
-./gradlew build        # jar: build/libs/UpgradeTree-2.0.0.jar (birim testleri de çalışır)
+./gradlew build        # jar: build/libs/UpgradeTree-2.1.0.jar (birim testleri de çalışır)
 ./gradlew runServer    # Paper 26.3'ü indirip eklentiyle yerel test sunucusu açar
 ```
 GitHub Actions her push'ta derler. `v*` etiketi atılınca jar'ı Releases'a koyar.
@@ -108,4 +110,6 @@ multiple trees as tabs, advanced requirements (any-of, level, exclusive, permiss
 active abilities (dash, leap, heal, shield, speed, shockwave), respec with refunds, prestige, XP / Vault / points currency
 with anti-farm point sources, leaderboard and hologram, a chest menu for Bedrock players, YAML / SQLite / MySQL storage,
 PlaceholderAPI placeholders, a developer API with events, and Turkish/English messages (`language: en`).
-Install: drop `UpgradeTree-2.0.0.jar` into `plugins/`. Open with `/upgrade`. Build with `./gradlew build`.
+The panel stays where it was opened while the player walks freely (`menu.lock-player: true` restores the old locked mode).
+Operators get an admin panel with `/upgrade admin [player]` (chest GUI plus a 3D tree editor).
+Install: drop `UpgradeTree-2.1.0.jar` into `plugins/`. Open with `/upgrade`. Build with `./gradlew build`.

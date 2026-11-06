@@ -84,7 +84,7 @@ menu:
   # DISPLAY -> herkese 3B panel      CHEST -> herkese sandık menüsü
   # Oyuncu kendi tercihini /yukselt menu panel|sandik ile seçebilir.
   mode: AUTO
-  # Panelin oyuncuya uzaklığı (blok). Önünde duvar varsa panel kendiliğinden yaklaşır.
+  # Panelin açılırken oyuncuya uzaklığı (blok). Önünde duvar varsa panel kendiliğinden yaklaşır.
   distance: 1.6
   # Panelin ekrandaki büyüklüğü (4:3 ekranlarda taşarsa 0.9 yap)
   scale: 1.0
@@ -95,6 +95,11 @@ menu:
   # Bu bedel ve üstündeki satın almalarda onay için ikinci tık gerekir (0 = kapalı)
   confirm-cost: 10
   close-on-damage: true
+  # false: panel açıldığı yerde kalır, oyuncu serbestçe yürür (panele bakarken tıklamalar menüye gider)
+  # true : eski davranış, oyuncu menü kapanana kadar yerinden kımıldayamaz
+  lock-player: false
+  # Oyuncu panelden bu kadar blok uzaklaşınca menü kapanır
+  max-distance: 8
   # Savaştan sonra menünün açılabilmesi için beklenecek saniye
   combat-cooldown: 8
   # Menü açıkken eldeki eşyayı gizle (panelin önünü kapatmasın)

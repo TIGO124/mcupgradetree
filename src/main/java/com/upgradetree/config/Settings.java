@@ -61,6 +61,8 @@ public final class Settings {
     public final boolean clickToBuy;
     public final double confirmCost;
     public final boolean closeOnDamage;
+    public final boolean lockPlayer;
+    public final double maxDistance;
     public final long combatCooldownMs;
     public final boolean hideHand;
     public final boolean glowOnHover;
@@ -174,6 +176,8 @@ public final class Settings {
         clickToBuy = c.getBoolean("menu.click-to-buy", true);
         confirmCost = Math.max(0, c.getDouble("menu.confirm-cost", 10));
         closeOnDamage = c.getBoolean("menu.close-on-damage", true);
+        lockPlayer = c.getBoolean("menu.lock-player", false);
+        maxDistance = clamp(c.getDouble("menu.max-distance", 8.0), 2.0, 32.0);
         combatCooldownMs = Math.max(0, c.getLong("menu.combat-cooldown", 8)) * 1000L;
         hideHand = c.getBoolean("menu.hide-hand", c.getBoolean("menu.hide-held-item", true));
         glowOnHover = c.getBoolean("menu.glow-on-hover", true);

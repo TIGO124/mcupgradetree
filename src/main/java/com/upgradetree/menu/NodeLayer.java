@@ -116,7 +116,7 @@ final class NodeLayer {
     void build(boolean pop) {
         PlayerData d = data();
         for (UpgradeNode n : tree.nodes()) {
-            if (menu.plugin().service().visible(d, n)) {
+            if ((menu.admin() || menu.plugin().service().visible(d, n))) {
                 spawnNode(n, pop);
             }
         }
@@ -142,7 +142,7 @@ final class NodeLayer {
         PlayerData d = data();
         List<NodeView> fresh = new ArrayList<>();
         for (UpgradeNode n : tree.nodes()) {
-            if (!views.containsKey(n.id) && menu.plugin().service().visible(d, n)) {
+            if (!views.containsKey(n.id) && (menu.admin() || menu.plugin().service().visible(d, n))) {
                 fresh.add(spawnNode(n, true));
             }
         }
@@ -310,7 +310,7 @@ final class NodeLayer {
 
     private void paint(NodeView v, PlayerData d, int duration) {
         UpgradeNode n = v.node;
-        State st = menu.plugin().service().state(d, menu.player(), n);
+        State st = menu.plugin().service().state(d, menu.subject(), n);
         int lvl = Math.min(d.level(n.id), n.maxLevel);
         int fill = fill(n, st);
         int border = v.hover ? 0xFFFFFFFF : (highlighted.contains(n.id) ? theme().deny() : border(n, st));
@@ -448,7 +448,7 @@ final class NodeLayer {
     void shake(String id) {
         NodeView v = views.get(id);
         if (v != null) {
-            menu.shake(v.group);
+            Sparks.shake(menu, v.group);
         }
     }
 

@@ -11,19 +11,22 @@ import com.upgradetree.tree.UpgradeNode;
 import com.upgradetree.tree.UpgradeTree;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.logging.Level;
 
 import static com.upgradetree.menu.Layout.*;
 
 /**
  * The Roblox-style hexagon upgrade tree, drawn with display entities that only its viewer can see.
- * The panel floats in front of the player; the crosshair works as the mouse cursor.
+ * The panel stays where it was opened (the player walks freely); the crosshair works as the mouse
+ * cursor. With an {@link AdminTarget} an operator edits another player's levels instead of buying.
  */
 public final class DisplayMenu {
 
@@ -38,6 +41,8 @@ public final class DisplayMenu {
     final Header header = new Header(this);
     final InfoCard info = new InfoCard(this);
     private final MenuActions actions = new MenuActions(this);
+    final Aim aim = new Aim(this);
+    private final AdminTarget subject;
 
     private Group chrome;
     private Part progress;
@@ -54,11 +59,14 @@ public final class DisplayMenu {
     int prestigeUntil = -1;
     private boolean closing;
     private boolean done;
-    private boolean handHidden;
-    private boolean rehide;
     private boolean breathUp;
 
-    DisplayMenu(UpgradeTreePlugin plugin, MenuManager manager, Player player, List<UpgradeTree> trees, UpgradeTree start) {
+    /** The player whose levels an operator edits in the admin mode (offline data is kept here). */
+    public record AdminTarget(UUID uuid, String name, PlayerData offline) {
+    }
+
+    DisplayMenu(UpgradeTreePlugin plugin, MenuManager manager, Player player, List<UpgradeTree> trees, UpgradeTree start,
+                AdminTarget subject) {
         this.plugin = plugin;
         this.manager = manager;
         this.player = player;
@@ -66,6 +74,7 @@ public final class DisplayMenu {
         this.animate = settings.animations;
         this.trees = trees;
         this.current = start;
+        this.subject = subject;
         this.painter = new Painter(plugin, player, new Frame(player, settings.menuDistance, settings.menuScale, EXTENT));
         this.timeline = new Timeline(plugin.getLogger());
     }
@@ -96,8 +105,26 @@ public final class DisplayMenu {
         return plugin.lang();
     }
 
+    /** Data shown and changed by the menu: the viewer's, or the edited player's in the admin mode. */
     PlayerData data() {
-        return plugin.data().get(player);
+        if (subject == null) {
+            return plugin.data().get(player);
+        }
+        Player online = Bukkit.getPlayer(subject.uuid());
+        return online != null ? plugin.data().get(online) : subject.offline();
+    }
+
+    /** Whose permissions and balance count: the viewer, or the edited player (null when offline). */
+    Player subject() {
+        return subject == null ? player : Bukkit.getPlayer(subject.uuid());
+    }
+
+    boolean admin() {
+        return subject != null;
+    }
+
+    String subjectName() {
+        return subject == null ? player.getName() : subject.name();
     }
 
     boolean animate() {
@@ -123,10 +150,10 @@ public final class DisplayMenu {
     // ------------------------------------------------------------------ open / close
 
     void open() {
-        Freeze.apply(plugin, player);
-        if (settings.hideHand) {
-            hideHand();
+        if (settings.lockPlayer) {
+            Freeze.apply(plugin, player);
         }
+        aim.open();
         try {
             build();
         } catch (RuntimeException ex) {
@@ -156,7 +183,7 @@ public final class DisplayMenu {
         info.build(startScale);
         progress = painter.text(chrome, Part.text(CANVAS_CX, PROGRESS_Y, 0.032, 1, false, Z_TEXT), Component.empty(), 2000);
         painter.text(chrome, Part.text(CARD_CX, FOOTER_Y, 0.021, 1, false, Z_TEXT),
-                lang().plain(settings.clickToBuy ? "menu-footer" : "menu-footer-select"), 4000);
+                lang().plain(subject != null ? "menu-footer-admin" : settings.clickToBuy ? "menu-footer" : "menu-footer-select"), 4000);
         if (current != null) {
             layer = new NodeLayer(this, current);
             layer.build(animate);
@@ -200,10 +227,7 @@ public final class DisplayMenu {
             return;
         }
         Freeze.release(plugin, player);
-        if (handHidden) {
-            handHidden = false;
-            player.updateInventory();
-        }
+        aim.release();
     }
 
     /** Removes everything immediately (plugin disable). */
@@ -217,17 +241,21 @@ public final class DisplayMenu {
     }
 
     void rehideHand() {
-        rehide = true;
+        aim.rehide();
+    }
+
+    /** True while clicks and keys belong to the menu (crosshair on the panel, or the player is locked). */
+    boolean captures() {
+        return aim.captures();
+    }
+
+    boolean handHidden() {
+        return aim.handHidden();
     }
 
     private void removeAll() {
         painter.removeAll();
         done = true;
-    }
-
-    private void hideHand() {
-        Timeline.hideHand(player);
-        handHidden = true;
     }
 
     // ------------------------------------------------------------------ ticking
@@ -242,10 +270,14 @@ public final class DisplayMenu {
             manager.close(player, true);
             return;
         }
-        if (player.getLocation().toVector().distanceSquared(frame().feet) > 0.36) {
+        boolean away = settings.lockPlayer
+                ? player.getLocation().toVector().distanceSquared(frame().feet) > 0.36
+                : player.getEyeLocation().toVector().distanceSquared(frame().center) > settings.maxDistance * settings.maxDistance;
+        if (away) {
             manager.close(player, false);
             return;
         }
+        aim.update(tick);
         if (tick >= 3) {
             updateHover();
         }
@@ -265,11 +297,7 @@ public final class DisplayMenu {
             updateStatus();
             refreshInfo();
         }
-        if (settings.hideHand && (rehide || tick % 40 == 0)) {
-            rehide = false;
-            hideHand();
-        }
-        if (tick % 20 == 0 && layer != null && animate) {
+        if (tick % 20 == 0 && layer != null && animate && subject == null) {
             breathUp = !breathUp;
             Currency cur = plugin.currency();
             layer.breathe(breathUp, cur.available() ? cur.balance(player) : 0, cur.available());
@@ -281,7 +309,7 @@ public final class DisplayMenu {
     }
 
     void updateStatus() {
-        header.update(plugin.progress().prestigeReady(data(), player));
+        header.update(subject == null && plugin.progress().prestigeReady(data(), player));
         if (current != null) {
             int doneCount = plugin.service().maxed(data(), current);
             int total = current.nodes().size();
@@ -302,7 +330,7 @@ public final class DisplayMenu {
 
     // ------------------------------------------------------------------ hover & click
 
-    private String hitTest() {
+    String hitTest() {
         double[] uv = frame().project(player.getEyeLocation());
         if (uv == null) {
             return null;
@@ -313,6 +341,9 @@ public final class DisplayMenu {
         }
         if (info.hitBuy(uv[0], uv[1])) {
             return "buy";
+        }
+        if (info.hitMinus(uv[0], uv[1])) {
+            return "minus";
         }
         if (layer != null) {
             String id = layer.hit(uv[0], uv[1]);
@@ -341,8 +372,8 @@ public final class DisplayMenu {
     }
 
     private void setHover(String id, boolean on) {
-        if (id.equals("buy")) {
-            info.setBuyHover(on);
+        if (id.equals("buy") || id.equals("minus")) {
+            info.setBuyHover(id, on);
         } else if (id.startsWith("node:")) {
             if (layer != null) {
                 layer.setHover(id.substring(5), on);
@@ -352,8 +383,8 @@ public final class DisplayMenu {
         }
     }
 
-    /** Called for every left click (and right click with an item) while the menu is open. */
-    void click() {
+    /** Called for every click on the panel; {@code right} = right click (lowers a level in the admin mode). */
+    void click(boolean right) {
         if (closing || tick < 4 || tick < ignoreClicksUntil || tick - lastClick < 3) {
             return;
         }
@@ -367,11 +398,9 @@ public final class DisplayMenu {
                 sound("minecraft:ui.button.click", 0.5f, 1.4f);
                 manager.close(player, false);
             }
-            case "buy" -> {
+            case "buy", "minus" -> {
                 if (selected != null) {
-                    actions.tryPurchase(selected, true);
-                } else if (hovered != null && hovered.startsWith("node:")) {
-                    actions.tryPurchase(plugin.trees().node(hovered.substring(5)), true);
+                    actions.nodeClick(selected, target.equals("minus"), true);
                 }
             }
             case "respec" -> actions.respec();
@@ -385,8 +414,8 @@ public final class DisplayMenu {
                         return;
                     }
                     selected = n;
-                    if (settings.clickToBuy) {
-                        actions.tryPurchase(n, false);
+                    if (settings.clickToBuy || subject != null) {
+                        actions.nodeClick(n, right, false);
                     } else {
                         sound("minecraft:ui.button.click", 0.4f, 1.6f);
                         refreshInfo();
@@ -440,64 +469,9 @@ public final class DisplayMenu {
         refreshInfo();
     }
 
-    // ------------------------------------------------------------------ small animations
-
-    void pulse(Group g) {
-        double base = g.scale;
-        g.scale = base * 0.92;
-        g.apply(frame(), 1);
-        later(1, () -> {
-            g.scale = base;
-            g.apply(frame(), 3);
-        });
-    }
-
-    void shake(Group g) {
-        double[] seq = {0.012, -0.012, 0.007, -0.004, 0.0};
-        g.dx = seq[0];
-        g.apply(frame(), 1);
-        for (int i = 1; i < seq.length; i++) {
-            double v = seq[i];
-            boolean last = i == seq.length - 1;
-            later(i, () -> {
-                g.dx = v;
-                g.apply(frame(), last ? 2 : 1);
-            });
-        }
-    }
-
     void sound(String key, float volume, float pitch) {
         if (settings.sounds && player.isOnline()) {
             player.playSound(player.getLocation(), key, SoundCategory.MASTER, volume, pitch);
         }
-    }
-
-    // ------------------------------------------------------------------ debug
-
-    int entityCount() {
-        return painter.count();
-    }
-
-    /** What the crosshair points at right now (debug). */
-    String target() {
-        return String.valueOf(hitTest());
-    }
-
-    List<Group> groups() {
-        return painter.groups;
-    }
-
-    /** Layout position (units) of a shown node, a tab ("tab:id") or a button (buy, respec, prestige, close). */
-    double[] targetPosition(String target) {
-        if (target.startsWith("tab:")) {
-            return header.tabCenter(target.substring(4));
-        }
-        return switch (target) {
-            case "buy" -> new double[]{CARD_CX, BTN_Y};
-            case "respec" -> new double[]{RESPEC_X, HEADER_CY};
-            case "prestige" -> new double[]{PRESTIGE_X, HEADER_CY};
-            case "close" -> new double[]{CLOSE_X, HEADER_CY};
-            default -> layer == null || !layer.views.containsKey(target) ? null : layer.position(target);
-        };
     }
 }

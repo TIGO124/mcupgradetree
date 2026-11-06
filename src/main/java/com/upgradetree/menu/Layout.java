@@ -83,5 +83,5 @@ final class Layout {
     static final double Z_FILL = 0.012;
     static final double Z_SHINE = 0.014;
     static final double Z_TEXT = 0.020;
-    static final double Z_ICON = 0.060;
+    static final double Z_ICON = 0.030;
 }

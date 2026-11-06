@@ -87,13 +87,13 @@ public final class AccessListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onUse(PlayerInteractEvent e) {
-        if (e.getHand() != EquipmentSlot.HAND || plugin.menus().isOpen(e.getPlayer())) {
+        if (e.getHand() != EquipmentSlot.HAND || plugin.menus().capturesInput(e.getPlayer())) {
             return;
         }
         Action a = e.getAction();
         if ((a == Action.RIGHT_CLICK_AIR || a == Action.RIGHT_CLICK_BLOCK) && isMenuItem(e.getItem())) {
             e.setCancelled(true);
-            plugin.menus().open(e.getPlayer());
+            plugin.menus().toggle(e.getPlayer());
         }
     }
 

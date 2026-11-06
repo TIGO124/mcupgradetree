@@ -11,6 +11,32 @@ final class Sparks {
     private Sparks() {
     }
 
+    /** Quick squeeze of a group (button press). */
+    static void pulse(DisplayMenu menu, Group g) {
+        double base = g.scale;
+        g.scale = base * 0.92;
+        g.apply(menu.frame(), 1);
+        menu.later(1, () -> {
+            g.scale = base;
+            g.apply(menu.frame(), 3);
+        });
+    }
+
+    /** Short sideways shake of a group (refused action). */
+    static void shake(DisplayMenu menu, Group g) {
+        double[] seq = {0.012, -0.012, 0.007, -0.004, 0.0};
+        g.dx = seq[0];
+        g.apply(menu.frame(), 1);
+        for (int i = 1; i < seq.length; i++) {
+            double v = seq[i];
+            boolean last = i == seq.length - 1;
+            menu.later(i, () -> {
+                g.dx = v;
+                g.apply(menu.frame(), last ? 2 : 1);
+            });
+        }
+    }
+
     private static float size(Frame f, double base, double min, double max) {
         return (float) Math.max(min, Math.min(max, base * f.dist / 1.6));
     }

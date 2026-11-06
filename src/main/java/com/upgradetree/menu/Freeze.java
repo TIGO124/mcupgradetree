@@ -19,8 +19,27 @@ import org.bukkit.plugin.Plugin;
 final class Freeze {
 
     private static final String[] KEYS = {"freeze_move", "freeze_jump", "freeze_block", "freeze_entity"};
+    private static final String[] REACH_KEYS = {"reach_block", "reach_entity"};
 
     private Freeze() {
+    }
+
+    /**
+     * Turns block and entity reach off (on = true) or back on. Used while the crosshair is on the
+     * panel, so a click on the panel never breaks the block or hits the mob behind it.
+     */
+    static void blockReach(Plugin plugin, Player p, boolean on) {
+        Attribute[] attrs = {Attribute.BLOCK_INTERACTION_RANGE, Attribute.ENTITY_INTERACTION_RANGE};
+        for (int i = 0; i < attrs.length; i++) {
+            if (on) {
+                modifier(plugin, p, attrs[i], REACH_KEYS[i]);
+            } else {
+                AttributeInstance inst = p.getAttribute(attrs[i]);
+                if (inst != null) {
+                    inst.removeModifier(new NamespacedKey(plugin, REACH_KEYS[i]));
+                }
+            }
+        }
     }
 
     private static NamespacedKey store(Plugin plugin) {
@@ -58,8 +77,9 @@ final class Freeze {
         inst.addTransientModifier(new AttributeModifier(key, -1.0, AttributeModifier.Operation.MULTIPLY_SCALAR_1, EquipmentSlotGroup.ANY));
     }
 
-    /** Undoes {@link #apply}. Safe to call when the player is not frozen. */
+    /** Undoes {@link #apply} and {@link #blockReach}. Safe to call when the player is not frozen. */
     static void release(Plugin plugin, Player p) {
+        blockReach(plugin, p, false);
         Attribute[] attrs = {Attribute.MOVEMENT_SPEED, Attribute.JUMP_STRENGTH, Attribute.BLOCK_INTERACTION_RANGE, Attribute.ENTITY_INTERACTION_RANGE};
         for (int i = 0; i < attrs.length; i++) {
             AttributeInstance inst = p.getAttribute(attrs[i]);

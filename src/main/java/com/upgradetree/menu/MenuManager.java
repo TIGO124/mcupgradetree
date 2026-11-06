@@ -102,7 +102,7 @@ public final class MenuManager {
             p.sendMessage(plugin.lang().msg("cannot-open"));
             return false;
         }
-        DisplayMenu menu = new DisplayMenu(plugin, this, p, trees, start);
+        DisplayMenu menu = new DisplayMenu(plugin, this, p, trees, start, null);
         try {
             menu.open();
         } catch (RuntimeException ex) {
@@ -127,15 +127,50 @@ public final class MenuManager {
         };
     }
 
-    @SuppressWarnings("deprecation")
+    /** The panel stays in the world and the player keeps moving, so only a few states block it. */
     private boolean canOpen(Player p) {
-        if (p.isDead() || p.getGameMode() == GameMode.SPECTATOR) {
+        if (p.isDead() || p.getGameMode() == GameMode.SPECTATOR || p.isSleeping() || p.isGliding()) {
             return false;
         }
-        if (p.isInsideVehicle() || p.isGliding() || p.isSleeping() || p.isSwimming() || p.isInWater() || p.isSneaking()) {
+        if (plugin.settings().lockPlayer) {
+            return !p.isInsideVehicle() && !p.isSwimming() && !p.isInWater() && !p.isSneaking() && (p.isFlying() || p.isOnGround());
+        }
+        return true;
+    }
+
+    /** True when the player's clicks and keys go to a menu (chest open, or crosshair on the 3D panel). */
+    public boolean capturesInput(Player p) {
+        DisplayMenu menu = open.get(p.getUniqueId());
+        return menu != null ? menu.captures() : ChestMenu.isOpen(p);
+    }
+
+    /**
+     * Opens the 3D tree of another player (or yourself) in the admin edit mode. Operators only.
+     * {@code offline} is the loaded data of an offline player (ignored while they are online).
+     */
+    public boolean openAdmin(Player viewer, UUID target, String name, com.upgradetree.data.PlayerData offline) {
+        if (!viewer.isOp()) {
+            viewer.sendMessage(plugin.lang().msg("admin-only-op"));
             return false;
         }
-        return p.isFlying() || p.isOnGround();
+        close(viewer, true);
+        if (ChestMenu.isOpen(viewer) || viewer.getOpenInventory().getTopInventory().getHolder() != null) {
+            viewer.closeInventory();
+        }
+        List<UpgradeTree> trees = plugin.trees().trees();
+        if (trees.isEmpty() || !canOpen(viewer)) {
+            viewer.sendMessage(plugin.lang().msg("cannot-open"));
+            return false;
+        }
+        DisplayMenu menu = new DisplayMenu(plugin, this, viewer, trees, trees.get(0),
+                new DisplayMenu.AdminTarget(target, name, offline));
+        try {
+            menu.open();
+        } catch (RuntimeException ex) {
+            return false;
+        }
+        open.put(viewer.getUniqueId(), menu);
+        return true;
     }
 
     public void close(Player p, boolean instant) {
@@ -225,12 +260,12 @@ public final class MenuManager {
 
     public int entityCount(Player p) {
         DisplayMenu menu = open.get(p.getUniqueId());
-        return menu == null ? 0 : menu.entityCount();
+        return menu == null ? 0 : MenuDebug.entityCount(menu);
     }
 
     public String target(Player p) {
         DisplayMenu menu = open.get(p.getUniqueId());
-        return menu == null ? "-" : menu.target();
+        return menu == null ? "-" : MenuDebug.target(menu);
     }
 
     /** World position of a shown node, tab ("tab:id") or button, or null. */
@@ -239,7 +274,7 @@ public final class MenuManager {
         if (menu == null) {
             return null;
         }
-        double[] uv = menu.targetPosition(target);
+        double[] uv = MenuDebug.position(menu, target);
         return uv == null ? null : menu.frame().point(uv[0], uv[1], 0);
     }
 

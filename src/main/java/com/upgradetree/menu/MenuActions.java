@@ -7,6 +7,7 @@ import com.upgradetree.service.UpgradeService.Result;
 import com.upgradetree.tree.UpgradeNode;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
+import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,71 @@ final class MenuActions {
 
     MenuActions(DisplayMenu menu) {
         this.m = menu;
+    }
+
+    /** A node (or the card button) was clicked: buy it, or in the admin mode raise/lower its level. */
+    void nodeClick(UpgradeNode n, boolean down, boolean viaButton) {
+        if (m.admin()) {
+            adminAdjust(n, down ? -1 : 1, viaButton);
+        } else {
+            tryPurchase(n, viaButton);
+        }
+    }
+
+    /** Admin mode: changes the edited player's level by {@code delta} (no cost, no requirements). */
+    private void adminAdjust(UpgradeNode n, int delta, boolean viaButton) {
+        if (n == null) {
+            return;
+        }
+        if (!m.player().isOp()) {
+            m.player().sendMessage(m.lang().msg("admin-only-op"));
+            m.plugin().menus().close(m.player(), true);
+            return;
+        }
+        PlayerData d = m.data();
+        int before = Math.min(d.level(n.id), n.maxLevel);
+        int after = Math.max(0, Math.min(n.maxLevel, before + delta));
+        if (after == before) {
+            if (viaButton) {
+                m.info.shakeBuy(delta < 0);
+            } else if (m.layer != null) {
+                m.layer.shake(n.id);
+            }
+            m.sound("minecraft:block.note_block.bass", 0.8f, 0.7f);
+            return;
+        }
+        d.setLevel(n.id, after);
+        m.plugin().data().save(d);
+        Player target = m.subject();
+        if (target != null) {
+            m.plugin().effects().apply(target);
+            if (after == 0) {
+                m.plugin().effects().clearManagedPotions(target);
+                m.plugin().effects().apply(target);
+            }
+            if (!target.equals(m.player())) {
+                m.plugin().menus().refresh(target);
+            }
+        }
+        m.plugin().leaderboard().touch(d);
+        if (m.layer != null) {
+            m.layer.paintAll(4);
+            if (delta > 0) {
+                m.layer.pop(n.id);
+                m.layer.burst(n.id, after >= n.maxLevel);
+            } else {
+                m.layer.shake(n.id);
+            }
+        }
+        if (viaButton) {
+            m.info.pulseBuy(delta < 0);
+        }
+        m.sound(delta > 0 ? "minecraft:block.amethyst_block.chime" : "minecraft:block.amethyst_block.break", 0.9f,
+                delta > 0 ? 1.4f : 0.9f);
+        m.player().sendActionBar(m.lang().plain("admin-set", "player", Text.escape(m.subjectName()),
+                "node", n.nameRaw, "level", String.valueOf(after)));
+        m.updateStatus();
+        m.refreshInfo();
     }
 
     void tryPurchase(UpgradeNode n, boolean viaButton) {
@@ -59,7 +125,7 @@ final class MenuActions {
                     }
                 }
                 if (viaButton) {
-                    m.info.pulseBuy();
+                    m.info.pulseBuy(false);
                 }
                 m.sound("minecraft:entity.player.levelup", 0.55f, max ? 2.0f : 1.5f);
                 m.sound("minecraft:block.amethyst_block.chime", 1.0f, 1.2f);
@@ -90,7 +156,7 @@ final class MenuActions {
 
     private void deny(UpgradeNode n, boolean viaButton, Component message) {
         if (viaButton) {
-            m.info.shakeBuy();
+            m.info.shakeBuy(false);
         } else if (m.layer != null) {
             m.layer.shake(n.id);
         }
@@ -99,6 +165,10 @@ final class MenuActions {
     }
 
     void respec() {
+        if (m.admin()) {
+            adminReset();
+            return;
+        }
         PlayerData d = m.data();
         ProgressService ps = m.plugin().progress();
         if (m.respecUntil < 0 || m.tick > m.respecUntil) {
@@ -165,5 +235,31 @@ final class MenuActions {
             case CANCELLED -> m.player().sendActionBar(m.lang().plain("purchase-cancelled"));
         }
         m.updateStatus();
+    }
+
+    /** Admin mode: the reset button wipes the edited player's levels (no refund), with a second click to confirm. */
+    private void adminReset() {
+        if (!m.player().isOp()) {
+            m.plugin().menus().close(m.player(), true);
+            return;
+        }
+        if (m.respecUntil < 0 || m.tick > m.respecUntil) {
+            m.respecUntil = m.tick + 60;
+            m.header.setRespecConfirm(true);
+            m.player().sendActionBar(m.lang().plain("admin-confirm"));
+            m.sound("minecraft:block.note_block.pling", 0.6f, 0.9f);
+            return;
+        }
+        m.respecUntil = -1;
+        m.header.setRespecConfirm(false);
+        Player target = m.subject();
+        m.plugin().progress().adminReset(m.data(), target);
+        if (target != null && !target.equals(m.player())) {
+            m.plugin().menus().refresh(target);
+        }
+        m.plugin().leaderboard().touch(m.data());
+        m.player().sendActionBar(m.lang().plain("reset-done", "player", Text.escape(m.subjectName())));
+        m.sound("minecraft:block.beacon.deactivate", 0.8f, 1.2f);
+        m.rebuildLayer();
     }
 }

@@ -51,7 +51,7 @@ public final class AbilityManager implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onSwap(PlayerSwapHandItemsEvent e) {
         Player p = e.getPlayer();
-        if (p.isSneaking() && !plugin.menus().isOpen(p) && cast(p, NodeEffect.Trigger.SNEAK_SWAP)) {
+        if (p.isSneaking() && !plugin.menus().capturesInput(p) && cast(p, NodeEffect.Trigger.SNEAK_SWAP)) {
             e.setCancelled(true);
         }
     }
@@ -62,7 +62,7 @@ public final class AbilityManager implements Listener {
             return;
         }
         Player p = e.getPlayer();
-        if (plugin.menus().isOpen(p)) {
+        if (plugin.menus().capturesInput(p)) {
             lastSneak.remove(p.getUniqueId());
             return;
         }
@@ -77,7 +77,7 @@ public final class AbilityManager implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onJump(PlayerJumpEvent e) {
         Player p = e.getPlayer();
-        if (p.isSneaking() && !plugin.menus().isOpen(p)) {
+        if (p.isSneaking() && !plugin.menus().capturesInput(p)) {
             cast(p, NodeEffect.Trigger.SNEAK_JUMP);
         }
     }

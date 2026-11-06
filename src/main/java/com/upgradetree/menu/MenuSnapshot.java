@@ -52,7 +52,7 @@ final class MenuSnapshot {
         g.fillRect(0, 0, w, h);
 
         List<Item> items = new ArrayList<>();
-        for (Group gr : menu.groups()) {
+        for (Group gr : MenuDebug.groups(menu)) {
             for (Part p : gr.parts) {
                 if (p.entity != null && p.entity.isValid()) {
                     items.add(new Item(gr, p));

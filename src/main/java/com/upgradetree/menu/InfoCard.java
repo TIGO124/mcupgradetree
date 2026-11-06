@@ -15,6 +15,7 @@ import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.ItemDisplay;
+import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,11 +40,8 @@ final class InfoCard {
     private Part cost;
     private Part barFill;
     private double barFrac = -1;
-    private Group buyGroup;
-    private List<Part> buyFill;
-    private Part buyLabel;
-    private boolean buyVisible;
-    private boolean buyHover;
+    private CardButton buy;
+    private CardButton minus;
 
     InfoCard(DisplayMenu menu) {
         this.menu = menu;
@@ -80,12 +78,13 @@ final class InfoCard {
         // wraps on the client; extra lines grow upwards into the (then empty) bonus row
         cost = pt.text(group, Part.text(CARD_CX, INFO_COST_Y, 0.027, 1, false, Z_TEXT), Component.empty(), 168);
 
-        buyGroup = pt.group(CARD_CX, BTN_Y);
-        buyGroup.scale = 0.001;
-        pt.roundRect(buyGroup, CARD_CX, BTN_Y - 0.004, BTN_W + 0.016, BTN_H + 0.024, 0.03, Z_BORDER, stroke, 3);
-        buyFill = pt.roundRect(buyGroup, CARD_CX, BTN_Y, BTN_W, BTN_H, 0.026, Z_FILL, menu.settings().theme.buy(), 3);
-        buyLabel = pt.text(buyGroup, Part.text(CARD_CX, BTN_Y, 0.033, 1, false, Z_TEXT), Component.empty(), 2000);
-        buyVisible = false;
+        if (menu.admin()) {
+            double half = (BTN_W - 0.03) / 2.0;
+            minus = CardButton.spawn(pt, CARD_CX - half / 2.0 - 0.015, BTN_Y, half, BTN_H, stroke, menu.settings().theme.deny());
+            buy = CardButton.spawn(pt, CARD_CX + half / 2.0 + 0.015, BTN_Y, half, BTN_H, stroke, menu.settings().theme.buy());
+        } else {
+            buy = CardButton.spawn(pt, CARD_CX, BTN_Y, BTN_W, BTN_H, stroke, menu.settings().theme.buy());
+        }
     }
 
     void open(int duration) {
@@ -96,28 +95,41 @@ final class InfoCard {
     void shrink(int duration) {
         group.scale = 0.9;
         group.apply(menu.frame(), duration);
-        buyGroup.scale = 0.001;
-        buyGroup.apply(menu.frame(), duration);
-    }
-
-    boolean hitBuy(double u, double v) {
-        return buyVisible && Math.abs(u - CARD_CX) <= BTN_W / 2.0 + 0.01 && Math.abs(v - BTN_Y) <= BTN_H / 2.0 + 0.01;
-    }
-
-    void setBuyHover(boolean on) {
-        buyHover = on;
-        if (buyVisible) {
-            buyGroup.scale = on ? 1.05 : 1.0;
-            buyGroup.apply(menu.frame(), 3);
+        buy.shrink(menu, duration);
+        if (minus != null) {
+            minus.shrink(menu, duration);
         }
     }
 
-    void pulseBuy() {
-        menu.pulse(buyGroup);
+    boolean hitBuy(double u, double v) {
+        return buy != null && buy.hit(u, v);
     }
 
-    void shakeBuy() {
-        menu.shake(buyGroup);
+    boolean hitMinus(double u, double v) {
+        return minus != null && minus.hit(u, v);
+    }
+
+    double[] buyCenter() {
+        return new double[]{buy.cx, buy.cy};
+    }
+
+    double[] minusCenter() {
+        return minus == null ? null : new double[]{minus.cx, minus.cy};
+    }
+
+    void setBuyHover(String id, boolean on) {
+        CardButton b = id.equals("minus") ? minus : buy;
+        if (b != null) {
+            b.setHover(menu, on);
+        }
+    }
+
+    void pulseBuy(boolean minusButton) {
+        Sparks.pulse(menu, (minusButton && minus != null ? minus : buy).group);
+    }
+
+    void shakeBuy(boolean minusButton) {
+        Sparks.shake(menu, (minusButton && minus != null ? minus : buy).group);
     }
 
     /** Shows the upgrade (or the welcome text when null). */
@@ -146,7 +158,7 @@ final class InfoCard {
             setButton(null, 0);
             return;
         }
-        State st = svc.state(d, menu.player(), n);
+        State st = svc.state(d, menu.subject(), n);
         int lvl = Math.min(d.level(n.id), n.maxLevel);
         setIcon(null, n.id);
         NodeLayer layer = menu.layer();
@@ -170,7 +182,15 @@ final class InfoCard {
             Painter.setText(bonus, Component.empty());
         }
 
+        if (menu.admin()) {
+            Painter.setText(cost, lang.plain("admin-card-hint"));
+            buy.show(menu, lang.plain(lvl >= n.maxLevel ? "button-max" : "button-admin-plus"),
+                    lvl >= n.maxLevel ? Palette.mix(theme.gold(), theme.card(), 0.25) : theme.buy());
+            minus.show(menu, lang.plain("button-admin-minus"), lvl <= 0 ? Palette.lighten(theme.locked(), 0.12) : theme.deny());
+            return;
+        }
         Currency cur = menu.plugin().currency();
+        Player who = menu.subject();
         switch (st) {
             case MAXED -> {
                 Painter.setText(cost, lang.plain("info-completed"));
@@ -178,7 +198,7 @@ final class InfoCard {
             }
             case LOCKED -> {
                 Painter.setText(cost, lang.plain("info-requires", "requires",
-                        String.join("<gray>, </gray>", svc.missing(d, menu.player(), n))));
+                        String.join("<gray>, </gray>", svc.missing(d, who, n))));
                 setButton(lang.plain("button-locked"), Palette.lighten(theme.locked(), 0.12));
             }
             case BLOCKED -> {
@@ -191,7 +211,7 @@ final class InfoCard {
             }
             default -> {
                 double c = svc.cost(d, n);
-                boolean afford = c <= 0 || (cur.available() && cur.balance(menu.player()) + 1e-9 >= c);
+                boolean afford = c <= 0 || (who != null && cur.available() && cur.balance(who) + 1e-9 >= c);
                 if (c <= 0) {
                     Painter.setText(cost, lang.plain("info-free"));
                 } else {
@@ -279,17 +299,13 @@ final class InfoCard {
     }
 
     private void setButton(Component label, int color) {
-        boolean show = label != null;
-        if (show != buyVisible) {
-            buyVisible = show;
-            buyGroup.scale = show ? (buyHover ? 1.05 : 1.0) : 0.001;
-            buyGroup.apply(menu.frame(), 3);
-        }
-        if (show) {
-            Painter.setText(buyLabel, label);
-            for (Part p : buyFill) {
-                p.recolor(color, 4);
+        if (label == null) {
+            buy.hide(menu);
+            if (minus != null) {
+                minus.hide(menu);
             }
+        } else {
+            buy.show(menu, label, color);
         }
     }
 }

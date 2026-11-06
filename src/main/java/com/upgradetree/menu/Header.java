@@ -214,6 +214,9 @@ final class Header {
     }
 
     private Component currencyText() {
+        if (menu.admin()) {
+            return menu.lang().plain("admin-editing", "player", Text.escape(menu.subjectName()));
+        }
         Currency c = menu.plugin().currency();
         Settings s = menu.settings();
         String amount = c.available() ? c.formatShort(c.balance(menu.player())) : "-";

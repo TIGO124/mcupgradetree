@@ -3,6 +3,8 @@ package com.upgradetree.command;
 import com.upgradetree.UpgradeTreePlugin;
 import com.upgradetree.config.Lang;
 import com.upgradetree.data.PlayerData;
+import com.upgradetree.gui.AdminPanel;
+import com.upgradetree.gui.AdminPlayerPage;
 import com.upgradetree.service.Leaderboard;
 import com.upgradetree.service.ProgressService;
 import com.upgradetree.tree.UpgradeNode;
@@ -96,9 +98,26 @@ public final class UpgradeCommand implements TabExecutor {
                     admin.debug(sender, args);
                 }
             }
+            case "admin", "panel", "yonetim", "yönetim" -> adminPanel(sender, args);
             default -> help(sender);
         }
         return true;
+    }
+
+    /** /yukselt admin [oyuncu] – operators only. */
+    private void adminPanel(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player p) || !p.isOp()) {
+            sender.sendMessage(lang().msg("admin-only-op"));
+            return;
+        }
+        if (args.length >= 2) {
+            AdminCommands.Target t = admin.require(sender, args[1]);
+            if (t != null) {
+                AdminPlayerPage.open(plugin, p, t.uuid(), t.name(), t.online() == null ? admin.data(t) : null);
+            }
+            return;
+        }
+        AdminPanel.open(plugin, p);
     }
 
     private boolean isAdmin(CommandSender sender) {
@@ -302,6 +321,9 @@ public final class UpgradeCommand implements TabExecutor {
             if (isAdmin) {
                 subs.addAll(List.of("yenile", "kontrol", "ayarla", "puan", "temizle", "npc", "debug"));
             }
+            if (sender instanceof Player op && op.isOp()) {
+                subs.add("admin");
+            }
             filter(subs, args[0], out);
             return out;
         }
@@ -333,6 +355,11 @@ public final class UpgradeCommand implements TabExecutor {
                 case "debug" -> {
                     if (isAdmin) {
                         filter(List.of("onizleme", "bak", "konum", "varlik"), args[1], out);
+                    }
+                }
+                case "admin", "panel" -> {
+                    if (sender instanceof Player op && op.isOp()) {
+                        filter(onlineNames(), args[1], out);
                     }
                 }
                 case "bilgi", "info", "ayarla", "set", "ac", "open" -> {

@@ -6,24 +6,37 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.InventoryHolder;
 
-/** Routes clicks in the chest menu and keeps its items in place. */
+/** Routes clicks in the chest menus (player menu and admin panel) and keeps their items in place. */
 public final class ChestListener implements Listener {
+
+    private static boolean ours(InventoryHolder h) {
+        return h instanceof ChestMenu || h instanceof AdminPanel || h instanceof AdminPlayerPage;
+    }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClick(InventoryClickEvent e) {
-        if (!(e.getView().getTopInventory().getHolder() instanceof ChestMenu menu)) {
+        InventoryHolder holder = e.getView().getTopInventory().getHolder();
+        if (!ours(holder)) {
             return;
         }
         e.setCancelled(true);
-        if (e.getWhoClicked() instanceof Player && e.getClickedInventory() == e.getView().getTopInventory()) {
-            menu.click(e.getRawSlot());
+        if (!(e.getWhoClicked() instanceof Player) || e.getClickedInventory() != e.getView().getTopInventory()) {
+            return;
+        }
+        switch (holder) {
+            case ChestMenu menu -> menu.click(e.getRawSlot());
+            case AdminPanel panel -> panel.click(e.getRawSlot(), e.getClick());
+            case AdminPlayerPage page -> page.click(e.getRawSlot(), e.getClick());
+            default -> {
+            }
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDrag(InventoryDragEvent e) {
-        if (e.getView().getTopInventory().getHolder() instanceof ChestMenu) {
+        if (ours(e.getView().getTopInventory().getHolder())) {
             e.setCancelled(true);
         }
     }
