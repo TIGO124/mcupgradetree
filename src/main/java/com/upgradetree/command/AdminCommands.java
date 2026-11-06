@@ -269,15 +269,16 @@ final class AdminCommands {
                     return;
                 }
                 UpgradeNode n = plugin.trees().node(args[3]);
-                Location loc = n == null ? null : plugin.menus().nodeLocation(p, n.id);
+                String target = n != null ? n.id : args[3].toLowerCase(Locale.ROOT);
+                Location loc = plugin.menus().nodeLocation(p, target);
                 if (loc == null) {
                     sender.sendMessage(lang().msg("debug-no-menu"));
                     return;
                 }
                 if (args[1].startsWith("b") || args[1].startsWith("l")) {
-                    plugin.menus().lookAt(p, n.id);
+                    plugin.menus().lookAt(p, target);
                 }
-                sender.sendMessage(Text.mm("<gray>NODE_POS " + n.id + " " + String.format(Locale.ROOT, "%.4f %.4f %.4f",
+                sender.sendMessage(Text.mm("<gray>NODE_POS " + Text.escape(target) + " " + String.format(Locale.ROOT, "%.4f %.4f %.4f",
                         loc.getX(), loc.getY(), loc.getZ())));
             }
             case "varlik", "entities" -> sender.sendMessage(Text.mm("<gray>ENTITIES " + plugin.menus().entityCount(p)));

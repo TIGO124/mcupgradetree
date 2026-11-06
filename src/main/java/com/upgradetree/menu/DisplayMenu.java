@@ -487,8 +487,17 @@ public final class DisplayMenu {
         return painter.groups;
     }
 
-    /** Layout position of a node (units), or null if it is not shown. */
-    double[] nodePosition(String id) {
-        return layer == null || !layer.views.containsKey(id) ? null : layer.position(id);
+    /** Layout position (units) of a shown node, a tab ("tab:id") or a button (buy, respec, prestige, close). */
+    double[] targetPosition(String target) {
+        if (target.startsWith("tab:")) {
+            return header.tabCenter(target.substring(4));
+        }
+        return switch (target) {
+            case "buy" -> new double[]{CARD_CX, BTN_Y};
+            case "respec" -> new double[]{RESPEC_X, HEADER_CY};
+            case "prestige" -> new double[]{PRESTIGE_X, HEADER_CY};
+            case "close" -> new double[]{CLOSE_X, HEADER_CY};
+            default -> layer == null || !layer.views.containsKey(target) ? null : layer.position(target);
+        };
     }
 }

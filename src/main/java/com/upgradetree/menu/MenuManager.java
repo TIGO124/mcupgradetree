@@ -233,13 +233,13 @@ public final class MenuManager {
         return menu == null ? "-" : menu.target();
     }
 
-    /** World position of a shown node, or null. */
-    public Location nodeLocation(Player p, String nodeId) {
+    /** World position of a shown node, tab ("tab:id") or button, or null. */
+    public Location nodeLocation(Player p, String target) {
         DisplayMenu menu = open.get(p.getUniqueId());
         if (menu == null) {
             return null;
         }
-        double[] uv = menu.nodePosition(nodeId);
+        double[] uv = menu.targetPosition(target);
         return uv == null ? null : menu.frame().point(uv[0], uv[1], 0);
     }
 

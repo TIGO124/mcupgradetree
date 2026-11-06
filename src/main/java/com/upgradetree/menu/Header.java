@@ -224,4 +224,13 @@ final class Header {
     String active() {
         return active;
     }
+
+    double[] tabCenter(String treeId) {
+        for (Tab t : tabs) {
+            if (t.tree().id.equalsIgnoreCase(treeId)) {
+                return new double[]{t.cx(), HEADER_CY};
+            }
+        }
+        return null;
+    }
 }
