@@ -1,65 +1,136 @@
 package com.upgradetree.data;
 
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.DoubleSupplier;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
-/** Stores player data as small YAML files in plugins/UpgradeTree/players/. */
+/**
+ * Caches player data and writes it on one background thread. Changes only mark the data dirty;
+ * dirty data is written by the periodic autosave, on quit and on important changes. A snapshot
+ * waiting to be written is also served to readers, so a quick rejoin can never read stale data.
+ */
 public final class DataStore {
 
-    private final JavaPlugin plugin;
-    private final File folder;
+    private final Storage storage;
+    private final Logger log;
+    private final DoubleSupplier startingPoints;
     private final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerData.Snapshot> pending = new ConcurrentHashMap<>();
     private final ExecutorService writer = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "UpgradeTree-Saver");
         t.setDaemon(true);
         return t;
     });
-    private final DoubleSupplier startingPoints;
 
-    public DataStore(JavaPlugin plugin, DoubleSupplier startingPoints) {
-        this.plugin = plugin;
-        this.folder = new File(plugin.getDataFolder(), "players");
+    public DataStore(Storage storage, Logger log, DoubleSupplier startingPoints) {
+        this.storage = storage;
+        this.log = log;
         this.startingPoints = startingPoints;
-        if (!folder.exists() && !folder.mkdirs()) {
-            plugin.getLogger().warning("players klasörü oluşturulamadı: " + folder);
-        }
+    }
+
+    public Storage storage() {
+        return storage;
     }
 
     /** Data of an online player (loaded on demand and cached). */
     public PlayerData get(Player p) {
-        PlayerData d = cache.computeIfAbsent(p.getUniqueId(), id -> read(id, p.getName()));
+        PlayerData d = cache.computeIfAbsent(p.getUniqueId(), id -> loadNow(id, p.getName()));
         d.name(p.getName());
         return d;
     }
 
-    /** Cached data if present, otherwise read from disk without caching. */
-    public PlayerData peek(UUID uuid, String name) {
-        PlayerData d = cache.get(uuid);
-        return d != null ? d : read(uuid, name);
+    /** Loads data before the player joins (called from the async pre-login event). */
+    public void preload(UUID uuid, String name) {
+        if (!cache.containsKey(uuid)) {
+            cache.putIfAbsent(uuid, loadNow(uuid, name));
+        }
     }
 
-    public boolean isCached(UUID uuid) {
-        return cache.containsKey(uuid);
+    /** Cached data if present, otherwise loaded without caching (offline players). */
+    public PlayerData peek(UUID uuid, String name) {
+        PlayerData d = cache.get(uuid);
+        return d != null ? d : loadNow(uuid, name);
     }
 
     public boolean exists(UUID uuid) {
-        return cache.containsKey(uuid) || file(uuid).exists();
+        if (cache.containsKey(uuid) || pending.containsKey(uuid)) {
+            return true;
+        }
+        try {
+            return storage.load(uuid, "") != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private PlayerData loadNow(UUID uuid, String name) {
+        PlayerData.Snapshot s = pending.get(uuid);
+        if (s == null) {
+            try {
+                s = storage.load(uuid, name);
+            } catch (Exception e) {
+                log.log(Level.WARNING, "Oyuncu verisi okunamadı: " + uuid, e);
+            }
+        }
+        if (s == null) {
+            PlayerData d = new PlayerData(uuid, name);
+            d.points(startingPoints.getAsDouble());
+            d.clearDirty();
+            return d;
+        }
+        PlayerData d = PlayerData.of(s);
+        d.clearDirty();
+        return d;
+    }
+
+    /** Queues a save right away (purchases, admin changes). */
+    public void save(PlayerData d) {
+        PlayerData.Snapshot s = d.snapshot();
+        d.clearDirty();
+        pending.put(d.uuid, s);
+        try {
+            writer.execute(() -> write(s));
+        } catch (RejectedExecutionException e) {
+            write(s);
+        }
+    }
+
+    private void write(PlayerData.Snapshot s) {
+        try {
+            storage.save(s);
+            pending.remove(s.uuid(), s);
+        } catch (Exception e) {
+            log.log(Level.WARNING, "Oyuncu verisi kaydedilemedi: " + s.uuid() + " (" + s.name() + ")", e);
+            PlayerData cached = cache.get(s.uuid());
+            if (cached != null) {
+                cached.markDirty();
+            }
+        }
+    }
+
+    /** Writes dirty data and forgets players that are no longer online. */
+    public void autosave() {
+        for (PlayerData d : new ArrayList<>(cache.values())) {
+            if (d.isDirty()) {
+                save(d);
+            }
+            if (Bukkit.getPlayer(d.uuid) == null && !d.isDirty()) {
+                cache.remove(d.uuid, d);
+            }
+        }
     }
 
     public void unload(UUID uuid) {
@@ -69,86 +140,40 @@ public final class DataStore {
         }
     }
 
-    private File file(UUID uuid) {
-        return new File(folder, uuid + ".yml");
+    public List<PlayerData> cached() {
+        return new ArrayList<>(cache.values());
     }
 
-    private PlayerData read(UUID uuid, String name) {
-        File f = file(uuid);
-        PlayerData d = new PlayerData(uuid, name);
-        if (!f.exists()) {
-            d.points(startingPoints.getAsDouble());
-            return d;
-        }
+    /** Every stored player merged with unsaved changes. Blocking: call off the main thread. */
+    public List<PlayerData.Snapshot> loadAll() {
+        Map<UUID, PlayerData.Snapshot> all = new LinkedHashMap<>();
         try {
-            YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
-            d.name(y.getString("name", name));
-            d.points(y.getDouble("points", 0));
-            ConfigurationSection lv = y.getConfigurationSection("levels");
-            if (lv != null) {
-                for (String k : lv.getKeys(false)) {
-                    d.setLevel(k, lv.getInt(k));
-                }
+            for (PlayerData.Snapshot s : storage.loadAll()) {
+                all.put(s.uuid(), s);
             }
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Oyuncu verisi okunamadı: " + f.getName(), e);
+            log.log(Level.WARNING, "Oyuncu verileri listelenemedi", e);
         }
-        return d;
-    }
-
-    private String serialize(PlayerData d) {
-        YamlConfiguration y = new YamlConfiguration();
-        y.set("name", d.name());
-        y.set("points", d.points());
-        for (Map.Entry<String, Integer> e : d.levels().entrySet()) {
-            y.set("levels." + e.getKey(), e.getValue());
+        all.putAll(pending);
+        for (PlayerData d : cache.values()) {
+            all.put(d.uuid, d.snapshot());
         }
-        if (d.levels().isEmpty()) {
-            y.createSection("levels");
-        }
-        return y.saveToString();
-    }
-
-    /** Saves asynchronously (writes are serialized on one thread). */
-    public void save(PlayerData d) {
-        String content = serialize(d);
-        UUID id = d.uuid;
-        try {
-            writer.execute(() -> write(id, content));
-        } catch (Exception rejected) {
-            write(id, content);
-        }
-    }
-
-    private void write(UUID id, String content) {
-        File f = file(id);
-        File tmp = new File(folder, id + ".yml.tmp");
-        try {
-            Files.writeString(tmp.toPath(), content, StandardCharsets.UTF_8);
-            Files.move(tmp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "Oyuncu verisi kaydedilemedi: " + f.getName(), e);
-        }
+        return new ArrayList<>(all.values());
     }
 
     /** Flushes everything synchronously (used on disable). */
     public void shutdown() {
         for (PlayerData d : cache.values()) {
-            String content = serialize(d);
-            UUID id = d.uuid;
-            try {
-                writer.execute(() -> write(id, content));
-            } catch (Exception rejected) {
-                write(id, content);
-            }
+            save(d);
         }
         writer.shutdown();
         try {
-            if (!writer.awaitTermination(10, TimeUnit.SECONDS)) {
-                plugin.getLogger().warning("Bazı oyuncu verileri zamanında kaydedilemedi.");
+            if (!writer.awaitTermination(15, TimeUnit.SECONDS)) {
+                log.warning("Bazı oyuncu verileri zamanında kaydedilemedi.");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        storage.close();
     }
 }

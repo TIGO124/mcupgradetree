@@ -1,97 +1,115 @@
 package com.upgradetree.config;
 
-import com.upgradetree.util.Text;
-import net.kyori.adventure.text.Component;
+import com.upgradetree.tree.EffectParser;
+import com.upgradetree.tree.NodeEffect;
+import com.upgradetree.util.Palette;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.EntityType;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 
-import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
-/** Values read from config.yml (with safe defaults for every key). */
+/** Values read from config.yml (with safe defaults for every key). Messages live in {@link Lang}. */
 public final class Settings {
 
-    private static final Map<String, Object> DEFAULT_MESSAGES = new LinkedHashMap<>();
+    public enum MenuMode { AUTO, DISPLAY, CHEST }
 
-    static {
-        m("prefix", "<dark_gray>[<gradient:#FFE259:#FFA751>Yükseltme</gradient><dark_gray>]</dark_gray> ");
-        m("no-permission", "<red>Bunu yapmak için yetkin yok.");
-        m("players-only", "<red>Bu komutu sadece oyuncular kullanabilir.");
-        m("cannot-open", "<red>Menüyü şu an açamazsın. <gray>(Yere bas; eğilirken, binekte, suda veya süzülürken açılmaz.)");
-        m("opened-hint", "<gray>Nişangâhla bir yeteneğe bak, <white>sol tıkla</white> satın al. <white>Shift</white> ile kapat.");
-        m("reloaded", "<green>Yapılandırma yeniden yüklendi. <gray>({nodes} düğüm)");
-        m("reload-failed", "<red>Yeniden yükleme başarısız oldu, konsola bak.");
-        m("player-not-found", "<red>Oyuncu bulunamadı: <white>{player}");
-        m("node-not-found", "<red>Böyle bir düğüm yok: <white>{node}");
-        m("invalid-number", "<red>Geçersiz sayı: <white>{value}");
-        m("reset-done", "<green><white>{player}</white> adlı oyuncunun tüm yükseltmeleri sıfırlandı.");
-        m("set-done", "<green><white>{player}</white>: <white>{node}</white> → seviye <yellow>{level}</yellow>");
-        m("points-done", "<green><white>{player}</white> artık <yellow>{points}</yellow> puana sahip.");
-        m("points-not-used", "<yellow>Not: Para birimi POINTS değil, puanlar şu an kullanılmıyor.");
-        m("purchase-success", "<green>✔ <white>{node}</white> seviye <yellow>{level}</yellow> oldu!");
-        m("purchase-max", "<gold>★ <white>{node}</white> maksimum seviyeye ulaştı!");
-        m("purchase-maxed", "<yellow>Bu yükseltme zaten maksimum seviyede.");
-        m("purchase-locked", "<red>Kilitli! Önce şunları aç: <white>{requires}");
-        m("purchase-not-enough", "<red>Yetersiz {currency}! <gray>Gerekli: <white>{cost}</white> • Sende: <white>{balance}");
-        m("currency-unavailable", "<red>Para birimi kullanılamıyor. <gray>(Vault ve bir ekonomi eklentisi gerekli.)");
-        m("menu-footer", "<gray>Sol Tık <dark_gray>»</dark_gray> <white>Satın Al</white>     <dark_gray>•</dark_gray>     Shift <dark_gray>»</dark_gray> <white>Kapat</white>");
-        m("menu-welcome-title", "<white><b>Yükseltme Ağacı");
-        m("menu-welcome-desc", List.of("<gray>Bir yeteneğe nişan al,", "<gray>bilgileri burada görünür.", "<gray>Sol tıklayarak satın al!"));
-        m("menu-progress", "<gray>Açılan: <white>{owned}</white><dark_gray>/</dark_gray><white>{total}</white>");
-        m("menu-currency", "<gold>{symbol}</gold> <white><b>{amount}</b></white> <gray>{currency}");
-        m("info-level", "<gray>Seviye <white>{level}</white><dark_gray>/</dark_gray><white>{max}");
-        m("info-cost", "<gray>Bedel: <yellow>{cost}");
-        m("info-cost-poor", "<gray>Bedel: <red>{cost}");
-        m("info-free", "<gray>Bedel: <green>Ücretsiz");
-        m("info-completed", "<gold>★ Tamamlandı");
-        m("info-requires", "<red>Gerekli: <white>{requires}");
-        m("button-buy", "<white><b>SATIN AL");
-        m("button-poor", "<white><b>YETERSİZ");
-        m("button-locked", "<white><b>KİLİTLİ");
-        m("button-max", "<white><b>MAKSİMUM");
-        m("badge-max", "<gold><b>MAX");
-        m("info-header", "<gold><b>{player}</b> <gray>yükseltmeleri <dark_gray>({owned}/{total})");
-        m("info-line", " <dark_gray>•</dark_gray> {node} <gray>{level}/{max}");
-        m("info-empty", "<gray>Henüz hiçbir yükseltme alınmamış.");
-        m("help", List.of(
-                "<gold><b>Yükseltme Ağacı</b> <gray>komutları",
-                "<yellow>/yukselt <gray>- Yükseltme ağacını aç/kapat",
-                "<yellow>/yukselt bilgi [oyuncu] <gray>- Yükseltmeleri listele",
-                "<yellow>/yukselt yenile <gray>- Yapılandırmayı yeniden yükle",
-                "<yellow>/yukselt sifirla <oyuncu> <gray>- Tüm yükseltmeleri sıfırla",
-                "<yellow>/yukselt ayarla <oyuncu> <düğüm> <seviye> <gray>- Seviye ayarla",
-                "<yellow>/yukselt puan <ver|al|ayarla> <oyuncu> <miktar> <gray>- Puan yönet"));
-    }
-
-    private static void m(String k, Object v) {
-        DEFAULT_MESSAGES.put(k, v);
-    }
+    public final String language;
 
     public final String currencyType;
     public final String currencyName;
     public final String currencySymbol;
+
+    public final double startingPoints;
     public final double pointsPerMob;
     public final double pointsPerPlayer;
-    public final double startingPoints;
+    public final Map<EntityType, Double> mobPoints = new EnumMap<>(EntityType.class);
+    public final Set<CreatureSpawnEvent.SpawnReason> ignoredSpawnReasons = EnumSet.noneOf(CreatureSpawnEvent.SpawnReason.class);
+    public final long playerKillCooldownMs;
+    public final int playtimeMinutes;
+    public final double playtimeAmount;
+    public final double miningAmount;
+    public final Set<Material> miningBlocks;
+    public final double advancementPoints;
+    public final double dailyPoints;
+
+    public final boolean prestigeEnabled;
+    public final double prestigeRequiredPercent;
+    public final int prestigeMax;
+    public final double prestigeCostIncrease;
+    public final boolean prestigeResetPoints;
+    public final List<NodeEffect> prestigeEffects;
+    public final List<String> prestigeCommands;
+
+    public final boolean respecEnabled;
+    public final double respecRefund;
+    public final long respecCooldownMs;
+
+    public final MenuMode menuMode;
     public final double menuDistance;
     public final double menuScale;
+    public final boolean progressiveReveal;
+    public final boolean clickToBuy;
+    public final double confirmCost;
     public final boolean closeOnDamage;
+    public final long combatCooldownMs;
     public final boolean hideHand;
+    public final boolean glowOnHover;
     public final boolean sounds;
     public final boolean particles;
     public final boolean animations;
-    public final boolean glowOnHover;
+    public final boolean stars;
+    public final boolean highQuality;
+
+    public final Theme theme;
+
+    public final boolean accessItem;
+    public final Material accessItemMaterial;
+    public final int accessItemSlot;
+    public final String accessItemName;
+    public final String entityTag;
+
+    public final boolean notify;
+    public final long notifyCooldownMs;
+
+    public final Set<String> disabledWorlds = new HashSet<>();
+
+    public final int leaderboardSize;
+    public final String hologram;
+
+    public final String storageType;
+    public final int autosaveSeconds;
+    public final String table;
+    public final String mysqlHost;
+    public final int mysqlPort;
+    public final String mysqlDatabase;
+    public final String mysqlUser;
+    public final String mysqlPassword;
+    public final String mysqlParams;
+
     public final Set<Material> doubleDropBlocks;
-    private final Map<String, Object> messages = new LinkedHashMap<>(DEFAULT_MESSAGES);
+    public final Set<Material> veinMinerBlocks;
+    public final int treeFellerMax;
+
+    public final boolean cleanupMode;
+
+    /** Theme colours of the 3D menu (ARGB). */
+    public record Theme(int background, int panelBorder, int header, int card, int locked, int line,
+                        int lineLocked, int buy, int deny, int gold) {
+    }
 
     public Settings(FileConfiguration c, Logger log) {
+        language = c.getString("language", "tr").trim().toLowerCase(Locale.ROOT);
+
         String type = c.getString("currency.type", "XP_LEVELS").trim().toUpperCase(Locale.ROOT);
         currencyType = switch (type) {
             case "VAULT", "MONEY", "PARA", "ECONOMY" -> "VAULT";
@@ -100,74 +118,138 @@ public final class Settings {
         };
         currencyName = c.getString("currency.name", "Seviye");
         currencySymbol = c.getString("currency.symbol", "✦");
+
+        startingPoints = c.getDouble("points.starting-points", 0);
         pointsPerMob = c.getDouble("points.per-mob-kill", 1);
         pointsPerPlayer = c.getDouble("points.per-player-kill", 5);
-        startingPoints = c.getDouble("points.starting-points", 0);
-        menuDistance = clamp(c.getDouble("menu.distance", 1.6), 0.5, 4.0);
-        menuScale = clamp(c.getDouble("menu.scale", 1.0), 0.4, 2.5);
-        closeOnDamage = c.getBoolean("menu.close-on-damage", true);
-        hideHand = c.getBoolean("menu.hide-hand", c.getBoolean("menu.hide-held-item", true));
-        sounds = c.getBoolean("menu.sounds", true);
-        particles = c.getBoolean("menu.particles", true);
-        animations = c.getBoolean("menu.animations", true);
-        glowOnHover = c.getBoolean("menu.glow-on-hover", true);
-
-        Set<Material> blocks = EnumSet.noneOf(Material.class);
-        for (String s : c.getStringList("effects.double-drop-blocks")) {
-            Material mat = Material.matchMaterial(s.trim());
-            if (mat == null) {
-                log.warning("config.yml: bilinmeyen blok '" + s + "' (effects.double-drop-blocks)");
-            } else {
-                blocks.add(mat);
-            }
-        }
-        doubleDropBlocks = blocks;
-
-        ConfigurationSection sec = c.getConfigurationSection("messages");
-        if (sec != null) {
-            for (String key : sec.getKeys(false)) {
-                Object v = sec.get(key);
-                if (v instanceof List<?> list) {
-                    List<String> lines = new ArrayList<>();
-                    for (Object o : list) {
-                        lines.add(String.valueOf(o));
-                    }
-                    messages.put(key, lines);
-                } else if (v != null) {
-                    messages.put(key, String.valueOf(v));
+        ConfigurationSection mp = c.getConfigurationSection("points.mob-points");
+        if (mp != null) {
+            for (String k : mp.getKeys(false)) {
+                try {
+                    mobPoints.put(EntityType.valueOf(k.trim().toUpperCase(Locale.ROOT)), mp.getDouble(k));
+                } catch (IllegalArgumentException e) {
+                    log.warning("config.yml: bilinmeyen mob '" + k + "' (points.mob-points)");
                 }
             }
         }
+        List<String> reasons = c.isList("points.ignored-spawn-reasons") ? c.getStringList("points.ignored-spawn-reasons")
+                : List.of("SPAWNER", "SPAWNER_EGG", "SLIME_SPLIT", "BUILD_IRONGOLEM", "BUILD_SNOWMAN", "TRIAL_SPAWNER");
+        for (String r : reasons) {
+            try {
+                ignoredSpawnReasons.add(CreatureSpawnEvent.SpawnReason.valueOf(r.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException e) {
+                log.warning("config.yml: bilinmeyen doğma sebebi '" + r + "' (points.ignored-spawn-reasons)");
+            }
+        }
+        playerKillCooldownMs = Math.max(0, c.getLong("points.player-kill-cooldown", 600)) * 1000L;
+        playtimeMinutes = Math.max(0, c.getInt("points.playtime.every-minutes", 10));
+        playtimeAmount = c.getDouble("points.playtime.amount", 1);
+        miningAmount = c.getDouble("points.mining.amount", 0.2);
+        miningBlocks = blocks(c, "points.mining.blocks", log, defaultOres(log));
+        advancementPoints = c.getDouble("points.advancement", 2);
+        dailyPoints = c.getDouble("points.daily", 3);
+
+        prestigeEnabled = c.getBoolean("prestige.enabled", true);
+        prestigeRequiredPercent = clamp(c.getDouble("prestige.required-percent", 100), 1, 100);
+        prestigeMax = Math.max(0, c.getInt("prestige.max", 10));
+        prestigeCostIncrease = Math.max(0, c.getDouble("prestige.cost-increase", 0.1));
+        prestigeResetPoints = c.getBoolean("prestige.reset-points", false);
+        prestigeEffects = EffectParser.parseAll("config.yml prestige", c.getMapList("prestige.effects"), log);
+        prestigeCommands = c.getStringList("prestige.commands");
+
+        respecEnabled = c.getBoolean("respec.enabled", true);
+        respecRefund = clamp(c.getDouble("respec.refund-percent", 80), 0, 100) / 100.0;
+        respecCooldownMs = Math.max(0, c.getLong("respec.cooldown", 3600)) * 1000L;
+
+        MenuMode mode;
+        try {
+            mode = MenuMode.valueOf(c.getString("menu.mode", "AUTO").trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            mode = MenuMode.AUTO;
+        }
+        menuMode = mode;
+        menuDistance = clamp(c.getDouble("menu.distance", 1.6), 0.5, 4.0);
+        menuScale = clamp(c.getDouble("menu.scale", 1.0), 0.4, 2.5);
+        progressiveReveal = c.getBoolean("menu.progressive-reveal", true);
+        clickToBuy = c.getBoolean("menu.click-to-buy", true);
+        confirmCost = Math.max(0, c.getDouble("menu.confirm-cost", 10));
+        closeOnDamage = c.getBoolean("menu.close-on-damage", true);
+        combatCooldownMs = Math.max(0, c.getLong("menu.combat-cooldown", 8)) * 1000L;
+        hideHand = c.getBoolean("menu.hide-hand", c.getBoolean("menu.hide-held-item", true));
+        glowOnHover = c.getBoolean("menu.glow-on-hover", true);
+        sounds = c.getBoolean("menu.sounds", true);
+        particles = c.getBoolean("menu.particles", true);
+        animations = c.getBoolean("menu.animations", true);
+        stars = c.getBoolean("menu.stars", true);
+        highQuality = !"LOW".equalsIgnoreCase(c.getString("menu.quality", "HIGH"));
+
+        theme = new Theme(
+                color(c, "theme.background", 0xFF0A0D1A),
+                color(c, "theme.panel-border", 0xFF262C4A),
+                color(c, "theme.header", 0xFF151A30),
+                color(c, "theme.card", 0xFF121629),
+                color(c, "theme.locked", 0xFF2A3046),
+                color(c, "theme.line", 0xFF8C96B4),
+                color(c, "theme.hidden-line", 0xFF1C2135),
+                color(c, "theme.buy", 0xFF22C55E),
+                color(c, "theme.deny", 0xFFE5484D),
+                color(c, "theme.gold", 0xFFFFD54A));
+
+        accessItem = c.getBoolean("access.item.enabled", false);
+        Material m = Material.matchMaterial(c.getString("access.item.material", "NETHER_STAR"));
+        accessItemMaterial = m == null || !m.isItem() || m.isAir() ? Material.NETHER_STAR : m;
+        accessItemSlot = Math.max(0, Math.min(8, c.getInt("access.item.slot", 8)));
+        accessItemName = c.getString("access.item.name", "<gradient:#7DD3FC:#C084FC><b>Yükseltme Ağacı</b></gradient> <gray>(Sağ Tık)");
+        entityTag = c.getString("access.entity-tag", "upgradetree_npc");
+
+        notify = c.getBoolean("notify.enabled", true);
+        notifyCooldownMs = Math.max(5, c.getLong("notify.cooldown", 120)) * 1000L;
+
+        for (String w : c.getStringList("restrictions.disabled-worlds")) {
+            disabledWorlds.add(w.trim().toLowerCase(Locale.ROOT));
+        }
+
+        leaderboardSize = Math.max(3, Math.min(20, c.getInt("leaderboard.size", 10)));
+        hologram = c.getString("leaderboard.hologram", "");
+
+        storageType = c.getString("storage.type", "YAML").trim().toUpperCase(Locale.ROOT);
+        autosaveSeconds = Math.max(10, c.getInt("storage.autosave-seconds", 60));
+        table = c.getString("storage.table", "upgradetree_players");
+        mysqlHost = c.getString("storage.mysql.host", "localhost");
+        mysqlPort = c.getInt("storage.mysql.port", 3306);
+        mysqlDatabase = c.getString("storage.mysql.database", "minecraft");
+        mysqlUser = c.getString("storage.mysql.user", "root");
+        mysqlPassword = c.getString("storage.mysql.password", "");
+        mysqlParams = c.getString("storage.mysql.params", "useSSL=false&autoReconnect=true");
+
+        doubleDropBlocks = blocks(c, "effects.double-drop-blocks", log, defaultOres(log));
+        veinMinerBlocks = blocks(c, "effects.vein-miner-blocks", log, defaultOres(log));
+        treeFellerMax = Math.max(1, Math.min(512, c.getInt("effects.tree-feller-max", 96)));
+
+        cleanupMode = c.getBoolean("cleanup-mode", false);
+    }
+
+    public boolean worldDisabled(String world) {
+        return !disabledWorlds.isEmpty() && disabledWorlds.contains(world.toLowerCase(Locale.ROOT));
+    }
+
+    private static Set<Material> blocks(FileConfiguration c, String path, Logger log, Set<Material> def) {
+        if (!c.isList(path)) {
+            return def;
+        }
+        return EffectParser.blocks("config.yml " + path, c.getList(path), log);
+    }
+
+    private static Set<Material> defaultOres(Logger log) {
+        return EffectParser.blocks("config.yml", List.of("#coal_ores", "#iron_ores", "#copper_ores", "#gold_ores",
+                "#redstone_ores", "#lapis_ores", "#diamond_ores", "#emerald_ores", "NETHER_GOLD_ORE", "NETHER_QUARTZ_ORE"), log);
+    }
+
+    private static int color(FileConfiguration c, String path, int def) {
+        return Palette.parse(c.getString(path), def);
     }
 
     private static double clamp(double v, double min, double max) {
         return Math.max(min, Math.min(max, v));
-    }
-
-    /** Raw MiniMessage string for a message key. */
-    public String raw(String key) {
-        Object v = messages.get(key);
-        if (v instanceof List<?> list) {
-            return String.join("\n", list.stream().map(String::valueOf).toList());
-        }
-        return v == null ? key : String.valueOf(v);
-    }
-
-    public List<String> rawList(String key) {
-        Object v = messages.get(key);
-        if (v instanceof List<?> list) {
-            return list.stream().map(String::valueOf).toList();
-        }
-        return v == null ? List.of() : List.of(String.valueOf(v));
-    }
-
-    /** A chat message with prefix. */
-    public Component msg(String key, String... kv) {
-        return Text.mm(raw("prefix") + Text.apply(raw(key), kv));
-    }
-
-    /** A message without prefix (action bar, menu labels). */
-    public Component plain(String key, String... kv) {
-        return Text.mm(Text.apply(raw(key), kv));
     }
 }

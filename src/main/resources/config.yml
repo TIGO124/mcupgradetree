@@ -1,13 +1,16 @@
 # ============================================================
-#  UpgradeTree - Roblox tarzı yükseltme ağacı
-#  Ağacın kendisi (düğümler, bedeller, efektler) tree.yml içinde.
-#  Değişikliklerden sonra: /yukselt yenile
+#  UpgradeTree - Roblox tarzı altıgen yükseltme ağacı
+#  Ağaçlar (düğümler, bedeller, efektler) trees/ klasöründe; her dosya menüde bir sekme.
+#  Mesajlar lang/ klasöründe. Değişikliklerden sonra: /yukselt yenile
 # ============================================================
+
+# Mesaj dili: tr veya en (lang/<dil>.yml)
+language: tr
 
 currency:
   # XP_LEVELS -> XP seviyesi ile ödeme (ek eklenti gerekmez)
   # VAULT     -> Para ile ödeme (Vault + EssentialsX/CMI gibi bir ekonomi eklentisi gerekir)
-  # POINTS    -> Eklentinin kendi yükseltme puanı (/yukselt puan ver ...)
+  # POINTS    -> Eklentinin kendi yükseltme puanı (aşağıdaki "points" ile kazanılır)
   type: XP_LEVELS
   # Panelde ve mesajlarda görünen para birimi adı
   name: "Seviye"
@@ -15,100 +18,161 @@ currency:
   symbol: "✦"
 
 points:
-  # Sadece currency.type POINTS iken kullanılır
+  # Puanlar sadece currency.type POINTS iken kazanılır
   starting-points: 0
   per-mob-kill: 1
   per-player-kill: 5
+  # Mob tipine özel puan (listede olmayanlar per-mob-kill alır, 0 = puan yok)
+  mob-points:
+    WITHER: 50
+    ENDER_DRAGON: 100
+    ELDER_GUARDIAN: 20
+    WARDEN: 40
+    BAT: 0
+  # Bu yollarla doğan moblar puan ve mob ganimeti bonusu vermez (çiftlik koruması)
+  ignored-spawn-reasons:
+    - SPAWNER
+    - SPAWNER_EGG
+    - SLIME_SPLIT
+    - BUILD_IRONGOLEM
+    - BUILD_SNOWMAN
+    - TRIAL_SPAWNER
+  # Aynı oyuncuyu tekrar öldürüp puan almak için beklenecek saniye (alt hesap koruması)
+  player-kill-cooldown: 600
+  # Oynama süresi ödülü (5 dakikadır kıpırdamayan AFK sayılır)
+  playtime:
+    every-minutes: 10
+    amount: 1
+  # Doğal cevher kazma ödülü (oyuncuların koyduğu bloklar sayılmaz)
+  mining:
+    amount: 0.2
+    blocks: ["#coal_ores", "#iron_ores", "#copper_ores", "#gold_ores", "#redstone_ores",
+             "#lapis_ores", "#diamond_ores", "#emerald_ores", NETHER_GOLD_ORE, NETHER_QUARTZ_ORE]
+  # Her yeni başarım (advancement) için
+  advancement: 2
+  # Günde bir kez, o günün ilk girişinde (/yukselt gunluk)
+  daily: 3
+
+prestige:
+  enabled: true
+  # Prestij butonu için ağaçlardaki seviyelerin yüzde kaçı dolmalı
+  required-percent: 100
+  max: 10
+  # Her prestijte bedeller bu oranda artar (0.1 = %10)
+  cost-increase: 0.1
+  # Prestijte puanlar da sıfırlansın mı (POINTS)
+  reset-points: false
+  # Prestij seviyesi başına kalıcı bonuslar (yazımı ağaç dosyalarındaki efektlerle aynı)
+  effects:
+    - type: XP_BOOST
+      amount: 0.05
+    - type: ATTRIBUTE
+      attribute: max_health
+      amount: 1
+  # Prestij olunca konsoldan çalışır ({player} {uuid} {prestige})
+  commands: []
+
+respec:
+  # Oyuncular yükseltmelerini sıfırlayıp harcadıklarının bir kısmını geri alabilir
+  enabled: true
+  refund-percent: 80
+  # İki sıfırlama arası bekleme (saniye)
+  cooldown: 3600
 
 menu:
-  # Panelin oyuncuya uzaklığı (blok). Önünde duvar varsa panel otomatik yaklaşır,
-  # ekrandaki boyutu değişmez.
+  # AUTO    -> Bedrock (Geyser/Floodgate) oyunculara sandık menüsü, diğerlerine 3B panel
+  # DISPLAY -> herkese 3B panel      CHEST -> herkese sandık menüsü
+  # Oyuncu kendi tercihini /yukselt menu panel|sandik ile seçebilir.
+  mode: AUTO
+  # Panelin oyuncuya uzaklığı (blok). Önünde duvar varsa panel kendiliğinden yaklaşır.
   distance: 1.6
-  # Panelin ekrandaki büyüklüğü (1.0 = varsayılan, 0.8 = daha küçük, 1.2 = daha büyük)
+  # Panelin ekrandaki büyüklüğü (4:3 ekranlarda taşarsa 0.9 yap)
   scale: 1.0
-  # Hasar alınca menü kapansın mı?
+  # Kademeli açılma: bir düğüm, gerektirdiği düğümlerden biri alınınca görünür
+  progressive-reveal: true
+  # Düğüme tıklamak satın alsın mı? false: düğüm seçilir, SATIN AL butonu ile alınır
+  click-to-buy: true
+  # Bu bedel ve üstündeki satın almalarda onay için ikinci tık gerekir (0 = kapalı)
+  confirm-cost: 10
   close-on-damage: true
-  # Menü açıkken oyuncunun elini/elindeki eşyayı gizle (panelin önünü kapatmasın)
+  # Savaştan sonra menünün açılabilmesi için beklenecek saniye
+  combat-cooldown: 8
+  # Menü açıkken eldeki eşyayı gizle (panelin önünü kapatmasın)
   hide-hand: true
-  # Üzerine gelinen düğümün ikonu parlasın
   glow-on-hover: true
   sounds: true
   particles: true
-  # Açılış/kapanış, büyüme ve titreme animasyonları
   animations: true
+  # Yıldızlı uzay arka planı
+  stars: true
+  # HIGH: alınan düğümlerin etrafında parlama halkası  •  LOW: daha az varlık (kalabalık sunucular)
+  quality: HIGH
+
+# 3B panelin renkleri (#RRGGBB)
+theme:
+  background: "#0A0D1A"
+  panel-border: "#262C4A"
+  header: "#151A30"
+  card: "#121629"
+  locked: "#2A3046"
+  line: "#8C96B4"
+  hidden-line: "#1F2438"
+  buy: "#22C55E"
+  deny: "#E5484D"
+  gold: "#FFD54A"
+
+access:
+  # Sağ tıklayınca menüyü açan eşya (girişte verilir, düşürülemez)
+  item:
+    enabled: false
+    material: NETHER_STAR
+    slot: 8
+    name: "<gradient:#7DD3FC:#C084FC><b>Yükseltme Ağacı</b></gradient> <gray>(Sağ Tık)"
+  # Bu etikete sahip varlığa (NPC, köylü, zırh askı...) sağ tıklayınca menü açılır.
+  # Baktığın varlığa etiket koymak için: /yukselt npc
+  entity-tag: upgradetree_npc
+
+notify:
+  # Yeni bir yükseltme alınabilir olunca aksiyon çubuğunda haber ver
+  enabled: true
+  # İki bildirim arası en az saniye
+  cooldown: 120
+
+restrictions:
+  # Bu dünyalarda yükseltmeler etkisiz ve menü kapalı (minigame, PvP arenası...)
+  disabled-worlds: []
+
+leaderboard:
+  size: 10
+  # Hologram konumu oyunda /yukselt top koy ile ayarlanır
+  hologram: ""
+
+storage:
+  # YAML (dosya), SQLITE (tek dosya veritabanı) veya MYSQL (sunucu ağında ortak veri)
+  # Değiştirince sunucuyu yeniden başlat. Eski YAML verileri boş veritabanına kendiliğinden aktarılır.
+  type: YAML
+  autosave-seconds: 60
+  table: upgradetree_players
+  mysql:
+    host: localhost
+    port: 3306
+    database: minecraft
+    user: root
+    password: ""
+    params: "useSSL=false&autoReconnect=true"
 
 effects:
-  # DOUBLE_DROP efektinin çalıştığı bloklar (ipek dokunuşla kazılan cevher kopyalanmaz)
-  double-drop-blocks:
-    - COAL_ORE
-    - DEEPSLATE_COAL_ORE
-    - IRON_ORE
-    - DEEPSLATE_IRON_ORE
-    - COPPER_ORE
-    - DEEPSLATE_COPPER_ORE
-    - GOLD_ORE
-    - DEEPSLATE_GOLD_ORE
-    - REDSTONE_ORE
-    - DEEPSLATE_REDSTONE_ORE
-    - LAPIS_ORE
-    - DEEPSLATE_LAPIS_ORE
-    - DIAMOND_ORE
-    - DEEPSLATE_DIAMOND_ORE
-    - EMERALD_ORE
-    - DEEPSLATE_EMERALD_ORE
-    - NETHER_GOLD_ORE
-    - NETHER_QUARTZ_ORE
+  # Ağaçta "blocks" verilmeyen DOUBLE_DROP ve AUTO_SMELT efektlerinin çalıştığı bloklar
+  double-drop-blocks: ["#coal_ores", "#iron_ores", "#copper_ores", "#gold_ores", "#redstone_ores",
+                       "#lapis_ores", "#diamond_ores", "#emerald_ores", NETHER_GOLD_ORE, NETHER_QUARTZ_ORE]
+  # "blocks" verilmeyen VEIN_MINER efektlerinin çalıştığı bloklar
+  vein-miner-blocks: ["#coal_ores", "#iron_ores", "#copper_ores", "#gold_ores", "#redstone_ores",
+                      "#lapis_ores", "#diamond_ores", "#emerald_ores", NETHER_GOLD_ORE, NETHER_QUARTZ_ORE, ANCIENT_DEBRIS]
+  # Ağaç kesmede bir seferde en fazla kütük
+  tree-feller-max: 96
 
-# Mesajlar MiniMessage biçimindedir (<red>, <#FF8800>, <gradient:#A:#B>, <b> ...).
-# Eski & renk kodları (&a, &l, &#FF8800) da çalışır.
-messages:
-  prefix: "<dark_gray>[<gradient:#FFE259:#FFA751>Yükseltme</gradient><dark_gray>]</dark_gray> "
-  no-permission: "<red>Bunu yapmak için yetkin yok."
-  players-only: "<red>Bu komutu sadece oyuncular kullanabilir."
-  cannot-open: "<red>Menüyü şu an açamazsın. <gray>(Yere bas; eğilirken, binekte, suda veya süzülürken açılmaz.)"
-  opened-hint: "<gray>Nişangâhla bir yeteneğe bak, <white>sol tıkla</white> satın al. <white>Shift</white> ile kapat."
-  reloaded: "<green>Yapılandırma yeniden yüklendi. <gray>({nodes} düğüm)"
-  reload-failed: "<red>Yeniden yükleme başarısız oldu, konsola bak."
-  player-not-found: "<red>Oyuncu bulunamadı: <white>{player}"
-  node-not-found: "<red>Böyle bir düğüm yok: <white>{node}"
-  invalid-number: "<red>Geçersiz sayı: <white>{value}"
-  reset-done: "<green><white>{player}</white> adlı oyuncunun tüm yükseltmeleri sıfırlandı."
-  set-done: "<green><white>{player}</white>: <white>{node}</white> → seviye <yellow>{level}</yellow>"
-  points-done: "<green><white>{player}</white> artık <yellow>{points}</yellow> puana sahip."
-  points-not-used: "<yellow>Not: Para birimi POINTS değil, puanlar şu an kullanılmıyor."
-  purchase-success: "<green>✔ <white>{node}</white> seviye <yellow>{level}</yellow> oldu!"
-  purchase-max: "<gold>★ <white>{node}</white> maksimum seviyeye ulaştı!"
-  purchase-maxed: "<yellow>Bu yükseltme zaten maksimum seviyede."
-  purchase-locked: "<red>Kilitli! Önce şunları aç: <white>{requires}"
-  purchase-not-enough: "<red>Yetersiz {currency}! <gray>Gerekli: <white>{cost}</white> • Sende: <white>{balance}"
-  currency-unavailable: "<red>Para birimi kullanılamıyor. <gray>(Vault ve bir ekonomi eklentisi gerekli.)"
-  menu-footer: "<gray>Sol Tık <dark_gray>»</dark_gray> <white>Satın Al</white>     <dark_gray>•</dark_gray>     Shift <dark_gray>»</dark_gray> <white>Kapat</white>"
-  menu-welcome-title: "<white><b>Yükseltme Ağacı"
-  menu-welcome-desc:
-    - "<gray>Bir yeteneğe nişan al,"
-    - "<gray>bilgileri burada görünür."
-    - "<gray>Sol tıklayarak satın al!"
-  menu-progress: "<gray>Açılan: <white>{owned}</white><dark_gray>/</dark_gray><white>{total}</white>"
-  menu-currency: "<gold>{symbol}</gold> <white><b>{amount}</b></white> <gray>{currency}"
-  info-level: "<gray>Seviye <white>{level}</white><dark_gray>/</dark_gray><white>{max}"
-  info-cost: "<gray>Bedel: <yellow>{cost}"
-  info-cost-poor: "<gray>Bedel: <red>{cost}"
-  info-free: "<gray>Bedel: <green>Ücretsiz"
-  info-completed: "<gold>★ Tamamlandı"
-  info-requires: "<red>Gerekli: <white>{requires}"
-  button-buy: "<white><b>SATIN AL"
-  button-poor: "<white><b>YETERSİZ"
-  button-locked: "<white><b>KİLİTLİ"
-  button-max: "<white><b>MAKSİMUM"
-  badge-max: "<gold><b>MAX"
-  info-header: "<gold><b>{player}</b> <gray>yükseltmeleri <dark_gray>({owned}/{total})"
-  info-line: " <dark_gray>•</dark_gray> {node} <gray>{level}/{max}"
-  info-empty: "<gray>Henüz hiçbir yükseltme alınmamış."
-  help:
-    - "<gold><b>Yükseltme Ağacı</b> <gray>komutları"
-    - "<yellow>/yukselt <gray>- Yükseltme ağacını aç/kapat"
-    - "<yellow>/yukselt bilgi [oyuncu] <gray>- Yükseltmeleri listele"
-    - "<yellow>/yukselt yenile <gray>- Yapılandırmayı yeniden yükle"
-    - "<yellow>/yukselt sifirla <oyuncu> <gray>- Tüm yükseltmeleri sıfırla"
-    - "<yellow>/yukselt ayarla <oyuncu> <düğüm> <seviye> <gray>- Seviye ayarla"
-    - "<yellow>/yukselt puan <ver|al|ayarla> <oyuncu> <miktar> <gray>- Puan yönet"
+# Eklentiyi kaldırmadan önce true yapıp /yukselt yenile: oyuncular girdikçe eklentinin verdiği
+# tüm bonuslar silinir (çevrimiçiler için /yukselt temizle herkes).
+cleanup-mode: false
+
+# Not: Eski config.yml'deki "messages:" bölümü hâlâ çalışır ve lang dosyasını ezer.

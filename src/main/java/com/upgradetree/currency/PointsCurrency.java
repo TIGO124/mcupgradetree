@@ -33,7 +33,13 @@ public final class PointsCurrency implements Currency {
             return false;
         }
         d.points(d.points() - amount);
-        store.save(d);
+        return true;
+    }
+
+    @Override
+    public boolean deposit(Player player, double amount) {
+        PlayerData d = store.get(player);
+        d.addPoints(Math.max(0, amount));
         return true;
     }
 

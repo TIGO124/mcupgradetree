@@ -46,7 +46,7 @@ public final class MenuListener implements Listener {
     /** Left click: the client always sends a swing (punch) packet, even when hitting nothing. */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onSwing(PlayerArmSwingEvent e) {
-        TreeMenu menu = menus.get(e.getPlayer());
+        DisplayMenu menu = menus.get(e.getPlayer());
         if (menu == null) {
             return;
         }
@@ -58,7 +58,7 @@ public final class MenuListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInteract(PlayerInteractEvent e) {
-        TreeMenu menu = menus.get(e.getPlayer());
+        DisplayMenu menu = menus.get(e.getPlayer());
         if (menu == null) {
             return;
         }
@@ -76,42 +76,42 @@ public final class MenuListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInteractEntity(PlayerInteractEntityEvent e) {
-        if (menus.isOpen(e.getPlayer())) {
+        if (menus.displayOpen(e.getPlayer())) {
             e.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInteractAtEntity(PlayerInteractAtEntityEvent e) {
-        if (menus.isOpen(e.getPlayer())) {
+        if (menus.displayOpen(e.getPlayer())) {
             e.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onAttack(EntityDamageByEntityEvent e) {
-        if (e.getDamager() instanceof Player p && menus.isOpen(p)) {
+        if (e.getDamager() instanceof Player p && menus.displayOpen(p)) {
             e.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDamaged(EntityDamageEvent e) {
-        if (e.getEntity() instanceof Player p && plugin.settings().closeOnDamage && menus.isOpen(p)) {
+        if (e.getEntity() instanceof Player p && plugin.settings().closeOnDamage && menus.displayOpen(p)) {
             menus.close(p, false);
         }
     }
 
     @EventHandler
     public void onSneak(PlayerToggleSneakEvent e) {
-        if (e.isSneaking() && menus.isOpen(e.getPlayer())) {
+        if (e.isSneaking() && menus.displayOpen(e.getPlayer())) {
             menus.close(e.getPlayer(), false);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDrop(PlayerDropItemEvent e) {
-        TreeMenu menu = menus.get(e.getPlayer());
+        DisplayMenu menu = menus.get(e.getPlayer());
         if (menu != null) {
             e.setCancelled(true);
             menu.ignoreClicks(2);
@@ -123,7 +123,7 @@ public final class MenuListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent e) {
         if (e.getEntity() instanceof Player p) {
-            TreeMenu menu = menus.get(p);
+            DisplayMenu menu = menus.get(p);
             if (menu != null) {
                 menu.rehideHand();
             }
@@ -132,7 +132,7 @@ public final class MenuListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onSwap(PlayerSwapHandItemsEvent e) {
-        TreeMenu menu = menus.get(e.getPlayer());
+        DisplayMenu menu = menus.get(e.getPlayer());
         if (menu != null) {
             e.setCancelled(true);
             menu.rehideHand();
@@ -141,7 +141,7 @@ public final class MenuListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onHotbar(PlayerItemHeldEvent e) {
-        TreeMenu menu = menus.get(e.getPlayer());
+        DisplayMenu menu = menus.get(e.getPlayer());
         if (menu != null) {
             e.setCancelled(true);
             menu.rehideHand();
@@ -168,7 +168,7 @@ public final class MenuListener implements Listener {
         if (!(e.getWhoClicked() instanceof Player p) || e.getView().getTopInventory().getType() != InventoryType.CRAFTING) {
             return;
         }
-        TreeMenu menu = menus.get(p);
+        DisplayMenu menu = menus.get(p);
         if (menu != null) {
             e.setCancelled(true);
             menu.rehideHand();
@@ -178,28 +178,28 @@ public final class MenuListener implements Listener {
     /** Another plugin opened a GUI (a chest, /ec, a shop...): step out of the tree so the two never overlap. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onInventoryOpen(InventoryOpenEvent e) {
-        if (e.getPlayer() instanceof Player p && menus.isOpen(p)) {
+        if (e.getPlayer() instanceof Player p && menus.displayOpen(p)) {
             menus.close(p, false);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onBreak(BlockBreakEvent e) {
-        if (menus.isOpen(e.getPlayer())) {
+        if (menus.displayOpen(e.getPlayer())) {
             e.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlace(BlockPlaceEvent e) {
-        if (menus.isOpen(e.getPlayer())) {
+        if (menus.displayOpen(e.getPlayer())) {
             e.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent e) {
-        if (menus.isOpen(e.getPlayer())) {
+        if (menus.displayOpen(e.getPlayer())) {
             Player p = e.getPlayer();
             Bukkit.getScheduler().runTask(plugin, () -> menus.close(p, true));
         }

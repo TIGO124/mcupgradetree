@@ -229,6 +229,15 @@ public final class Text {
         return out;
     }
 
+    /** Formats a duration as h:mm:ss or m:ss. */
+    public static String duration(long millis) {
+        long s = Math.max(0, (millis + 999) / 1000);
+        long h = s / 3600;
+        long m = (s % 3600) / 60;
+        long sec = s % 60;
+        return h > 0 ? String.format(Locale.ROOT, "%d:%02d:%02d", h, m, sec) : String.format(Locale.ROOT, "%d:%02d", m, sec);
+    }
+
     /** Formats a number without needless decimals (5, 2.5, 0.75). */
     public static String num(double v) {
         if (Math.abs(v - Math.rint(v)) < 1e-6) {

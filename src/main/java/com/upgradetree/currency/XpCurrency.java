@@ -36,6 +36,15 @@ public final class XpCurrency implements Currency {
     }
 
     @Override
+    public boolean deposit(Player player, double amount) {
+        int levels = (int) Math.floor(amount + 1e-9);
+        if (levels > 0) {
+            player.setLevel(player.getLevel() + levels);
+        }
+        return true;
+    }
+
+    @Override
     public String format(double amount) {
         return formatShort(amount) + " " + name;
     }

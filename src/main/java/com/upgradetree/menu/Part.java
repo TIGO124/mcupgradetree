@@ -1,6 +1,7 @@
 package com.upgradetree.menu;
 
 import org.bukkit.Color;
+import org.bukkit.Material;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.util.Transformation;
@@ -36,8 +37,9 @@ final class Part {
     int lines = 1;
     boolean topAnchored;
 
-    /** ITEM: icon size in units. */
+    /** ITEM: icon size in units and the shown material (for previews). */
     double size;
+    Material material;
 
     /** RECT: current background colour (ARGB). */
     int color;
@@ -56,11 +58,16 @@ final class Part {
     }
 
     static Part rect(double cx, double cy, double w, double h, double z, int color) {
+        return rect(cx, cy, w, h, 0, z, color);
+    }
+
+    static Part rect(double cx, double cy, double w, double h, double angle, double z, int color) {
         Part p = new Part(Kind.RECT);
         p.cx = cx;
         p.cy = cy;
         p.w = w;
         p.h = h;
+        p.angle = angle;
         p.z = z;
         p.color = color;
         return p;
@@ -180,5 +187,12 @@ final class Part {
         td.setInterpolationDelay(0);
         td.setInterpolationDuration(Math.max(0, duration));
         td.setBackgroundColor(Color.fromARGB(argb));
+    }
+
+    void remove() {
+        if (entity != null && entity.isValid()) {
+            entity.remove();
+        }
+        entity = null;
     }
 }

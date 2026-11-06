@@ -13,6 +13,9 @@ public interface Currency {
     /** Takes the amount; returns false if the player cannot pay. */
     boolean withdraw(Player player, double amount);
 
+    /** Gives the amount back (refunds); returns false if it failed. */
+    boolean deposit(Player player, double amount);
+
     /** Amount with the currency name, e.g. "5 Seviye" or "$1,250". */
     String format(double amount);
 

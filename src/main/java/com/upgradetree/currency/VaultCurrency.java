@@ -20,6 +20,7 @@ public final class VaultCurrency implements Currency {
     private Object economy;
     private Method getBalance;
     private Method withdraw;
+    private Method deposit;
     private Method format;
     private Method transactionSuccess;
     private long lastLookup;
@@ -50,6 +51,7 @@ public final class VaultCurrency implements Currency {
             Object provider = rsp.getProvider();
             getBalance = eco.getMethod("getBalance", OfflinePlayer.class);
             withdraw = eco.getMethod("withdrawPlayer", OfflinePlayer.class, double.class);
+            deposit = eco.getMethod("depositPlayer", OfflinePlayer.class, double.class);
             try {
                 format = eco.getMethod("format", double.class);
             } catch (NoSuchMethodException ignored) {
@@ -111,6 +113,29 @@ public final class VaultCurrency implements Currency {
             return Boolean.TRUE.equals(transactionSuccess.invoke(response));
         } catch (Exception e) {
             log.warning("Vault ödeme hatası: " + e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean deposit(Player player, double amount) {
+        if (amount <= 0) {
+            return true;
+        }
+        if (!resolve()) {
+            return false;
+        }
+        try {
+            Object response = deposit.invoke(economy, player, amount);
+            if (response == null) {
+                return false;
+            }
+            if (transactionSuccess == null) {
+                transactionSuccess = response.getClass().getMethod("transactionSuccess");
+            }
+            return Boolean.TRUE.equals(transactionSuccess.invoke(response));
+        } catch (Exception e) {
+            log.warning("Vault iade hatası: " + e);
             return false;
         }
     }

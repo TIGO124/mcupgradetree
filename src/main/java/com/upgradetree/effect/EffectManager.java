@@ -8,37 +8,25 @@ import com.upgradetree.tree.UpgradeNode;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockDropItemEvent;
-import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerExpChangeEvent;
-import org.bukkit.event.player.PlayerItemConsumeEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.EquipmentSlotGroup;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.ToDoubleFunction;
 
-/** Applies the effects of purchased upgrades to players. */
-public final class EffectManager implements Listener {
+/** Works out which effects a player has and keeps attributes and potions in sync with them. */
+public final class EffectManager {
 
     /** Potion effects are refreshed with this duration (ticks). */
     private static final int POTION_DURATION = 600;
@@ -49,7 +37,65 @@ public final class EffectManager implements Listener {
         this.plugin = plugin;
     }
 
+    /** An effect together with the level it is active at; node is null for prestige effects. */
+    public record Active(NodeEffect effect, int level, UpgradeNode node, int index) {
+    }
+
     private record Desired(double amount, AttributeModifier.Operation operation) {
+    }
+
+    /** Every effect of the player's upgrades and prestige. */
+    public List<Active> active(PlayerData d) {
+        List<Active> out = new ArrayList<>();
+        for (UpgradeNode n : plugin.trees().nodes()) {
+            int lvl = Math.min(n.maxLevel, d.level(n.id));
+            if (lvl <= 0) {
+                continue;
+            }
+            for (int i = 0; i < n.effects.size(); i++) {
+                out.add(new Active(n.effects.get(i), lvl, n, i));
+            }
+        }
+        int prestige = d.prestige();
+        if (prestige > 0) {
+            List<NodeEffect> pe = plugin.settings().prestigeEffects;
+            for (int i = 0; i < pe.size(); i++) {
+                out.add(new Active(pe.get(i), prestige, null, i));
+            }
+        }
+        return out;
+    }
+
+    /** False in disabled worlds and in cleanup mode: upgrades then do nothing. */
+    public boolean enabledFor(Player p) {
+        Settings s = plugin.settings();
+        return !s.cleanupMode && !s.worldDisabled(p.getWorld().getName());
+    }
+
+    /** Active effects of one type for an online player (empty when disabled). */
+    public <T extends NodeEffect> List<Typed<T>> of(Player p, Class<T> type) {
+        List<Typed<T>> out = new ArrayList<>();
+        if (!enabledFor(p)) {
+            return out;
+        }
+        for (Active a : active(plugin.data().get(p))) {
+            if (type.isInstance(a.effect())) {
+                out.add(new Typed<>(type.cast(a.effect()), a.level(), a.node()));
+            }
+        }
+        return out;
+    }
+
+    public record Typed<T extends NodeEffect>(T effect, int level, UpgradeNode node) {
+    }
+
+    /** Sum of amount * level over the player's effects of one type. */
+    public <T extends NodeEffect> double sum(Player p, Class<T> type, ToDoubleFunction<T> amount) {
+        double total = 0;
+        for (Typed<T> t : of(p, type)) {
+            total += amount.applyAsDouble(t.effect()) * t.level();
+        }
+        return total;
     }
 
     /** Re-applies every effect of the player's current upgrades. */
@@ -58,12 +104,22 @@ public final class EffectManager implements Listener {
             return;
         }
         PlayerData d = plugin.data().get(p);
+        if (!enabledFor(p)) {
+            clearAll(p);
+            return;
+        }
         syncAttributes(p, d);
         refreshPotions(p, d);
     }
 
-    private NamespacedKey modifierKey(UpgradeNode n, int index) {
-        return new NamespacedKey(plugin, "node_" + n.key + "_" + index);
+    private NamespacedKey modifierKey(Active a) {
+        String k = a.node() == null ? "prestige_" + a.index() : "node_" + a.node().key + "_" + a.index();
+        return new NamespacedKey(plugin, k);
+    }
+
+    private boolean ours(NamespacedKey k) {
+        return k.getNamespace().equals(plugin.namespace())
+                && (k.getKey().startsWith("node_") || k.getKey().startsWith("prestige_"));
     }
 
     /**
@@ -72,21 +128,12 @@ public final class EffectManager implements Listener {
      */
     public void syncAttributes(Player p, PlayerData d) {
         Map<Attribute, Map<NamespacedKey, Desired>> desired = new HashMap<>();
-        for (UpgradeNode n : plugin.tree().nodes()) {
-            int lvl = Math.min(n.maxLevel, d.level(n.id));
-            if (lvl <= 0) {
-                continue;
-            }
-            int idx = 0;
-            for (NodeEffect e : n.effects) {
-                if (e instanceof NodeEffect.AttributeBonus ab) {
-                    desired.computeIfAbsent(ab.attribute, k -> new HashMap<>())
-                            .put(modifierKey(n, idx), new Desired(ab.amount * lvl, ab.operation));
-                }
-                idx++;
+        for (Active a : active(d)) {
+            if (a.effect() instanceof NodeEffect.AttributeBonus ab) {
+                desired.computeIfAbsent(ab.attribute(), k -> new HashMap<>())
+                        .put(modifierKey(a), new Desired(ab.amount() * a.level(), ab.operation()));
             }
         }
-        String ns = plugin.namespace();
         for (Attribute attr : RegistryAccess.registryAccess().getRegistry(RegistryKey.ATTRIBUTE)) {
             AttributeInstance inst = p.getAttribute(attr);
             if (inst == null) {
@@ -96,7 +143,7 @@ public final class EffectManager implements Listener {
             Set<NamespacedKey> present = new HashSet<>();
             for (AttributeModifier m : new ArrayList<>(inst.getModifiers())) {
                 NamespacedKey k = m.getKey();
-                if (!k.getNamespace().equals(ns) || !k.getKey().startsWith("node_")) {
+                if (!ours(k)) {
                     continue;
                 }
                 Desired w = want.get(k);
@@ -122,15 +169,9 @@ public final class EffectManager implements Listener {
 
     private Map<PotionEffectType, Integer> desiredPotions(PlayerData d) {
         Map<PotionEffectType, Integer> want = new HashMap<>();
-        for (UpgradeNode n : plugin.tree().nodes()) {
-            int lvl = Math.min(n.maxLevel, d.level(n.id));
-            if (lvl <= 0) {
-                continue;
-            }
-            for (NodeEffect e : n.effects) {
-                if (e instanceof NodeEffect.PotionBonus pb) {
-                    want.merge(pb.type, pb.amplifierAt(lvl), Math::max);
-                }
+        for (Active a : active(d)) {
+            if (a.effect() instanceof NodeEffect.PotionBonus pb) {
+                want.merge(pb.type(), pb.amplifierAt(a.level()), Math::max);
             }
         }
         return want;
@@ -153,14 +194,19 @@ public final class EffectManager implements Listener {
         }
     }
 
-    /** Removes potion effects that this plugin gave (used after a reset). */
+    /** Removes potion effects that look like ours (used after a reset). */
     public void clearManagedPotions(Player p) {
         Set<PotionEffectType> types = new HashSet<>();
-        for (UpgradeNode n : plugin.tree().nodes()) {
+        for (UpgradeNode n : plugin.trees().nodes()) {
             for (NodeEffect e : n.effects) {
                 if (e instanceof NodeEffect.PotionBonus pb) {
-                    types.add(pb.type);
+                    types.add(pb.type());
                 }
+            }
+        }
+        for (NodeEffect e : plugin.settings().prestigeEffects) {
+            if (e instanceof NodeEffect.PotionBonus pb) {
+                types.add(pb.type());
             }
         }
         for (PotionEffectType t : types) {
@@ -171,11 +217,30 @@ public final class EffectManager implements Listener {
         }
     }
 
+    /** Removes every attribute modifier and potion this plugin gave the player. Returns true if anything changed. */
+    public boolean clearAll(Player p) {
+        boolean changed = false;
+        for (Attribute attr : RegistryAccess.registryAccess().getRegistry(RegistryKey.ATTRIBUTE)) {
+            AttributeInstance inst = p.getAttribute(attr);
+            if (inst == null) {
+                continue;
+            }
+            for (AttributeModifier m : new ArrayList<>(inst.getModifiers())) {
+                if (ours(m.getKey())) {
+                    inst.removeModifier(m);
+                    changed = true;
+                }
+            }
+        }
+        clearManagedPotions(p);
+        return changed;
+    }
+
     /** Runs the console commands of a node for a newly purchased level. */
     public void runCommands(Player p, UpgradeNode n, int level) {
         for (NodeEffect e : n.effects) {
             if (e instanceof NodeEffect.Commands c) {
-                for (String cmd : c.commands) {
+                for (String cmd : c.commands()) {
                     String s = cmd.replace("{player}", p.getName())
                             .replace("{uuid}", p.getUniqueId().toString())
                             .replace("{level}", String.valueOf(level))
@@ -193,128 +258,12 @@ public final class EffectManager implements Listener {
         }
     }
 
-    public double xpBoost(PlayerData d) {
-        double total = 0;
-        for (UpgradeNode n : plugin.tree().nodes()) {
-            int lvl = Math.min(n.maxLevel, d.level(n.id));
-            if (lvl <= 0) {
-                continue;
-            }
-            for (NodeEffect e : n.effects) {
-                if (e instanceof NodeEffect.XpBoost x) {
-                    total += x.amount * lvl;
-                }
-            }
-        }
-        return total;
-    }
-
-    public double doubleDropChance(PlayerData d) {
-        double total = 0;
-        for (UpgradeNode n : plugin.tree().nodes()) {
-            int lvl = Math.min(n.maxLevel, d.level(n.id));
-            if (lvl <= 0) {
-                continue;
-            }
-            for (NodeEffect e : n.effects) {
-                if (e instanceof NodeEffect.DoubleDrop x) {
-                    total += x.amount * lvl;
-                }
-            }
-        }
-        return Math.min(1.0, total);
-    }
-
     /** Called every few seconds for all online players. */
     public void tickPotions() {
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (!p.isDead()) {
+            if (!p.isDead() && enabledFor(p)) {
                 refreshPotions(p, plugin.data().get(p));
             }
         }
-    }
-
-    // ------------------------------------------------------------------ listeners
-
-    @EventHandler
-    public void onRespawn(PlayerRespawnEvent e) {
-        Player p = e.getPlayer();
-        Bukkit.getScheduler().runTaskLater(plugin, () -> apply(p), 2L);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onConsume(PlayerItemConsumeEvent e) {
-        if (e.getItem().getType() == Material.MILK_BUCKET) {
-            Player p = e.getPlayer();
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (p.isOnline()) {
-                    refreshPotions(p, plugin.data().get(p));
-                }
-            }, 1L);
-        }
-    }
-
-    @EventHandler
-    public void onExp(PlayerExpChangeEvent e) {
-        int amount = e.getAmount();
-        if (amount <= 0) {
-            return;
-        }
-        double bonus = xpBoost(plugin.data().get(e.getPlayer()));
-        if (bonus <= 0) {
-            return;
-        }
-        double extra = amount * bonus;
-        int add = (int) Math.floor(extra);
-        if (ThreadLocalRandom.current().nextDouble() < extra - add) {
-            add++;
-        }
-        e.setAmount(amount + add);
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
-    public void onBlockDrop(BlockDropItemEvent e) {
-        Settings s = plugin.settings();
-        Material type = e.getBlockState().getType();
-        if (!s.doubleDropBlocks.contains(type)) {
-            return;
-        }
-        Player p = e.getPlayer();
-        double chance = doubleDropChance(plugin.data().get(p));
-        if (chance <= 0 || ThreadLocalRandom.current().nextDouble() >= chance) {
-            return;
-        }
-        Location loc = e.getBlock().getLocation().add(0.5, 0.5, 0.5);
-        boolean dropped = false;
-        for (Item item : e.getItems()) {
-            ItemStack stack = item.getItemStack();
-            if (stack.getType() == type || stack.getType().isAir()) {
-                continue; // silk touch: never duplicate the ore block itself
-            }
-            loc.getWorld().dropItemNaturally(loc, stack.clone());
-            dropped = true;
-        }
-        if (dropped && s.particles) {
-            loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 8, 0.3, 0.3, 0.3, 0);
-        }
-    }
-
-    @EventHandler
-    public void onKill(EntityDeathEvent e) {
-        Settings s = plugin.settings();
-        if (!"POINTS".equals(s.currencyType)) {
-            return;
-        }
-        Player killer = e.getEntity().getKiller();
-        if (killer == null || killer.equals(e.getEntity())) {
-            return;
-        }
-        double amount = e.getEntity() instanceof Player ? s.pointsPerPlayer : s.pointsPerMob;
-        if (amount <= 0) {
-            return;
-        }
-        PlayerData d = plugin.data().get(killer);
-        d.points(d.points() + amount);
-        plugin.data().save(d);
     }
 }
