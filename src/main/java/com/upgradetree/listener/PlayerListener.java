@@ -1,0 +1,40 @@
+package com.upgradetree.listener;
+
+import com.upgradetree.UpgradeTreePlugin;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+
+/** Loads/saves player data and keeps upgrade effects applied across sessions. */
+public final class PlayerListener implements Listener {
+
+    private final UpgradeTreePlugin plugin;
+
+    public PlayerListener(UpgradeTreePlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onJoin(PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        plugin.menus().recover(p);
+        plugin.data().get(p);
+        plugin.effects().apply(p);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (p.isOnline()) {
+                plugin.effects().apply(p);
+            }
+        }, 20L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent e) {
+        Player p = e.getPlayer();
+        plugin.menus().close(p, true);
+        plugin.data().unload(p.getUniqueId());
+    }
+}

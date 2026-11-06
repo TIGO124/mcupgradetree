@@ -1,0 +1,114 @@
+# ============================================================
+#  UpgradeTree - Roblox tarzı yükseltme ağacı
+#  Ağacın kendisi (düğümler, bedeller, efektler) tree.yml içinde.
+#  Değişikliklerden sonra: /yukselt yenile
+# ============================================================
+
+currency:
+  # XP_LEVELS -> XP seviyesi ile ödeme (ek eklenti gerekmez)
+  # VAULT     -> Para ile ödeme (Vault + EssentialsX/CMI gibi bir ekonomi eklentisi gerekir)
+  # POINTS    -> Eklentinin kendi yükseltme puanı (/yukselt puan ver ...)
+  type: XP_LEVELS
+  # Panelde ve mesajlarda görünen para birimi adı
+  name: "Seviye"
+  # Panelin sağ üstündeki simge
+  symbol: "✦"
+
+points:
+  # Sadece currency.type POINTS iken kullanılır
+  starting-points: 0
+  per-mob-kill: 1
+  per-player-kill: 5
+
+menu:
+  # Panelin oyuncuya uzaklığı (blok). Önünde duvar varsa panel otomatik yaklaşır,
+  # ekrandaki boyutu değişmez.
+  distance: 1.6
+  # Panelin ekrandaki büyüklüğü (1.0 = varsayılan, 0.8 = daha küçük, 1.2 = daha büyük)
+  scale: 1.0
+  # Hasar alınca menü kapansın mı?
+  close-on-damage: true
+  # Menü açıkken oyuncunun elini/elindeki eşyayı gizle (panelin önünü kapatmasın)
+  hide-hand: true
+  # Üzerine gelinen düğümün ikonu parlasın
+  glow-on-hover: true
+  sounds: true
+  particles: true
+  # Açılış/kapanış, büyüme ve titreme animasyonları
+  animations: true
+
+effects:
+  # DOUBLE_DROP efektinin çalıştığı bloklar (ipek dokunuşla kazılan cevher kopyalanmaz)
+  double-drop-blocks:
+    - COAL_ORE
+    - DEEPSLATE_COAL_ORE
+    - IRON_ORE
+    - DEEPSLATE_IRON_ORE
+    - COPPER_ORE
+    - DEEPSLATE_COPPER_ORE
+    - GOLD_ORE
+    - DEEPSLATE_GOLD_ORE
+    - REDSTONE_ORE
+    - DEEPSLATE_REDSTONE_ORE
+    - LAPIS_ORE
+    - DEEPSLATE_LAPIS_ORE
+    - DIAMOND_ORE
+    - DEEPSLATE_DIAMOND_ORE
+    - EMERALD_ORE
+    - DEEPSLATE_EMERALD_ORE
+    - NETHER_GOLD_ORE
+    - NETHER_QUARTZ_ORE
+
+# Mesajlar MiniMessage biçimindedir (<red>, <#FF8800>, <gradient:#A:#B>, <b> ...).
+# Eski & renk kodları (&a, &l, &#FF8800) da çalışır.
+messages:
+  prefix: "<dark_gray>[<gradient:#FFE259:#FFA751>Yükseltme</gradient><dark_gray>]</dark_gray> "
+  no-permission: "<red>Bunu yapmak için yetkin yok."
+  players-only: "<red>Bu komutu sadece oyuncular kullanabilir."
+  cannot-open: "<red>Menüyü şu an açamazsın. <gray>(Yere bas; eğilirken, binekte, suda veya süzülürken açılmaz.)"
+  opened-hint: "<gray>Nişangâhla bir yeteneğe bak, <white>sol tıkla</white> satın al. <white>Shift</white> ile kapat."
+  reloaded: "<green>Yapılandırma yeniden yüklendi. <gray>({nodes} düğüm)"
+  reload-failed: "<red>Yeniden yükleme başarısız oldu, konsola bak."
+  player-not-found: "<red>Oyuncu bulunamadı: <white>{player}"
+  node-not-found: "<red>Böyle bir düğüm yok: <white>{node}"
+  invalid-number: "<red>Geçersiz sayı: <white>{value}"
+  reset-done: "<green><white>{player}</white> adlı oyuncunun tüm yükseltmeleri sıfırlandı."
+  set-done: "<green><white>{player}</white>: <white>{node}</white> → seviye <yellow>{level}</yellow>"
+  points-done: "<green><white>{player}</white> artık <yellow>{points}</yellow> puana sahip."
+  points-not-used: "<yellow>Not: Para birimi POINTS değil, puanlar şu an kullanılmıyor."
+  purchase-success: "<green>✔ <white>{node}</white> seviye <yellow>{level}</yellow> oldu!"
+  purchase-max: "<gold>★ <white>{node}</white> maksimum seviyeye ulaştı!"
+  purchase-maxed: "<yellow>Bu yükseltme zaten maksimum seviyede."
+  purchase-locked: "<red>Kilitli! Önce şunları aç: <white>{requires}"
+  purchase-not-enough: "<red>Yetersiz {currency}! <gray>Gerekli: <white>{cost}</white> • Sende: <white>{balance}"
+  currency-unavailable: "<red>Para birimi kullanılamıyor. <gray>(Vault ve bir ekonomi eklentisi gerekli.)"
+  menu-footer: "<gray>Sol Tık <dark_gray>»</dark_gray> <white>Satın Al</white>     <dark_gray>•</dark_gray>     Shift <dark_gray>»</dark_gray> <white>Kapat</white>"
+  menu-welcome-title: "<white><b>Yükseltme Ağacı"
+  menu-welcome-desc:
+    - "<gray>Bir yeteneğe nişan al,"
+    - "<gray>bilgileri burada görünür."
+    - "<gray>Sol tıklayarak satın al!"
+  menu-progress: "<gray>Açılan: <white>{owned}</white><dark_gray>/</dark_gray><white>{total}</white>"
+  menu-currency: "<gold>{symbol}</gold> <white><b>{amount}</b></white> <gray>{currency}"
+  info-level: "<gray>Seviye <white>{level}</white><dark_gray>/</dark_gray><white>{max}"
+  info-cost: "<gray>Bedel: <yellow>{cost}"
+  info-cost-poor: "<gray>Bedel: <red>{cost}"
+  info-free: "<gray>Bedel: <green>Ücretsiz"
+  info-completed: "<gold>★ Tamamlandı"
+  info-requires: "<red>Gerekli: <white>{requires}"
+  button-buy: "<white><b>SATIN AL"
+  button-poor: "<white><b>YETERSİZ"
+  button-locked: "<white><b>KİLİTLİ"
+  button-max: "<white><b>MAKSİMUM"
+  badge-max: "<gold><b>MAX"
+  info-header: "<gold><b>{player}</b> <gray>yükseltmeleri <dark_gray>({owned}/{total})"
+  info-line: " <dark_gray>•</dark_gray> {node} <gray>{level}/{max}"
+  info-empty: "<gray>Henüz hiçbir yükseltme alınmamış."
+  help:
+    - "<gold><b>Yükseltme Ağacı</b> <gray>komutları"
+    - "<yellow>/yukselt <gray>- Yükseltme ağacını aç/kapat"
+    - "<yellow>/yukselt bilgi [oyuncu] <gray>- Yükseltmeleri listele"
+    - "<yellow>/yukselt yenile <gray>- Yapılandırmayı yeniden yükle"
+    - "<yellow>/yukselt sifirla <oyuncu> <gray>- Tüm yükseltmeleri sıfırla"
+    - "<yellow>/yukselt ayarla <oyuncu> <düğüm> <seviye> <gray>- Seviye ayarla"
+    - "<yellow>/yukselt puan <ver|al|ayarla> <oyuncu> <miktar> <gray>- Puan yönet"

@@ -1,0 +1,18 @@
+name: UpgradeTree
+version: '${version}'
+main: com.upgradetree.UpgradeTreePlugin
+api-version: '26.2'
+description: Roblox tarzı, animasyonlu yükseltme ağacı (sandık menüsü yerine oyuncunun önünde süzülen panel).
+softdepend: [Vault]
+commands:
+  yukselt:
+    description: Yükseltme ağacını açar / kapatır.
+    usage: /<command> [yardim]
+    aliases: [upgrade, upgrades, agac, upgradetree, ut]
+permissions:
+  upgradetree.use:
+    description: Yükseltme ağacını açabilir.
+    default: true
+  upgradetree.admin:
+    description: Yönetici komutları (yenile, sifirla, ayarla, puan).
+    default: op
