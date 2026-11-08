@@ -6,12 +6,6 @@ import org.bukkit.entity.Player;
 /** Pays with vanilla experience levels. */
 public final class XpCurrency implements Currency {
 
-    private final String name;
-
-    public XpCurrency(String name) {
-        this.name = name;
-    }
-
     @Override
     public boolean available() {
         return true;
@@ -45,7 +39,7 @@ public final class XpCurrency implements Currency {
     }
 
     @Override
-    public String format(double amount) {
+    public String format(double amount, String name) {
         return formatShort(amount) + " " + name;
     }
 

@@ -28,12 +28,20 @@ public final class DataCodec {
         if (!s.menuMode().isEmpty()) {
             y.set("menu-mode", s.menuMode());
         }
+        if (!s.language().isEmpty()) {
+            y.set("language", s.language());
+        }
         y.createSection("levels");
         for (Map.Entry<String, Integer> e : s.levels().entrySet()) {
             y.set("levels." + e.getKey(), e.getValue());
         }
         for (Map.Entry<String, Double> e : s.spent().entrySet()) {
             y.set("spent." + e.getKey(), e.getValue());
+        }
+        for (Map.Entry<String, Integer> e : s.chests().entrySet()) {
+            if (e.getValue() > 0) {
+                y.set("chests." + e.getKey(), e.getValue());
+            }
         }
         return y.saveToString();
     }
@@ -58,8 +66,19 @@ public final class DataCodec {
                 spent.put(k, sp.getDouble(k));
             }
         }
+        Map<String, Integer> chests = new LinkedHashMap<>();
+        ConfigurationSection ch = y.getConfigurationSection("chests");
+        if (ch != null) {
+            for (String k : ch.getKeys(false)) {
+                int v = ch.getInt(k);
+                if (v > 0) {
+                    chests.put(k, v);
+                }
+            }
+        }
         return new PlayerData.Snapshot(uuid, y.getString("name", fallbackName), levels, spent,
                 Math.max(0, y.getDouble("points", 0)), Math.max(0, y.getInt("prestige", 0)),
-                y.getLong("last-respec", 0), y.getString("last-daily", ""), y.getString("menu-mode", ""));
+                y.getLong("last-respec", 0), y.getString("last-daily", ""), y.getString("menu-mode", ""),
+                y.getString("language", ""), chests);
     }
 }

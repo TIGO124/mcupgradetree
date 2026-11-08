@@ -16,8 +16,11 @@ public interface Currency {
     /** Gives the amount back (refunds); returns false if it failed. */
     boolean deposit(Player player, double amount);
 
-    /** Amount with the currency name, e.g. "5 Seviye" or "$1,250". */
-    String format(double amount);
+    /**
+     * Amount with the currency name in the reader's language, e.g. "5 Levels" or "$1,250"
+     * ({@code name} comes from Settings#currencyName).
+     */
+    String format(double amount, String name);
 
     /** Just the number part for compact displays. */
     String formatShort(double amount);

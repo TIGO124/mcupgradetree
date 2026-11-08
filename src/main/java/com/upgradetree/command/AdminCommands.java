@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Admin sub commands of /yukselt. */
+/** Admin sub commands of /tigo. */
 final class AdminCommands {
 
     record Target(UUID uuid, String name, Player online) {
@@ -29,8 +29,8 @@ final class AdminCommands {
         this.plugin = plugin;
     }
 
-    private Lang lang() {
-        return plugin.lang();
+    private Lang lang(CommandSender sender) {
+        return plugin.lang(sender);
     }
 
     Target find(String name) {
@@ -55,27 +55,28 @@ final class AdminCommands {
     Target require(CommandSender sender, String name) {
         Target t = find(name);
         if (t == null) {
-            sender.sendMessage(lang().msg("player-not-found", "player", Text.escape(name)));
+            sender.sendMessage(lang(sender).msg("player-not-found", "player", Text.escape(name)));
         }
         return t;
     }
 
     void reload(CommandSender sender) {
         boolean ok = plugin.reloadAll();
-        sender.sendMessage(ok ? lang().msg("reloaded", "trees", String.valueOf(plugin.trees().trees().size()),
-                "nodes", String.valueOf(plugin.trees().nodes().size())) : lang().msg("reload-failed"));
+        sender.sendMessage(ok ? lang(sender).msg("reloaded", "trees", String.valueOf(plugin.trees().trees().size()),
+                "nodes", String.valueOf(plugin.trees().nodes().size())) : lang(sender).msg("reload-failed"));
     }
 
     void check(CommandSender sender) {
-        List<String> issues = plugin.trees().issues();
+        List<com.upgradetree.config.Localized<String>> issues = new java.util.ArrayList<>(plugin.trees().issues());
+        issues.addAll(plugin.chestTypes().issues());
         if (issues.isEmpty()) {
-            sender.sendMessage(lang().msg("check-ok", "trees", String.valueOf(plugin.trees().trees().size()),
+            sender.sendMessage(lang(sender).msg("check-ok", "trees", String.valueOf(plugin.trees().trees().size()),
                     "nodes", String.valueOf(plugin.trees().nodes().size())));
             return;
         }
-        sender.sendMessage(lang().msg("check-header", "count", String.valueOf(issues.size())));
-        for (String issue : issues) {
-            sender.sendMessage(lang().plain("check-line", "issue", Text.escape(issue)));
+        sender.sendMessage(lang(sender).msg("check-header", "count", String.valueOf(issues.size())));
+        for (var issue : issues) {
+            sender.sendMessage(lang(sender).plain("check-line", "issue", Text.escape(issue.get(lang(sender)))));
         }
     }
 
@@ -89,12 +90,12 @@ final class AdminCommands {
         if (t.online() != null) {
             plugin.menus().refresh(t.online());
         }
-        sender.sendMessage(lang().msg("reset-done", "player", Text.escape(t.name())));
+        sender.sendMessage(lang(sender).msg("reset-done", "player", Text.escape(t.name())));
     }
 
     void set(CommandSender sender, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage(Text.mm("<red>/yukselt ayarla <oyuncu> <düğüm> <seviye>"));
+            sender.sendMessage(lang(sender).plain("usage-set"));
             return;
         }
         Target t = require(sender, args[1]);
@@ -103,7 +104,7 @@ final class AdminCommands {
         }
         UpgradeNode n = plugin.trees().node(args[2]);
         if (n == null) {
-            sender.sendMessage(lang().msg("node-not-found", "node", Text.escape(args[2])));
+            sender.sendMessage(lang(sender).msg("node-not-found", "node", Text.escape(args[2])));
             return;
         }
         Integer level = integer(sender, args[3]);
@@ -123,12 +124,12 @@ final class AdminCommands {
             }
         }
         plugin.leaderboard().touch(d);
-        sender.sendMessage(lang().msg("set-done", "player", Text.escape(t.name()), "node", n.nameRaw, "level", String.valueOf(level)));
+        sender.sendMessage(lang(sender).msg("set-done", "player", Text.escape(t.name()), "node", n.name(lang(sender)), "level", String.valueOf(level)));
     }
 
     void points(CommandSender sender, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage(Text.mm("<red>/yukselt puan <ver|al|ayarla> <oyuncu> <miktar>"));
+            sender.sendMessage(lang(sender).plain("usage-points"));
             return;
         }
         Target t = require(sender, args[2]);
@@ -139,29 +140,29 @@ final class AdminCommands {
         try {
             amount = Double.parseDouble(args[3].replace(',', '.'));
         } catch (NumberFormatException e) {
-            sender.sendMessage(lang().msg("invalid-number", "value", Text.escape(args[3])));
+            sender.sendMessage(lang(sender).msg("invalid-number", "value", Text.escape(args[3])));
             return;
         }
         PlayerData d = data(t);
-        switch (args[1].toLowerCase(Locale.ROOT)) {
-            case "give", "ver", "ekle" -> d.points(d.points() + amount);
-            case "take", "al", "cikar", "çıkar" -> d.points(d.points() - amount);
-            case "set", "ayarla" -> d.points(amount);
+        switch (CommandAliases.word(args[1])) {
+            case "give" -> d.points(d.points() + amount);
+            case "take" -> d.points(d.points() - amount);
+            case "set" -> d.points(amount);
             default -> {
-                sender.sendMessage(Text.mm("<red>/yukselt puan <ver|al|ayarla> <oyuncu> <miktar>"));
+                sender.sendMessage(lang(sender).plain("usage-points"));
                 return;
             }
         }
         plugin.data().save(d);
-        sender.sendMessage(lang().msg("points-done", "player", Text.escape(t.name()), "points", Text.num(d.points())));
+        sender.sendMessage(lang(sender).msg("points-done", "player", Text.escape(t.name()), "points", Text.num(d.points())));
         if (!"POINTS".equals(plugin.settings().currencyType)) {
-            sender.sendMessage(lang().msg("points-not-used"));
+            sender.sendMessage(lang(sender).msg("points-not-used"));
         }
     }
 
     void prestigeSet(CommandSender sender, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage(Text.mm("<red>/yukselt prestij ayarla <oyuncu> <seviye>"));
+            sender.sendMessage(lang(sender).plain("usage-prestige-set"));
             return;
         }
         Target t = require(sender, args[2]);
@@ -177,12 +178,12 @@ final class AdminCommands {
             plugin.effects().apply(t.online());
         }
         plugin.leaderboard().touch(d);
-        sender.sendMessage(lang().msg("prestige-set", "player", Text.escape(t.name()), "level", String.valueOf(d.prestige())));
+        sender.sendMessage(lang(sender).msg("prestige-set", "player", Text.escape(t.name()), "level", String.valueOf(d.prestige())));
     }
 
     void cleanup(CommandSender sender, String who) {
         int count = 0;
-        if (who.equalsIgnoreCase("herkes") || who.equalsIgnoreCase("all") || who.equals("*")) {
+        if (CommandAliases.word(who).equals("all")) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 plugin.menus().close(p, true);
                 if (plugin.effects().clearAll(p)) {
@@ -192,7 +193,7 @@ final class AdminCommands {
         } else {
             Player p = Bukkit.getPlayer(who);
             if (p == null) {
-                sender.sendMessage(lang().msg("player-not-found", "player", Text.escape(who)));
+                sender.sendMessage(lang(sender).msg("player-not-found", "player", Text.escape(who)));
                 return;
             }
             plugin.menus().close(p, true);
@@ -200,91 +201,92 @@ final class AdminCommands {
                 count++;
             }
         }
-        sender.sendMessage(lang().msg("cleanup-done", "count", String.valueOf(count)));
+        sender.sendMessage(lang(sender).msg("cleanup-done", "count", String.valueOf(count)));
     }
 
     void npc(CommandSender sender) {
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(lang().msg("players-only"));
+            sender.sendMessage(lang(sender).msg("players-only"));
             return;
         }
         var hit = p.getWorld().rayTraceEntities(p.getEyeLocation(), p.getEyeLocation().getDirection(), 6, 0.3,
                 e -> !e.equals(p));
         Entity target = hit == null ? null : hit.getHitEntity();
         if (target == null) {
-            p.sendMessage(lang().msg("npc-none"));
+            p.sendMessage(lang(sender).msg("npc-none"));
             return;
         }
         String tag = plugin.settings().entityTag;
         if (target.getScoreboardTags().contains(tag)) {
             target.removeScoreboardTag(tag);
-            p.sendMessage(lang().msg("npc-untagged"));
+            p.sendMessage(lang(sender).msg("npc-untagged"));
         } else {
             target.addScoreboardTag(tag);
-            p.sendMessage(lang().msg("npc-tagged"));
+            p.sendMessage(lang(sender).msg("npc-tagged"));
         }
     }
 
     void hologram(CommandSender sender, boolean place) {
         if (place) {
             if (!(sender instanceof Player p)) {
-                sender.sendMessage(lang().msg("players-only"));
+                sender.sendMessage(lang(sender).msg("players-only"));
                 return;
             }
             plugin.leaderboard().setHologram(p.getLocation());
-            sender.sendMessage(lang().msg("hologram-set"));
+            sender.sendMessage(lang(sender).msg("hologram-set"));
         } else {
             plugin.leaderboard().setHologram(null);
-            sender.sendMessage(lang().msg("hologram-removed"));
+            sender.sendMessage(lang(sender).msg("hologram-removed"));
         }
     }
 
-    /** /yukselt debug onizleme|bak|konum|varlik <oyuncu> [düğüm] */
+    /** /tigo debug preview|look|pos|entities|target &lt;player&gt; [upgrade] */
     void debug(CommandSender sender, String[] args) {
         if (args.length < 3) {
-            sender.sendMessage(Text.mm("<red>/yukselt debug <onizleme|bak|konum|varlik> <oyuncu> [düğüm]"));
+            sender.sendMessage(lang(sender).plain("usage-debug"));
             return;
         }
         Player p = Bukkit.getPlayer(args[2]);
         if (p == null) {
-            sender.sendMessage(lang().msg("player-not-found", "player", Text.escape(args[2])));
+            sender.sendMessage(lang(sender).msg("player-not-found", "player", Text.escape(args[2])));
             return;
         }
-        switch (args[1].toLowerCase(Locale.ROOT)) {
-            case "onizleme", "preview" -> {
+        String mode = CommandAliases.word(args[1]);
+        switch (mode) {
+            case "preview" -> {
                 File out = new File(plugin.getDataFolder(), "debug/onizleme-" + p.getName() + ".png");
                 try {
                     if (plugin.menus().snapshot(p, out, new File(plugin.getDataFolder(), "debug/textures"))) {
-                        sender.sendMessage(lang().msg("debug-snapshot", "file", Text.escape(out.getPath())));
+                        sender.sendMessage(lang(sender).msg("debug-snapshot", "file", Text.escape(out.getPath())));
                     } else {
-                        sender.sendMessage(lang().msg("debug-no-menu"));
+                        sender.sendMessage(lang(sender).msg("debug-no-menu"));
                     }
                 } catch (Exception e) {
                     sender.sendMessage(Text.mm("<red>" + Text.escape(String.valueOf(e))));
                 }
             }
-            case "bak", "look", "konum", "pos" -> {
+            case "look", "pos" -> {
                 if (args.length < 4) {
-                    sender.sendMessage(Text.mm("<red>/yukselt debug " + args[1] + " <oyuncu> <düğüm>"));
+                    sender.sendMessage(lang(sender).plain("usage-debug-node", "mode", mode));
                     return;
                 }
                 UpgradeNode n = plugin.trees().node(args[3]);
                 String target = n != null ? n.id : args[3].toLowerCase(Locale.ROOT);
                 Location loc = plugin.menus().nodeLocation(p, target);
                 if (loc == null) {
-                    sender.sendMessage(lang().msg("debug-no-menu"));
+                    sender.sendMessage(lang(sender).msg("debug-no-menu"));
                     return;
                 }
-                if (args[1].startsWith("b") || args[1].startsWith("l")) {
+                if (mode.equals("look")) {
                     plugin.menus().lookAt(p, target);
                 }
                 sender.sendMessage(Text.mm("<gray>NODE_POS " + Text.escape(target) + " " + String.format(Locale.ROOT, "%.4f %.4f %.4f",
                         loc.getX(), loc.getY(), loc.getZ())));
             }
-            case "varlik", "entities" -> sender.sendMessage(Text.mm("<gray>ENTITIES " + plugin.menus().entityCount(p)));
-            case "hedef", "target" -> sender.sendMessage(Text.mm("<gray>TARGET " + Text.escape(plugin.menus().target(p))
+            case "entities" -> sender.sendMessage(Text.mm("<gray>ENTITIES " + plugin.menus().entityCount(p)));
+            case "target" -> sender.sendMessage(Text.mm("<gray>TARGET " + Text.escape(plugin.menus().target(p))
                     + String.format(Locale.ROOT, " yaw=%.2f pitch=%.2f", p.getLocation().getYaw(), p.getLocation().getPitch())));
-            default -> sender.sendMessage(Text.mm("<red>/yukselt debug <onizleme|bak|konum|varlik> <oyuncu> [düğüm]"));
+            default -> sender.sendMessage(lang(sender).plain("usage-debug"));
         }
     }
 
@@ -292,7 +294,7 @@ final class AdminCommands {
         try {
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
-            sender.sendMessage(lang().msg("invalid-number", "value", Text.escape(raw)));
+            sender.sendMessage(lang(sender).msg("invalid-number", "value", Text.escape(raw)));
             return null;
         }
     }

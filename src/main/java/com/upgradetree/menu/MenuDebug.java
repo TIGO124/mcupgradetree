@@ -4,7 +4,7 @@ import java.util.List;
 
 import static com.upgradetree.menu.Layout.*;
 
-/** Debug and test helpers for an open 3D menu (used by /yukselt debug). */
+/** Debug and test helpers for an open 3D menu (used by /tigo debug). */
 final class MenuDebug {
 
     private MenuDebug() {
@@ -28,9 +28,14 @@ final class MenuDebug {
         if (target.startsWith("tab:")) {
             return m.header.tabCenter(target.substring(4));
         }
+        if ((target.startsWith("chest:") || target.startsWith("reward:")) && m.chests.layer != null) {
+            return m.chests.layer.position(target);
+        }
         return switch (target) {
             case "buy" -> m.info.buyCenter();
             case "minus" -> m.info.minusCenter();
+            case "chestopen" -> m.info.chestOpenCenter();
+            case "chestbuy" -> m.info.chestBuyCenter();
             case "respec" -> new double[]{RESPEC_X, HEADER_CY};
             case "prestige" -> new double[]{PRESTIGE_X, HEADER_CY};
             case "close" -> new double[]{CLOSE_X, HEADER_CY};

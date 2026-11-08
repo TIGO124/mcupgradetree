@@ -3,6 +3,7 @@ package com.upgradetree.menu;
 import com.upgradetree.UpgradeTreePlugin;
 import com.upgradetree.config.Settings;
 import com.upgradetree.gui.ChestMenu;
+import com.upgradetree.gui.ChestShopMenu;
 import com.upgradetree.tree.UpgradeTree;
 import io.papermc.paper.entity.LookAnchor;
 import org.bukkit.Bukkit;
@@ -30,9 +31,13 @@ public final class MenuManager {
         this.plugin = plugin;
     }
 
-    /** True while a 3D panel or the chest menu is open. */
+    /** True while a 3D panel or one of the chest menus (tree, chests shop) is open. */
     public boolean isOpen(Player p) {
-        return open.containsKey(p.getUniqueId()) || ChestMenu.isOpen(p);
+        return open.containsKey(p.getUniqueId()) || chestGui(p);
+    }
+
+    private static boolean chestGui(Player p) {
+        return ChestMenu.isOpen(p) || ChestShopMenu.isOpen(p);
     }
 
     DisplayMenu get(Player p) {
@@ -69,25 +74,46 @@ public final class MenuManager {
     }
 
     public boolean open(Player p) {
-        if (isOpen(p)) {
+        if (open.containsKey(p.getUniqueId()) || ChestMenu.isOpen(p)) {
             return true;
         }
+        return open(p, false);
+    }
+
+    /** /tigo chests: the Chests section (3D tab, or the chests shop menu for chest-menu users). */
+    public boolean openChests(Player p) {
+        if (!plugin.chestTypes().active()) {
+            p.sendMessage(plugin.lang(p).msg("chests-disabled"));
+            return false;
+        }
+        DisplayMenu shown = open.get(p.getUniqueId());
+        if (shown != null) {
+            shown.showTab(ChestLayer.TAB, false);
+            return true;
+        }
+        if (ChestShopMenu.isOpen(p)) {
+            return true;
+        }
+        return open(p, true);
+    }
+
+    private boolean open(Player p, boolean chests) {
         Settings s = plugin.settings();
         if (s.worldDisabled(p.getWorld().getName())) {
-            p.sendMessage(plugin.lang().msg("disabled-world"));
+            p.sendMessage(plugin.lang(p).msg("disabled-world"));
             return false;
         }
         int combat = plugin.combat().secondsLeft(p);
         if (combat > 0) {
-            p.sendMessage(plugin.lang().msg("cannot-open-combat", "seconds", String.valueOf(combat)));
+            p.sendMessage(plugin.lang(p).msg("cannot-open-combat", "seconds", String.valueOf(combat)));
             return false;
         }
         List<UpgradeTree> trees = treesFor(p);
-        if (trees.isEmpty()) {
-            p.sendMessage(plugin.lang().msg("tree-not-found", "tree", "-"));
+        if (trees.isEmpty() && !(chests && plugin.chestTypes().active())) {
+            p.sendMessage(plugin.lang(p).msg("tree-not-found", "tree", "-"));
             return false;
         }
-        UpgradeTree start = trees.get(0);
+        UpgradeTree start = trees.isEmpty() ? null : trees.get(0);
         String last = lastTree.get(p.getUniqueId());
         for (UpgradeTree t : trees) {
             if (t.id.equals(last)) {
@@ -95,21 +121,43 @@ public final class MenuManager {
             }
         }
         if (useChest(p)) {
-            ChestMenu.open(plugin, p, trees, start);
+            if (chests) {
+                ChestShopMenu.open(plugin, p);
+            } else {
+                ChestMenu.open(plugin, p, trees, start);
+            }
             return true;
         }
         if (!canOpen(p)) {
-            p.sendMessage(plugin.lang().msg("cannot-open"));
+            p.sendMessage(plugin.lang(p).msg("cannot-open"));
             return false;
         }
-        DisplayMenu menu = new DisplayMenu(plugin, this, p, trees, start, null);
-        try {
-            menu.open();
-        } catch (RuntimeException ex) {
+        DisplayMenu menu = new DisplayMenu(plugin, this, p, trees, start, null, chests);
+        if (!start(menu)) {
+            p.sendMessage(plugin.lang(p).msg("cannot-open"));
             return false;
         }
         open.put(p.getUniqueId(), menu);
         return true;
+    }
+
+    /**
+     * Opens a 3D menu. A failed build is logged and cleaned up by the menu itself; this also undoes
+     * the freeze/aim set up before the build, so the player is never left stuck without feedback.
+     */
+    private boolean start(DisplayMenu menu) {
+        try {
+            menu.open();
+            return true;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Menü açılamadı (" + menu.player().getName() + "): " + ex);
+            try {
+                menu.forceRemove();
+            } catch (RuntimeException ignored) {
+                // nothing more to clean up
+            }
+            return false;
+        }
     }
 
     private boolean useChest(Player p) {
@@ -150,7 +198,7 @@ public final class MenuManager {
      */
     public boolean openAdmin(Player viewer, UUID target, String name, com.upgradetree.data.PlayerData offline) {
         if (!viewer.isOp()) {
-            viewer.sendMessage(plugin.lang().msg("admin-only-op"));
+            viewer.sendMessage(plugin.lang(viewer).msg("admin-only-op"));
             return false;
         }
         close(viewer, true);
@@ -159,14 +207,13 @@ public final class MenuManager {
         }
         List<UpgradeTree> trees = plugin.trees().trees();
         if (trees.isEmpty() || !canOpen(viewer)) {
-            viewer.sendMessage(plugin.lang().msg("cannot-open"));
+            viewer.sendMessage(plugin.lang(viewer).msg("cannot-open"));
             return false;
         }
         DisplayMenu menu = new DisplayMenu(plugin, this, viewer, trees, trees.get(0),
-                new DisplayMenu.AdminTarget(target, name, offline));
-        try {
-            menu.open();
-        } catch (RuntimeException ex) {
+                new DisplayMenu.AdminTarget(target, name, offline), false);
+        if (!start(menu)) {
+            viewer.sendMessage(plugin.lang(viewer).msg("cannot-open"));
             return false;
         }
         open.put(viewer.getUniqueId(), menu);
@@ -176,7 +223,7 @@ public final class MenuManager {
     public void close(Player p, boolean instant) {
         DisplayMenu menu = open.remove(p.getUniqueId());
         if (menu == null) {
-            if (ChestMenu.isOpen(p)) {
+            if (chestGui(p)) {
                 p.closeInventory();
             }
             return;
@@ -205,7 +252,7 @@ public final class MenuManager {
             closing.clear();
         }
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (ChestMenu.isOpen(p)) {
+            if (chestGui(p)) {
                 p.closeInventory();
             }
         }

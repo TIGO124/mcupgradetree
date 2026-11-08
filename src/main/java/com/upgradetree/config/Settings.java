@@ -21,12 +21,18 @@ import java.util.logging.Logger;
 /** Values read from config.yml (with safe defaults for every key). Messages live in {@link Lang}. */
 public final class Settings {
 
+    /** Currency names written by older versions; they now follow each reader's language. */
+    private static final Set<String> DEFAULT_CURRENCY_NAMES = Set.of("seviye", "level", "levels", "puan", "points", "point",
+            "para", "money");
+    private static final String OLD_ITEM_NAME = "<gradient:#7DD3FC:#C084FC><b>Yükseltme Ağacı</b></gradient> <gray>(Sağ Tık)";
+
     public enum MenuMode { AUTO, DISPLAY, CHEST }
 
     public final String language;
 
     public final String currencyType;
-    public final String currencyName;
+    /** Configured currency name; empty = the name from the reader's language file. */
+    private final Localized<String> currencyNames;
     public final String currencySymbol;
 
     public final double startingPoints;
@@ -77,7 +83,7 @@ public final class Settings {
     public final boolean accessItem;
     public final Material accessItemMaterial;
     public final int accessItemSlot;
-    public final String accessItemName;
+    private final Localized<String> accessItemNames;
     public final String entityTag;
 
     public final boolean notify;
@@ -109,8 +115,9 @@ public final class Settings {
                         int lineLocked, int buy, int deny, int gold) {
     }
 
-    public Settings(FileConfiguration c, Logger log) {
+    public Settings(FileConfiguration c, Logger logger) {
         language = c.getString("language", "tr").trim().toLowerCase(Locale.ROOT);
+        Problems.Sink log = Problems.log(logger, language);
 
         String type = c.getString("currency.type", "XP_LEVELS").trim().toUpperCase(Locale.ROOT);
         currencyType = switch (type) {
@@ -118,19 +125,19 @@ public final class Settings {
             case "POINTS", "POINT", "PUAN" -> "POINTS";
             default -> "XP_LEVELS";
         };
-        currencyName = c.getString("currency.name", "Seviye");
+        currencyNames = defaultName(Localized.text(c.get("currency.name"), ""), DEFAULT_CURRENCY_NAMES);
         currencySymbol = c.getString("currency.symbol", "✦");
 
         startingPoints = c.getDouble("points.starting-points", 0);
-        pointsPerMob = c.getDouble("points.per-mob-kill", 1);
-        pointsPerPlayer = c.getDouble("points.per-player-kill", 5);
+        pointsPerMob = c.getDouble("points.per-mob-kill", 0.3);
+        pointsPerPlayer = c.getDouble("points.per-player-kill", 3);
         ConfigurationSection mp = c.getConfigurationSection("points.mob-points");
         if (mp != null) {
             for (String k : mp.getKeys(false)) {
                 try {
                     mobPoints.put(EntityType.valueOf(k.trim().toUpperCase(Locale.ROOT)), mp.getDouble(k));
                 } catch (IllegalArgumentException e) {
-                    log.warning("config.yml: bilinmeyen mob '" + k + "' (points.mob-points)");
+                    log.warn("config.yml: bilinmeyen mob '" + k + "' (points.mob-points)", "config.yml: unknown mob '" + k + "' (points.mob-points)");
                 }
             }
         }
@@ -140,7 +147,8 @@ public final class Settings {
             try {
                 ignoredSpawnReasons.add(CreatureSpawnEvent.SpawnReason.valueOf(r.trim().toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException e) {
-                log.warning("config.yml: bilinmeyen doğma sebebi '" + r + "' (points.ignored-spawn-reasons)");
+                log.warn("config.yml: bilinmeyen doğma sebebi '" + r + "' (points.ignored-spawn-reasons)",
+                        "config.yml: unknown spawn reason '" + r + "' (points.ignored-spawn-reasons)");
             }
         }
         playerKillCooldownMs = Math.max(0, c.getLong("points.player-kill-cooldown", 600)) * 1000L;
@@ -160,8 +168,8 @@ public final class Settings {
         prestigeCommands = c.getStringList("prestige.commands");
 
         respecEnabled = c.getBoolean("respec.enabled", true);
-        respecRefund = clamp(c.getDouble("respec.refund-percent", 80), 0, 100) / 100.0;
-        respecCooldownMs = Math.max(0, c.getLong("respec.cooldown", 3600)) * 1000L;
+        respecRefund = clamp(c.getDouble("respec.refund-percent", 75), 0, 100) / 100.0;
+        respecCooldownMs = Math.max(0, c.getLong("respec.cooldown", 21600)) * 1000L;
 
         MenuMode mode;
         try {
@@ -203,7 +211,7 @@ public final class Settings {
         Material m = Material.matchMaterial(c.getString("access.item.material", "NETHER_STAR"));
         accessItemMaterial = m == null || !m.isItem() || m.isAir() ? Material.NETHER_STAR : m;
         accessItemSlot = Math.max(0, Math.min(8, c.getInt("access.item.slot", 8)));
-        accessItemName = c.getString("access.item.name", "<gradient:#7DD3FC:#C084FC><b>Yükseltme Ağacı</b></gradient> <gray>(Sağ Tık)");
+        accessItemNames = defaultName(Localized.text(c.get("access.item.name"), ""), Set.of(OLD_ITEM_NAME.toLowerCase(Locale.ROOT)));
         entityTag = c.getString("access.entity-tag", "upgradetree_npc");
 
         notify = c.getBoolean("notify.enabled", true);
@@ -233,18 +241,55 @@ public final class Settings {
         cleanupMode = c.getBoolean("cleanup-mode", false);
     }
 
+    /** Currency name for a reader, e.g. "Levels" (the language file's name unless config.yml sets one). */
+    public String currencyName(Lang lang) {
+        String n = currencyNames.get(lang);
+        if (n != null) {
+            return n;
+        }
+        String key = switch (currencyType) {
+            case "POINTS" -> "currency-name-points";
+            case "VAULT" -> "currency-name-money";
+            default -> "currency-name-levels";
+        };
+        return lang == null ? currencyType : lang.raw(key);
+    }
+
+    /** Name of the menu item for a reader (the language file's name unless config.yml sets one). */
+    public String accessItemName(Lang lang) {
+        String n = accessItemNames.get(lang);
+        return n != null || lang == null ? n : lang.raw("access-item-name");
+    }
+
+    /**
+     * A name left at a built-in default ("" or the old Turkish defaults) becomes empty, so every
+     * reader gets the name of their own language; a custom name (or a per-language map) is kept.
+     */
+    static Localized<String> defaultName(Localized<String> configured, Set<String> defaults) {
+        if (configured.isEmpty()) {
+            return Localized.empty();
+        }
+        if (configured.languages().isEmpty()) {
+            String v = configured.base() == null ? "" : configured.base().trim();
+            if (v.isEmpty() || defaults.contains(v.toLowerCase(Locale.ROOT))) {
+                return Localized.empty();
+            }
+        }
+        return configured;
+    }
+
     public boolean worldDisabled(String world) {
         return !disabledWorlds.isEmpty() && disabledWorlds.contains(world.toLowerCase(Locale.ROOT));
     }
 
-    private static Set<Material> blocks(FileConfiguration c, String path, Logger log, Set<Material> def) {
+    private static Set<Material> blocks(FileConfiguration c, String path, Problems.Sink log, Set<Material> def) {
         if (!c.isList(path)) {
             return def;
         }
         return EffectParser.blocks("config.yml " + path, c.getList(path), log);
     }
 
-    private static Set<Material> defaultOres(Logger log) {
+    private static Set<Material> defaultOres(Problems.Sink log) {
         return EffectParser.blocks("config.yml", List.of("#coal_ores", "#iron_ores", "#copper_ores", "#gold_ores",
                 "#redstone_ores", "#lapis_ores", "#diamond_ores", "#emerald_ores", "NETHER_GOLD_ORE", "NETHER_QUARTZ_ORE"), log);
     }

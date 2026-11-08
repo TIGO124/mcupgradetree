@@ -1,5 +1,7 @@
 package com.upgradetree.tree;
 
+import com.upgradetree.config.Lang;
+import com.upgradetree.config.Localized;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
@@ -18,13 +20,11 @@ import java.util.Map;
 public final class UpgradeTree {
 
     public static final int DEFAULT_COLOR = 0xFF22C55E;
-    public static final String DEFAULT_TITLE = "<gradient:#7DD3FC:#C084FC><b>YÜKSELTME AĞACI</b></gradient>";
 
     public final String id;
-    public final String titleRaw;
-    public final Component title;
-    public final String tabRaw;
-    public final Component tabName;
+    /** Title (shown when there is only one tree); empty = the language file's default title. */
+    public final Localized<String> titles;
+    public final Localized<String> tabs;
     public final Material tabIcon;
     public final int order;
     public final String permission;
@@ -32,13 +32,11 @@ public final class UpgradeTree {
     private final List<UpgradeNode[]> edges;
     private final Map<String, Integer> depth;
 
-    public UpgradeTree(String id, String titleRaw, String tabRaw, Material tabIcon, int order, String permission,
-                       Map<String, UpgradeNode> nodes) {
+    public UpgradeTree(String id, Localized<String> titles, Localized<String> tabs, Material tabIcon, int order,
+                       String permission, Map<String, UpgradeNode> nodes) {
         this.id = id;
-        this.titleRaw = titleRaw;
-        this.title = Text.mm(titleRaw);
-        this.tabRaw = tabRaw;
-        this.tabName = Text.mm(tabRaw);
+        this.titles = titles;
+        this.tabs = tabs.isEmpty() ? Localized.of(id) : tabs;
         this.tabIcon = tabIcon;
         this.order = order;
         this.permission = permission == null || permission.isBlank() ? null : permission.trim();
@@ -54,6 +52,26 @@ public final class UpgradeTree {
         }
         this.edges = Collections.unmodifiableList(e);
         this.depth = computeDepth();
+    }
+
+    /** Title in the reader's language (MiniMessage). */
+    public String titleRaw(Lang lang) {
+        String t = titles.get(lang);
+        return t != null ? t : lang == null ? id : lang.raw("tree-title-default");
+    }
+
+    public Component title(Lang lang) {
+        return Text.mm(titleRaw(lang));
+    }
+
+    /** Tab name in the reader's language (MiniMessage). */
+    public String tabRaw(Lang lang) {
+        String t = tabs.get(lang);
+        return t != null ? t : id;
+    }
+
+    public Component tabName(Lang lang) {
+        return Text.mm(tabRaw(lang));
     }
 
     public Collection<UpgradeNode> nodes() {

@@ -2,16 +2,16 @@
 #   Shift + F       -> SNEAK_SWAP      Çift Shift -> DOUBLE_SNEAK      Shift + Zıpla -> SNEAK_JUMP
 # Ayrıntılı açıklama: trees/ana.yml başındaki yorumlar.
 
-title: "<gradient:#FDBA74:#F472B6><b>YETENEKLER</b></gradient>"
+title: { tr: "<gradient:#FDBA74:#F472B6><b>YETENEKLER</b></gradient>", en: "<gradient:#FDBA74:#F472B6><b>ABILITIES</b></gradient>" }
 tab:
-  name: "<white>Yetenekler"
+  name: { tr: "<white>Yetenekler", en: "<white>Abilities" }
   icon: BLAZE_POWDER
   order: 2
 
 nodes:
 
   yetenek_kapisi:
-    name: "<gradient:#FDBA74:#FB923C>Yetenek Kapısı</gradient>"
+    name: { tr: "<gradient:#FDBA74:#FB923C>Yetenek Kapısı</gradient>", en: "<gradient:#FDBA74:#FB923C>Ability Gate</gradient>" }
     icon: BLAZE_ROD
     x: 0
     y: 0
@@ -21,15 +21,19 @@ nodes:
     always-visible: true
     color: "#F97316"
     description:
-      - "<gray>Aktif yeteneklerin"
-      - "<gray>kilidini açar."
+      tr:
+        - "<gray>Aktif yeteneklerin"
+        - "<gray>kilidini açar."
+      en:
+        - "<gray>Unlocks the"
+        - "<gray>active abilities."
     effects:
       - type: ATTRIBUTE
         attribute: attack_damage
-        amount: 0.5
+        amount: 0.25
 
   atilma:
-    name: "<#FDBA74>Atılma"
+    name: { tr: "<#FDBA74>Atılma", en: "<#FDBA74>Dash" }
     icon: WIND_CHARGE
     x: 1
     y: 0
@@ -40,21 +44,25 @@ nodes:
     exclusive-with: [hiz_patlamasi]
     color: "#F97316"
     description:
-      - "<white>Shift + F</white><gray>: baktığın"
-      - "<gray>yöne hızla atıl."
-    bonus: "Güç {value}"
+      tr:
+        - "<white>Shift + F</white><gray>: baktığın"
+        - "<gray>yöne hızla atıl."
+      en:
+        - "<white>Shift + F</white><gray>: dash in the"
+        - "<gray>direction you look."
+    bonus: { tr: "Güç {value}", en: "Power {value}" }
     bonus-per-level: 1
     effects:
       - type: ABILITY
         ability: DASH
         trigger: SNEAK_SWAP
-        cooldown: 12
+        cooldown: 14
         cooldown-per-level: -2
         power: 1
         power-per-level: 0.3
 
   hiz_patlamasi:
-    name: "<#FDBA74>Hız Patlaması"
+    name: { tr: "<#FDBA74>Hız Patlaması", en: "<#FDBA74>Speed Burst" }
     icon: SUGAR
     x: 0.5
     y: -1
@@ -65,21 +73,25 @@ nodes:
     exclusive-with: [atilma]
     color: "#F97316"
     description:
-      - "<white>Shift + F</white><gray>: kısa süre"
-      - "<gray>çok hızlı koş."
-    bonus: "Hız {value}"
-    bonus-per-level: 1
+      tr:
+        - "<white>Shift + F</white><gray>: kısa süre"
+        - "<gray>hızlı koş."
+        - "<gray>Sv.1 Hız I, Sv.2+ Hız II"
+      en:
+        - "<white>Shift + F</white><gray>: run fast"
+        - "<gray>for a short time."
+        - "<gray>Lv.1 Speed I, Lv.2+ Speed II"
     effects:
       - type: ABILITY
         ability: SPEED
         trigger: SNEAK_SWAP
-        cooldown: 30
+        cooldown: 35
         cooldown-per-level: -5
-        power: 1
-        power-per-level: 1
+        power: 0
+        power-per-level: 0.5
 
   sicrama:
-    name: "<#F0ABFC>Sıçrama"
+    name: { tr: "<#F0ABFC>Sıçrama", en: "<#F0ABFC>Leap" }
     icon: GOAT_HORN
     x: -1
     y: 0
@@ -90,9 +102,13 @@ nodes:
     exclusive-with: [sok_dalgasi]
     color: "#D946EF"
     description:
-      - "<white>Shift + Zıpla</white><gray>: havaya"
-      - "<gray>fırla, düşme hasarı yok."
-    bonus: "Güç {value}"
+      tr:
+        - "<white>Shift + Zıpla</white><gray>: havaya"
+        - "<gray>fırla, düşme hasarı yok."
+      en:
+        - "<white>Shift + Jump</white><gray>: launch into"
+        - "<gray>the air, no fall damage."
+    bonus: { tr: "Güç {value}", en: "Power {value}" }
     bonus-per-level: 1
     effects:
       - type: ABILITY
@@ -104,7 +120,7 @@ nodes:
         power-per-level: 0.4
 
   sok_dalgasi:
-    name: "<#F0ABFC>Şok Dalgası"
+    name: { tr: "<#F0ABFC>Şok Dalgası", en: "<#F0ABFC>Shockwave" }
     icon: TNT
     x: -0.5
     y: -1
@@ -115,9 +131,13 @@ nodes:
     exclusive-with: [sicrama]
     color: "#D946EF"
     description:
-      - "<white>Shift + Zıpla</white><gray>: yakındaki"
-      - "<gray>canavarları savur."
-    bonus: "Güç {value}"
+      tr:
+        - "<white>Shift + Zıpla</white><gray>: yakındaki"
+        - "<gray>canavarları savur."
+      en:
+        - "<white>Shift + Jump</white><gray>: knock back"
+        - "<gray>nearby monsters."
+    bonus: { tr: "Güç {value}", en: "Power {value}" }
     bonus-per-level: 1
     effects:
       - type: ABILITY
@@ -129,7 +149,7 @@ nodes:
         power-per-level: 0.5
 
   sifa:
-    name: "<#86EFAC>Şifa"
+    name: { tr: "<#86EFAC>Şifa", en: "<#86EFAC>Heal" }
     icon: GLISTERING_MELON_SLICE
     x: 0.5
     y: 1
@@ -140,21 +160,25 @@ nodes:
     exclusive-with: [kalkan]
     color: "#10B981"
     description:
-      - "<white>Çift Shift</white><gray>: canını"
-      - "<gray>hemen doldur."
-    bonus: "+{value} ❤"
-    bonus-per-level: 1
+      tr:
+        - "<white>Çift Shift</white><gray>: canını"
+        - "<gray>hemen doldur."
+        - "<gray>Sv.1 2 ❤, Sv.2 2.5 ❤, Sv.3 3 ❤"
+      en:
+        - "<white>Double Shift</white><gray>: heal"
+        - "<gray>right away."
+        - "<gray>Lv.1 2 ❤, Lv.2 2.5 ❤, Lv.3 3 ❤"
     effects:
       - type: ABILITY
         ability: HEAL
         trigger: DOUBLE_SNEAK
         cooldown: 45
-        cooldown-per-level: -8
+        cooldown-per-level: -6
         power: 1
-        power-per-level: 0.5
+        power-per-level: 0.25
 
   kalkan:
-    name: "<#86EFAC>Kalkan"
+    name: { tr: "<#86EFAC>Kalkan", en: "<#86EFAC>Shield" }
     icon: SHIELD
     x: -0.5
     y: 1
@@ -165,21 +189,25 @@ nodes:
     exclusive-with: [sifa]
     color: "#10B981"
     description:
-      - "<white>Çift Shift</white><gray>: kısa süre"
-      - "<gray>ekstra can ve direnç."
-    bonus: "Kalkan {value}"
-    bonus-per-level: 1
+      tr:
+        - "<white>Çift Shift</white><gray>: kısa süre"
+        - "<gray>ekstra can ve direnç."
+        - "<gray>Sv.1 +2 ❤, Sv.2+ +4 ❤ kalkan"
+      en:
+        - "<white>Double Shift</white><gray>: extra health"
+        - "<gray>and resistance for a while."
+        - "<gray>Lv.1 +2 ❤, Lv.2+ +4 ❤ shield"
     effects:
       - type: ABILITY
         ability: SHIELD
         trigger: DOUBLE_SNEAK
         cooldown: 40
-        cooldown-per-level: -6
+        cooldown-per-level: -5
         power: 1
-        power-per-level: 1
+        power-per-level: 0.5
 
   savasci:
-    name: "<#FDBA74>Usta Savaşçı"
+    name: { tr: "<#FDBA74>Usta Savaşçı", en: "<#FDBA74>Master Fighter" }
     icon: MACE
     x: 2
     y: 0
@@ -189,17 +217,21 @@ nodes:
     requires-any: [atilma, hiz_patlamasi]
     color: "#EA580C"
     description:
-      - "<gray>Hareket ederken daha"
-      - "<gray>sık kritik vurursun."
-    bonus: "%{value} kritik"
+      tr:
+        - "<gray>Hareket ederken daha"
+        - "<gray>sık kritik vurursun."
+      en:
+        - "<gray>You land critical hits"
+        - "<gray>more often while moving."
+    bonus: { tr: "%{value} kritik", en: "{value}% crit" }
     bonus-multiplier: 100
     effects:
       - type: CRIT
-        amount: 0.04
-        multiplier: 1.6
+        amount: 0.03
+        multiplier: 1.5
 
   ruh:
-    name: "<#F0ABFC>Rüzgâr Ruhu"
+    name: { tr: "<#F0ABFC>Rüzgâr Ruhu", en: "<#F0ABFC>Wind Spirit" }
     icon: ELYTRA
     x: -2
     y: 0
@@ -209,16 +241,20 @@ nodes:
     requires-any: [sicrama, sok_dalgasi]
     color: "#C026D3"
     description:
-      - "<gray>Düşüşlerin hafifler,"
-      - "<gray>daha güvenli inersin."
-    bonus: "+{value} güvenli düşüş"
+      tr:
+        - "<gray>Düşüşlerin hafifler,"
+        - "<gray>daha güvenli inersin."
+      en:
+        - "<gray>Your falls are softer,"
+        - "<gray>you land more safely."
+    bonus: { tr: "+{value} güvenli düşüş", en: "+{value} safe fall" }
     effects:
       - type: ATTRIBUTE
         attribute: safe_fall_distance
-        amount: 2
+        amount: 1
 
   kutsal_isik:
-    name: "<gradient:#6EE7B7:#A7F3D0><b>Kutsal Işık</b></gradient>"
+    name: { tr: "<gradient:#6EE7B7:#A7F3D0><b>Kutsal Işık</b></gradient>", en: "<gradient:#6EE7B7:#A7F3D0><b>Holy Light</b></gradient>" }
     icon: BEACON
     x: 0
     y: 2
@@ -227,12 +263,11 @@ nodes:
     requires-any: [sifa, kalkan]
     color: "#059669"
     description:
-      - "<gray>Kalıcı yenilenme ve"
-      - "<gray>ateş direnci."
+      tr:
+        - "<gray>Kalıcı yenilenme."
+      en:
+        - "<gray>Permanent regeneration."
     effects:
       - type: POTION
         effect: regeneration
-        amplifier: 0
-      - type: POTION
-        effect: fire_resistance
         amplifier: 0

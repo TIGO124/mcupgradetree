@@ -15,7 +15,6 @@ import java.util.logging.Logger;
  */
 public final class VaultCurrency implements Currency {
 
-    private final String name;
     private final Logger log;
     private Object economy;
     private Method getBalance;
@@ -26,8 +25,7 @@ public final class VaultCurrency implements Currency {
     private long lastLookup;
     private boolean warned;
 
-    public VaultCurrency(String name, Logger log) {
-        this.name = name;
+    public VaultCurrency(Logger log) {
         this.log = log;
     }
 
@@ -141,7 +139,19 @@ public final class VaultCurrency implements Currency {
     }
 
     @Override
-    public String format(double amount) {
+    public String format(double amount, String name) {
+        String eco = economyFormat(amount);
+        return eco != null ? eco : Text.num(amount) + " " + name;
+    }
+
+    @Override
+    public String formatShort(double amount) {
+        String eco = economyFormat(amount);
+        return eco != null ? eco : Text.num(amount);
+    }
+
+    /** The economy plugin's own format ("$1,250"), or null. */
+    private String economyFormat(double amount) {
         if (resolve() && format != null) {
             try {
                 return String.valueOf(format.invoke(economy, amount));
@@ -149,11 +159,6 @@ public final class VaultCurrency implements Currency {
                 // fall back
             }
         }
-        return Text.num(amount) + " " + name;
-    }
-
-    @Override
-    public String formatShort(double amount) {
-        return format(amount);
+        return null;
     }
 }

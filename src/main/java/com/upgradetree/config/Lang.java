@@ -3,7 +3,6 @@ package com.upgradetree.config;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -17,16 +16,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Messages: built-in Turkish defaults, then the built-in file of the chosen language, then the
- * server's lang/&lt;language&gt;.yml, then the old "messages:" section of config.yml (still honoured).
+ * Messages of one language: built-in Turkish defaults, then the built-in file of the language, then
+ * the server's lang/&lt;language&gt;.yml, then (server language only) the old "messages:" section of
+ * config.yml. All languages together live in {@link Languages}.
  */
 public final class Lang {
 
     public static final String[] BUNDLED = {"tr", "en"};
+    /** Bumped when the built-in files change in a way old copies on servers must not hide. */
+    public static final int VERSION = 4;
 
+    private final String code;
+    /** The server language: content written in other languages falls back to it (see {@link Localized}). */
+    private final String fallback;
     private final Map<String, Object> messages = new LinkedHashMap<>();
 
-    public Lang(JavaPlugin plugin, String language, FileConfiguration config) {
+    public Lang(JavaPlugin plugin, String language, ConfigurationSection legacy, String fallback) {
+        this.code = language;
+        this.fallback = fallback == null ? language : fallback;
         merge(bundled(plugin, "tr"));
         if (!"tr".equals(language)) {
             merge(bundled(plugin, language));
@@ -34,19 +41,37 @@ public final class Lang {
         File file = new File(plugin.getDataFolder(), "lang/" + language + ".yml");
         if (file.exists()) {
             merge(YamlConfiguration.loadConfiguration(file));
-        } else if (!"tr".equals(language) && !"en".equals(language)) {
-            plugin.getLogger().warning("lang/" + language + ".yml bulunamadı, Türkçe kullanılıyor.");
         }
-        ConfigurationSection legacy = config.getConfigurationSection("messages");
         if (legacy != null) {
             merge(legacy);
         }
     }
 
+    /**
+     * Writes the built-in files once. A server copy older than {@link #VERSION} (for example one that
+     * still lists the old Turkish commands) is kept as lang/&lt;l&gt;.yml.v&lt;n&gt;.bak and replaced.
+     */
     public static void saveDefaults(JavaPlugin plugin) {
         for (String l : BUNDLED) {
-            if (!new File(plugin.getDataFolder(), "lang/" + l + ".yml").exists()) {
+            File file = new File(plugin.getDataFolder(), "lang/" + l + ".yml");
+            if (!file.exists()) {
                 plugin.saveResource("lang/" + l + ".yml", false);
+                continue;
+            }
+            int version = YamlConfiguration.loadConfiguration(file).getInt("lang-version", 1);
+            if (version >= VERSION) {
+                continue;
+            }
+            File backup = new File(file.getParentFile(), l + ".yml.v" + version + ".bak");
+            if (backup.exists()) {
+                backup = new File(file.getParentFile(), l + ".yml.v" + version + "-" + System.currentTimeMillis() + ".bak");
+            }
+            if (file.renameTo(backup)) {
+                plugin.saveResource("lang/" + l + ".yml", true);
+                plugin.getLogger().warning("lang/" + l + ".yml eskiydi, yenisi yazıldı. Eski dosya: lang/" + backup.getName()
+                        + " (old language file replaced, your edits are in the backup)");
+            } else {
+                plugin.getLogger().warning("lang/" + l + ".yml güncellenemedi (could not replace the outdated language file)");
             }
         }
     }
@@ -79,6 +104,16 @@ public final class Lang {
                 messages.put(key, String.valueOf(v));
             }
         }
+    }
+
+    /** Language code, e.g. "tr". */
+    public String code() {
+        return code;
+    }
+
+    /** Code of the server language (the fallback for texts not written in this language). */
+    public String fallback() {
+        return fallback;
     }
 
     /** Raw MiniMessage string for a message key. */

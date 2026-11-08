@@ -1,5 +1,6 @@
 package com.upgradetree.tree;
 
+import com.upgradetree.config.Problems;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.Bukkit;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /** Turns the {@code effects:} entries of tree files (and prestige) into {@link NodeEffect}s. */
 public final class EffectParser {
@@ -37,7 +37,7 @@ public final class EffectParser {
     private EffectParser() {
     }
 
-    public static List<NodeEffect> parseAll(String context, List<Map<?, ?>> maps, Logger log) {
+    public static List<NodeEffect> parseAll(String context, List<Map<?, ?>> maps, Problems.Sink log) {
         List<NodeEffect> out = new ArrayList<>();
         for (Map<?, ?> map : maps) {
             NodeEffect e = parse(context, map, log);
@@ -48,7 +48,7 @@ public final class EffectParser {
         return out;
     }
 
-    public static NodeEffect parse(String context, Map<?, ?> map, Logger log) {
+    public static NodeEffect parse(String context, Map<?, ?> map, Problems.Sink log) {
         String type = str(map.get("type")).trim().toUpperCase(Locale.ROOT).replace('-', '_');
         double amount = num(map.get("amount"), 0);
         switch (type) {
@@ -57,7 +57,7 @@ public final class EffectParser {
                 String k = normalizeAttribute(raw);
                 Attribute attr = lookup(RegistryAccess.registryAccess().getRegistry(RegistryKey.ATTRIBUTE), k);
                 if (attr == null) {
-                    log.warning(context + ": bilinmeyen özellik (attribute) '" + raw + "'");
+                    log.warn(context + ": bilinmeyen özellik (attribute) '" + raw + "'", context + ": unknown attribute '" + raw + "'");
                     return null;
                 }
                 return new NodeEffect.AttributeBonus(attr, k, amount, operation(str(map.get("operation"))));
@@ -68,7 +68,7 @@ public final class EffectParser {
                 k = POTION_ALIASES.getOrDefault(k, k);
                 PotionEffectType t = lookup(RegistryAccess.registryAccess().getRegistry(RegistryKey.MOB_EFFECT), k);
                 if (t == null) {
-                    log.warning(context + ": bilinmeyen iksir efekti '" + raw + "'");
+                    log.warn(context + ": bilinmeyen iksir efekti '" + raw + "'", context + ": unknown potion effect '" + raw + "'");
                     return null;
                 }
                 return new NodeEffect.PotionBonus(t, (int) num(map.get("amplifier"), 0), (int) num(map.get("amplifier-per-level"), 1));
@@ -125,26 +125,29 @@ public final class EffectParser {
                 return ability(context, map, log);
             }
             default -> {
-                log.warning(context + ": bilinmeyen efekt tipi '" + type + "'");
+                log.warn(context + ": bilinmeyen efekt tipi '" + type + "'", context + ": unknown effect type '" + type + "'");
                 return null;
             }
         }
     }
 
-    private static NodeEffect ability(String context, Map<?, ?> map, Logger log) {
+    private static NodeEffect ability(String context, Map<?, ?> map, Problems.Sink log) {
         NodeEffect.AbilityType type;
         NodeEffect.Trigger trigger;
         try {
             type = NodeEffect.AbilityType.valueOf(str(map.get("ability")).trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            log.warning(context + ": bilinmeyen yetenek '" + str(map.get("ability")) + "' (DASH, LEAP, HEAL, SHIELD, SPEED, NOVA)");
+            String a = str(map.get("ability"));
+            log.warn(context + ": bilinmeyen yetenek '" + a + "' (DASH, LEAP, HEAL, SHIELD, SPEED, NOVA)",
+                    context + ": unknown ability '" + a + "' (DASH, LEAP, HEAL, SHIELD, SPEED, NOVA)");
             return null;
         }
         String trig = str(map.get("trigger")).trim().toUpperCase(Locale.ROOT).replace('-', '_');
         try {
             trigger = trig.isEmpty() ? NodeEffect.Trigger.SNEAK_SWAP : NodeEffect.Trigger.valueOf(trig);
         } catch (IllegalArgumentException e) {
-            log.warning(context + ": bilinmeyen tetik '" + trig + "' (SNEAK_SWAP, DOUBLE_SNEAK, SNEAK_JUMP)");
+            log.warn(context + ": bilinmeyen tetik '" + trig + "' (SNEAK_SWAP, DOUBLE_SNEAK, SNEAK_JUMP)",
+                    context + ": unknown trigger '" + trig + "' (SNEAK_SWAP, DOUBLE_SNEAK, SNEAK_JUMP)");
             trigger = NodeEffect.Trigger.SNEAK_SWAP;
         }
         return new NodeEffect.Ability(type, trigger, num(map.get("cooldown"), 20), num(map.get("cooldown-per-level"), 0),
@@ -152,7 +155,7 @@ public final class EffectParser {
     }
 
     /** Block list: material names and block tags such as "#logs" or "#minecraft:crops". */
-    public static Set<Material> blocks(String context, Object raw, Logger log) {
+    public static Set<Material> blocks(String context, Object raw, Problems.Sink log) {
         Set<Material> set = EnumSet.noneOf(Material.class);
         if (!(raw instanceof List<?> list)) {
             return set;
@@ -168,7 +171,7 @@ public final class EffectParser {
                     // unknown tag
                 }
                 if (tag == null) {
-                    log.warning(context + ": bilinmeyen blok etiketi '" + s + "'");
+                    log.warn(context + ": bilinmeyen blok etiketi '" + s + "'", context + ": unknown block tag '" + s + "'");
                 } else {
                     set.addAll(tag.getValues());
                 }
@@ -176,7 +179,7 @@ public final class EffectParser {
             }
             Material m = Material.matchMaterial(s);
             if (m == null || !m.isBlock()) {
-                log.warning(context + ": bilinmeyen blok '" + s + "'");
+                log.warn(context + ": bilinmeyen blok '" + s + "'", context + ": unknown block '" + s + "'");
             } else {
                 set.add(m);
             }

@@ -122,12 +122,12 @@ public final class AbilityManager implements Listener {
         }
         NodeEffect.Ability ability = chosen.effect();
         String id = chosen.node() == null ? "prestige" : chosen.node().id;
-        String name = plugin.lang().raw("ability-" + ability.type().name());
+        String name = plugin.lang(p).raw("ability-" + ability.type().name());
         long now = System.currentTimeMillis();
         Map<String, Long> cd = cooldowns.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
         Long ready = cd.get(id);
         if (ready != null && ready > now) {
-            p.sendActionBar(plugin.lang().plain("ability-cooldown", "ability", Text.escape(name),
+            p.sendActionBar(plugin.lang(p).plain("ability-cooldown", "ability", Text.escape(name),
                     "seconds", String.valueOf((int) Math.ceil((ready - now) / 1000.0))));
             return true;
         }
@@ -138,7 +138,7 @@ public final class AbilityManager implements Listener {
         }
         perform(p, ability.type(), ability.powerAt(chosen.level()));
         cd.put(id, now + (long) (ability.cooldownAt(chosen.level()) * 1000));
-        p.sendActionBar(plugin.lang().plain("ability-used", "ability", Text.escape(name)));
+        p.sendActionBar(plugin.lang(p).plain("ability-used", "ability", Text.escape(name)));
         return true;
     }
 

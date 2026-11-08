@@ -50,8 +50,8 @@ public final class PointsListener implements Listener {
         }
         PlayerData d = plugin.data().get(p);
         d.addPoints(amount);
-        p.sendActionBar(plugin.lang().plain("points-earned", "amount", Text.num(amount),
-                "currency", Text.escape(plugin.settings().currencyName), "reason", plugin.lang().raw("reason-" + reason)));
+        p.sendActionBar(plugin.lang(p).plain("points-earned", "amount", Text.num(amount),
+                "currency", Text.escape(plugin.currencyName(plugin.lang(p))), "reason", plugin.lang(p).raw("reason-" + reason)));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -141,8 +141,8 @@ public final class PointsListener implements Listener {
         d.lastDaily(today);
         d.addPoints(s.dailyPoints);
         plugin.data().save(d);
-        p.sendMessage(plugin.lang().msg("daily-claimed", "amount", Text.num(s.dailyPoints),
-                "currency", Text.escape(s.currencyName)));
+        p.sendMessage(plugin.lang(p).msg("daily-claimed", "amount", Text.num(s.dailyPoints),
+                "currency", Text.escape(plugin.currencyName(plugin.lang(p)))));
         return true;
     }
 

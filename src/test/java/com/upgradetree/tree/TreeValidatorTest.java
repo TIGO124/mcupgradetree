@@ -33,8 +33,8 @@ class TreeValidatorTest {
                 node("b", 2, 0, List.of("a")),
                 node("c", 3, 0, List.of("b"))));
         assertEquals(Set.of("a", "b", "c"), r.unreachable());
-        assertTrue(r.issues().stream().anyMatch(s -> s.contains("döngüsü") && s.contains("a") && s.contains("b")), r.issues().toString());
-        assertTrue(r.issues().stream().anyMatch(s -> s.contains("'c' hiç açılamaz")), r.issues().toString());
+        assertTrue(r.issues().stream().anyMatch(s -> s.base().contains("döngüsü") && s.base().contains("a") && s.get("en", "en").contains("cycle")), r.issues().toString());
+        assertTrue(r.issues().stream().anyMatch(s -> s.base().contains("'c' hiç açılamaz") && s.get("en", "en").contains("'c' can never be unlocked")), r.issues().toString());
     }
 
     @Test
@@ -61,7 +61,7 @@ class TreeValidatorTest {
                 node("root", 0, 0, List.of()),
                 new TreeValidator.Spec("x", "t", 1, 0, List.of("root"), List.of(), Set.of(), List.of("root"))));
         assertTrue(r.unreachable().contains("x"));
-        assertTrue(r.issues().stream().anyMatch(s -> s.contains("birlikte alınamıyor")), r.issues().toString());
+        assertTrue(r.issues().stream().anyMatch(s -> s.base().contains("birlikte alınamıyor")), r.issues().toString());
     }
 
     @Test
@@ -72,7 +72,7 @@ class TreeValidatorTest {
                 node("c", 1, 1, List.of()),
                 new TreeValidator.Spec("d", "other", 0, 0, List.of(), List.of(), Set.of(), List.of())));
         // (0,0)-(0,1) overlap (one row apart without the half shift); (0,1)-(1,1) are side neighbours
-        assertEquals(1, r.issues().stream().filter(s -> s.contains("üst üste")).count(), r.issues().toString());
-        assertFalse(r.issues().stream().anyMatch(s -> s.contains("'d'")), "other trees never overlap");
+        assertEquals(1, r.issues().stream().filter(s -> s.base().contains("üst üste")).count(), r.issues().toString());
+        assertFalse(r.issues().stream().anyMatch(s -> s.base().contains("'d'")), "other trees never overlap");
     }
 }

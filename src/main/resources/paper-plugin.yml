@@ -1,0 +1,32 @@
+name: UpgradeTree
+version: '${version}'
+main: com.upgradetree.UpgradeTreePlugin
+bootstrapper: com.upgradetree.UpgradeTreeBootstrap
+api-version: '26.2'
+author: TIGO124
+description: Roblox-style animated hexagon upgrade tree (a floating panel in front of the player instead of a chest menu).
+dependencies:
+  server:
+    Vault:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    floodgate:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Geyser-Spigot:
+      load: BEFORE
+      required: false
+      join-classpath: true
+permissions:
+  upgradetree.use:
+    description: Can use /tigo (upgrade tree, chests) and choose a personal language.
+    default: true
+  upgradetree.admin:
+    description: Admin commands of /tigo (reload, check, reset, set, points, prestige set, chests give, cleanup, npc, top place, debug, serverlanguage).
+    default: op

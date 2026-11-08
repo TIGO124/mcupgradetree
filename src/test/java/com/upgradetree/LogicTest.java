@@ -51,7 +51,11 @@ class LogicTest {
         d.prestige(2);
         d.lastDaily("2026-11-06");
         d.menuMode("CHEST");
+        d.language("en");
+        d.addChests("elmas", 2);
         PlayerData.Snapshot back = DataCodec.decode(id, "?", DataCodec.encode(d.snapshot()));
+        assertEquals(Map.of("elmas", 2), back.chests());
+        assertEquals(2, PlayerData.of(back).chests("elmas"));
         assertEquals("Tigo", back.name());
         assertEquals(Map.of("keskinlik", 3), back.levels());
         assertEquals(9.0, back.spent().get("keskinlik"));
@@ -59,7 +63,34 @@ class LogicTest {
         assertEquals(2, back.prestige());
         assertEquals("2026-11-06", back.lastDaily());
         assertEquals("CHEST", back.menuMode());
+        assertEquals("en", back.language());
         assertEquals(3, back.totalLevels());
+    }
+
+    @Test
+    void oldDataWithoutLanguageFollowsTheServer() throws Exception {
+        UUID id = UUID.randomUUID();
+        PlayerData.Snapshot back = DataCodec.decode(id, "x", "name: x\npoints: 1\n");
+        assertEquals("", back.language());
+        assertEquals("", PlayerData.of(back).language());
+    }
+
+    @Test
+    void unopenedChestsAreCountedAndNeverNegative() {
+        PlayerData d = new PlayerData(UUID.randomUUID(), "x");
+        assertTrue(d.chests().isEmpty());
+        d.addChests("demir", 2);
+        d.addChests("netherit", 1);
+        assertEquals(3, d.totalChests());
+        assertTrue(d.takeChest("demir"));
+        assertTrue(d.takeChest("demir"));
+        assertEquals(false, d.takeChest("demir"));
+        assertEquals(Map.of("netherit", 1), d.chests());
+        d.addChests("netherit", -5);
+        assertEquals(0, d.totalChests());
+        // old data files have no chests section
+        assertEquals(Map.of(), PlayerData.of(new PlayerData.Snapshot(UUID.randomUUID(), "y", Map.of(), Map.of(), 0, 0, 0,
+                "", "", "", null)).chests());
     }
 
     @Test

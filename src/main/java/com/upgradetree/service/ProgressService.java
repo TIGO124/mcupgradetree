@@ -149,7 +149,12 @@ public final class ProgressService {
                 plugin.getLogger().warning("Prestij komutu çalıştırılamadı '" + c + "': " + ex.getMessage());
             }
         }
-        Bukkit.broadcast(plugin.lang().msg("prestige-broadcast", "player", Text.escape(p.getName()),
+        // every reader gets the broadcast in their own language
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.sendMessage(plugin.lang(online).msg("prestige-broadcast", "player", Text.escape(p.getName()),
+                    "level", String.valueOf(next)));
+        }
+        Bukkit.getConsoleSender().sendMessage(plugin.lang().msg("prestige-broadcast", "player", Text.escape(p.getName()),
                 "level", String.valueOf(next)));
         p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.0f);
         plugin.leaderboard().touch(d);

@@ -36,32 +36,38 @@ public final class AccessListener implements Listener {
                 && stack.getItemMeta().getPersistentDataContainer().has(itemKey, PersistentDataType.BYTE);
     }
 
-    public ItemStack createItem() {
+    /** The menu item, named in the player's language. */
+    public ItemStack createItem(Player p) {
         Settings s = plugin.settings();
         ItemStack it = new ItemStack(s.accessItemMaterial);
         it.editMeta(m -> {
-            m.itemName(Text.mm(s.accessItemName));
+            m.itemName(Text.mm(s.accessItemName(plugin.lang(p))));
             m.getPersistentDataContainer().set(itemKey, PersistentDataType.BYTE, (byte) 1);
         });
         return it;
     }
 
-    /** Gives the menu item if the player does not have one yet. */
+    /** Gives the menu item if the player does not have one yet; renames an existing one to the player's language. */
     public void giveItem(Player p) {
         Settings s = plugin.settings();
         if (!s.accessItem || !p.hasPermission("upgradetree.use")) {
             return;
         }
+        boolean has = false;
         for (ItemStack it : p.getInventory().getContents()) {
             if (isMenuItem(it)) {
-                return;
+                has = true;
+                it.editMeta(m -> m.itemName(Text.mm(s.accessItemName(plugin.lang(p)))));
             }
+        }
+        if (has) {
+            return;
         }
         ItemStack inSlot = p.getInventory().getItem(s.accessItemSlot);
         if (inSlot == null || inSlot.getType().isAir()) {
-            p.getInventory().setItem(s.accessItemSlot, createItem());
+            p.getInventory().setItem(s.accessItemSlot, createItem(p));
         } else {
-            p.getInventory().addItem(createItem());
+            p.getInventory().addItem(createItem(p));
         }
     }
 

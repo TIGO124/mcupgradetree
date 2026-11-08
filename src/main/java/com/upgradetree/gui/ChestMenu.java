@@ -30,7 +30,7 @@ import java.util.Map;
 
 /**
  * Classic 6-row chest menu. Used for Bedrock players (display entities do not render there)
- * and for anyone who picks it with /yukselt menu sandik. Same rules and progressive reveal.
+ * and for anyone who picks it with /tigo menu chest. Same rules and progressive reveal.
  */
 public final class ChestMenu implements InventoryHolder {
 
@@ -79,11 +79,11 @@ public final class ChestMenu implements InventoryHolder {
     }
 
     private Lang lang() {
-        return plugin.lang();
+        return plugin.lang(player);
     }
 
     private Component title() {
-        return lang().plain("gui-title", "tree", tree.tabRaw);
+        return lang().plain("gui-title", "tree", tree.tabRaw(lang()));
     }
 
     private List<UpgradeNode> visibleNodes() {
@@ -129,15 +129,23 @@ public final class ChestMenu implements InventoryHolder {
             inventory.setItem(RESPEC, named(new ItemStack(Material.GRINDSTONE),
                     lang().plain(confirm ? "button-respec-confirm" : "button-respec"),
                     List.of(lang().plain("respec-confirm", "refund",
-                            Text.escape(plugin.currency().format(plugin.progress().refund(plugin.data().get(player))))))));
+                            Text.escape(plugin.money(lang(), plugin.progress().refund(plugin.data().get(player))))))));
         }
-        for (int i = 0; i < TABS.length && i < trees.size() && trees.size() > 1; i++) {
-            UpgradeTree t = trees.get(i);
-            ItemStack tab = named(Icons.of(t.tabIcon), t.tabName, List.of(lang().plain("gui-tab-hint")));
-            if (t == tree) {
-                tab.editMeta(m -> m.setEnchantmentGlintOverride(true));
+        boolean chests = plugin.chestTypes().active();
+        if (trees.size() + (chests ? 1 : 0) > 1) {
+            int treeTabs = treeTabs();
+            for (int i = 0; i < treeTabs; i++) {
+                UpgradeTree t = trees.get(i);
+                ItemStack tab = named(Icons.of(t.tabIcon), t.tabName(lang()), List.of(lang().plain("gui-tab-hint")));
+                if (t == tree) {
+                    tab.editMeta(m -> m.setEnchantmentGlintOverride(true));
+                }
+                inventory.setItem(TABS[i], tab);
             }
-            inventory.setItem(TABS[i], tab);
+            if (chests) {
+                inventory.setItem(TABS[treeTabs], named(new ItemStack(Material.CHEST), lang().plain("chests-tab"),
+                        List.of(lang().plain("gui-tab-hint"))));
+            }
         }
         if (plugin.progress().prestigeReady(plugin.data().get(player), player)) {
             boolean confirm = System.currentTimeMillis() < prestigeUntil;
@@ -154,7 +162,7 @@ public final class ChestMenu implements InventoryHolder {
         List<Component> lore = new ArrayList<>();
         lore.add(lang().plain("menu-currency", "symbol", Text.escape(plugin.settings().currencySymbol),
                 "amount", Text.escape(c.available() ? c.formatShort(c.balance(player)) : "-"),
-                "currency", Text.escape(plugin.settings().currencyName)));
+                "currency", Text.escape(plugin.currencyName(lang()))));
         lore.add(lang().plain("menu-progress", "done", String.valueOf(plugin.service().maxed(d, tree)),
                 "total", String.valueOf(tree.nodes().size())));
         if (d.prestige() > 0) {
@@ -170,12 +178,13 @@ public final class ChestMenu implements InventoryHolder {
         int lvl = Math.min(d.level(n.id), n.maxLevel);
         List<Component> lore = new ArrayList<>();
         lore.add(lang().plain("info-level", "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
-        for (String line : n.description) {
+        for (String line : n.description(lang())) {
             lore.add(Text.mm(line));
         }
-        if (st != State.LOCKED && st != State.BLOCKED && !n.bonus.isBlank()) {
-            String next = lvl < n.maxLevel ? " <dark_gray>→</dark_gray> " + Text.apply(n.bonus, "value", Text.num(n.bonusValue(lvl + 1))) : "";
-            lore.add(Text.mm("<aqua>" + Text.apply(n.bonus, "value", Text.num(n.bonusValue(lvl))) + next));
+        String bonus = n.bonus(lang());
+        if (st != State.LOCKED && st != State.BLOCKED && !bonus.isBlank()) {
+            String next = lvl < n.maxLevel ? " <dark_gray>→</dark_gray> " + Text.apply(bonus, "value", Text.num(n.bonusValue(lvl + 1))) : "";
+            lore.add(Text.mm("<aqua>" + Text.apply(bonus, "value", Text.num(n.bonusValue(lvl))) + next));
         }
         switch (st) {
             case MAXED -> lore.add(lang().plain("info-completed"));
@@ -184,7 +193,7 @@ public final class ChestMenu implements InventoryHolder {
             case BLOCKED -> {
                 List<String> names = new ArrayList<>();
                 for (UpgradeNode b : svc.blockers(d, n)) {
-                    names.add(b.nameRaw);
+                    names.add(b.name(lang()));
                 }
                 lore.add(lang().plain("info-blocked", "nodes", String.join("<gray>, </gray>", names)));
             }
@@ -193,13 +202,13 @@ public final class ChestMenu implements InventoryHolder {
                 Currency c = plugin.currency();
                 boolean afford = cost <= 0 || (c.available() && c.balance(player) + 1e-9 >= cost);
                 lore.add(cost <= 0 ? lang().plain("info-free")
-                        : lang().plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(c.format(cost))));
+                        : lang().plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(plugin.money(lang(), cost))));
                 lore.add(Component.empty());
                 lore.add(n.id.equals(confirmNode) && System.currentTimeMillis() < confirmUntil
                         ? lang().plain("button-confirm") : lang().plain("gui-buy-hint"));
             }
         }
-        ItemStack it = named(Icons.of(n), Text.mm("<b>" + n.nameRaw), lore);
+        ItemStack it = named(Icons.of(n), Text.mm("<b>" + n.name(lang())), lore);
         it.setAmount(Math.max(1, Math.min(64, lvl)));
         if (st == State.OWNED || st == State.MAXED) {
             it.editMeta(m -> m.setEnchantmentGlintOverride(true));
@@ -237,7 +246,12 @@ public final class ChestMenu implements InventoryHolder {
             case RESPEC -> respec(now);
             case PRESTIGE -> prestige(now);
             default -> {
-                for (int i = 0; i < TABS.length && i < trees.size(); i++) {
+                int treeTabs = treeTabs();
+                if (plugin.chestTypes().active() && treeTabs < TABS.length && TABS[treeTabs] == slot) {
+                    ChestShopMenu.open(plugin, player);
+                    return;
+                }
+                for (int i = 0; i < treeTabs; i++) {
                     if (TABS[i] == slot && trees.get(i) != tree) {
                         tree = trees.get(i);
                         page = 0;
@@ -249,6 +263,15 @@ public final class ChestMenu implements InventoryHolder {
             }
         }
         render();
+    }
+
+    /** Tab slots used by trees; with chests on, the slot after them is the Chests tab. */
+    private int treeTabs() {
+        boolean chests = plugin.chestTypes().active();
+        if (trees.size() + (chests ? 1 : 0) <= 1) {
+            return 0;
+        }
+        return Math.min(trees.size(), chests ? TABS.length - 1 : TABS.length);
     }
 
     private void buy(UpgradeNode n, long now) {
@@ -269,7 +292,7 @@ public final class ChestMenu implements InventoryHolder {
             int lvl = plugin.data().get(player).level(n.id);
             sound("minecraft:entity.player.levelup", lvl >= n.maxLevel ? 2.0f : 1.5f);
             player.sendActionBar(lang().plain(lvl >= n.maxLevel ? "purchase-max" : "purchase-success",
-                    "node", n.nameRaw, "level", String.valueOf(lvl)));
+                    "node", n.name(lang()), "level", String.valueOf(lvl)));
             plugin.leaderboard().touch(plugin.data().get(player));
         } else {
             sound("minecraft:block.note_block.bass", 0.7f);
@@ -277,7 +300,7 @@ public final class ChestMenu implements InventoryHolder {
             Currency c = plugin.currency();
             List<String> blockers = new ArrayList<>();
             for (UpgradeNode b : svc.blockers(d, n)) {
-                blockers.add(b.nameRaw);
+                blockers.add(b.name(lang()));
             }
             player.sendActionBar(switch (r) {
                 case MAXED -> lang().plain("purchase-maxed");
@@ -285,9 +308,9 @@ public final class ChestMenu implements InventoryHolder {
                 case BLOCKED -> lang().plain("purchase-blocked", "nodes", String.join("<gray>, </gray>", blockers));
                 case UNAVAILABLE -> lang().plain("currency-unavailable");
                 case CANCELLED -> lang().plain("purchase-cancelled");
-                default -> lang().plain("purchase-not-enough", "currency", Text.escape(plugin.settings().currencyName),
-                        "cost", Text.escape(c.format(cost)),
-                        "balance", Text.escape(c.format(c.available() ? c.balance(player) : 0)));
+                default -> lang().plain("purchase-not-enough", "currency", Text.escape(plugin.currencyName(lang())),
+                        "cost", Text.escape(plugin.money(lang(), cost)),
+                        "balance", Text.escape(plugin.money(lang(), c.available() ? c.balance(player) : 0)));
             });
         }
         render();
@@ -304,7 +327,7 @@ public final class ChestMenu implements InventoryHolder {
         double refund = ps.refund(plugin.data().get(player));
         ProgressService.RespecResult r = ps.respec(player);
         player.sendActionBar(switch (r) {
-            case DONE -> lang().plain("respec-done", "refund", Text.escape(plugin.currency().format(refund)));
+            case DONE -> lang().plain("respec-done", "refund", Text.escape(plugin.money(lang(), refund)));
             case COOLDOWN -> lang().plain("respec-cooldown", "time", Text.duration(ps.respecCooldownLeft(plugin.data().get(player))));
             case NOTHING -> lang().plain("respec-nothing");
             case DISABLED -> lang().plain("respec-disabled");

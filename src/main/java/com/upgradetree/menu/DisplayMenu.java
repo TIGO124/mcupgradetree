@@ -43,9 +43,13 @@ public final class DisplayMenu {
     private final MenuActions actions = new MenuActions(this);
     final Aim aim = new Aim(this);
     private final AdminTarget subject;
+    /** The Chests tab (shown instead of a tree while active). */
+    final ChestSection chests;
+    private final boolean startOnChests;
 
     private Group chrome;
     private Part progress;
+    private Part footer;
     private UpgradeTree current;
     NodeLayer layer;
     private UpgradeNode selected;
@@ -66,7 +70,7 @@ public final class DisplayMenu {
     }
 
     DisplayMenu(UpgradeTreePlugin plugin, MenuManager manager, Player player, List<UpgradeTree> trees, UpgradeTree start,
-                AdminTarget subject) {
+                AdminTarget subject, boolean startOnChests) {
         this.plugin = plugin;
         this.manager = manager;
         this.player = player;
@@ -75,6 +79,8 @@ public final class DisplayMenu {
         this.trees = trees;
         this.current = start;
         this.subject = subject;
+        this.chests = new ChestSection(this, subject == null && plugin.chestTypes().active());
+        this.startOnChests = chests.enabled() && (startOnChests || start == null);
         this.painter = new Painter(plugin, player, new Frame(player, settings.menuDistance, settings.menuScale, EXTENT));
         this.timeline = new Timeline(plugin.getLogger());
     }
@@ -101,8 +107,9 @@ public final class DisplayMenu {
         return settings;
     }
 
+    /** The viewer's language (the menu is closed when it changes, so it never mixes two). */
     Lang lang() {
-        return plugin.lang();
+        return plugin.lang(player);
     }
 
     /** Data shown and changed by the menu: the viewer's, or the edited player's in the admin mode. */
@@ -179,17 +186,25 @@ public final class DisplayMenu {
         if (settings.stars) {
             Stars.spawn(painter, chrome, player.getUniqueId().hashCode());
         }
-        header.build(trees, current, startScale);
+        header.build(trees, current, startScale, chests.enabled());
         info.build(startScale);
+        if (chests.enabled()) {
+            info.buildChestButtons();
+        }
         progress = painter.text(chrome, Part.text(CANVAS_CX, PROGRESS_Y, 0.032, 1, false, Z_TEXT), Component.empty(), 2000);
-        painter.text(chrome, Part.text(CARD_CX, FOOTER_Y, 0.021, 1, false, Z_TEXT),
-                lang().plain(subject != null ? "menu-footer-admin" : settings.clickToBuy ? "menu-footer" : "menu-footer-select"), 4000);
-        if (current != null) {
+        if (startOnChests) {
+            chests.open();
+        } else if (current != null) {
             layer = new NodeLayer(this, current);
             layer.build(animate);
         }
+        footer = painter.text(chrome, Part.text(CARD_CX, FOOTER_Y, 0.021, 1, false, Z_TEXT), footerText(), 4000);
         updateStatus();
-        info.show(null, false);
+        if (chests.active()) {
+            refreshInfo();
+        } else {
+            info.show(null, false);
+        }
         if (animate) {
             later(2, () -> {
                 chrome.scale = 1.0;
@@ -219,7 +234,15 @@ public final class DisplayMenu {
         if (layer != null) {
             layer.shrink(3);
         }
+        chests.shrink(3);
         later(4, this::removeAll);
+    }
+
+    private Component footerText() {
+        if (chests.active()) {
+            return lang().plain("menu-footer-chests");
+        }
+        return lang().plain(subject != null ? "menu-footer-admin" : settings.clickToBuy ? "menu-footer" : "menu-footer-select");
     }
 
     private void release() {
@@ -293,6 +316,7 @@ public final class DisplayMenu {
             confirmNode = null;
             refreshInfo();
         }
+        chests.tick();
         if (tick % 10 == 0) {
             updateStatus();
             refreshInfo();
@@ -310,6 +334,10 @@ public final class DisplayMenu {
 
     void updateStatus() {
         header.update(subject == null && plugin.progress().prestigeReady(data(), player));
+        if (chests.active()) {
+            chests.updateStatus(progress);
+            return;
+        }
         if (current != null) {
             int doneCount = plugin.service().maxed(data(), current);
             int total = current.nodes().size();
@@ -319,6 +347,10 @@ public final class DisplayMenu {
     }
 
     void refreshInfo() {
+        if (chests.active()) {
+            chests.refreshInfo(hovered);
+            return;
+        }
         UpgradeNode show = null;
         if (hovered != null && hovered.startsWith("node:")) {
             show = plugin.trees().node(hovered.substring(5));
@@ -331,27 +363,7 @@ public final class DisplayMenu {
     // ------------------------------------------------------------------ hover & click
 
     String hitTest() {
-        double[] uv = frame().project(player.getEyeLocation());
-        if (uv == null) {
-            return null;
-        }
-        String h = header.hit(uv[0], uv[1]);
-        if (h != null) {
-            return h;
-        }
-        if (info.hitBuy(uv[0], uv[1])) {
-            return "buy";
-        }
-        if (info.hitMinus(uv[0], uv[1])) {
-            return "minus";
-        }
-        if (layer != null) {
-            String id = layer.hit(uv[0], uv[1]);
-            if (id != null) {
-                return "node:" + id;
-            }
-        }
-        return null;
+        return MenuTargets.at(this);
     }
 
     private void updateHover() {
@@ -372,15 +384,7 @@ public final class DisplayMenu {
     }
 
     private void setHover(String id, boolean on) {
-        if (id.equals("buy") || id.equals("minus")) {
-            info.setBuyHover(id, on);
-        } else if (id.startsWith("node:")) {
-            if (layer != null) {
-                layer.setHover(id.substring(5), on);
-            }
-        } else {
-            header.hover(id, on);
-        }
+        MenuTargets.hover(this, id, on);
     }
 
     /** Called for every click on the panel; {@code right} = right click (lowers a level in the admin mode). */
@@ -390,7 +394,7 @@ public final class DisplayMenu {
         }
         lastClick = tick;
         String target = hitTest();
-        if (target == null) {
+        if (target == null || chests.click(target, hovered)) {
             return;
         }
         switch (target) {
@@ -407,7 +411,7 @@ public final class DisplayMenu {
             case "prestige" -> actions.prestige();
             default -> {
                 if (target.startsWith("tab:")) {
-                    switchTab(target.substring(4));
+                    showTab(target.substring(4), false);
                 } else if (target.startsWith("node:")) {
                     UpgradeNode n = plugin.trees().node(target.substring(5));
                     if (n == null) {
@@ -429,9 +433,15 @@ public final class DisplayMenu {
         ignoreClicksUntil = tick + ticks;
     }
 
-    private void switchTab(String id) {
-        UpgradeTree t = plugin.trees().tree(id);
-        if (t == null || t == current) {
+    /**
+     * Shows a tree tab or the Chests section ({@link ChestLayer#TAB}, also for /tigo chests while the
+     * menu is open). {@code rebuild} redraws the current tab (after a respec or prestige).
+     */
+    void showTab(String id, boolean rebuild) {
+        boolean toChests = ChestLayer.TAB.equals(id);
+        UpgradeTree t = toChests ? null : plugin.trees().tree(id);
+        boolean same = toChests ? chests.active() : t == current && !chests.active();
+        if (closing || (toChests ? !chests.enabled() : t == null) || (same && !rebuild)) {
             return;
         }
         if (hovered != null) {
@@ -440,33 +450,34 @@ public final class DisplayMenu {
         }
         if (layer != null) {
             layer.remove();
+            layer = null;
         }
-        current = t;
+        chests.leave();
         selected = null;
         confirmNode = null;
-        layer = new NodeLayer(this, t);
-        layer.build(animate);
-        header.setActive(t.id);
+        if (toChests) {
+            chests.open();
+        } else {
+            current = t;
+            layer = new NodeLayer(this, t);
+            layer.build(animate);
+            header.setActive(t.id);
+        }
+        Painter.setText(footer, footerText());
         updateStatus();
         refreshInfo();
-        sound("minecraft:item.book.page_turn", 0.8f, 1.2f);
+        if (!rebuild) {
+            sound(toChests ? "minecraft:block.chest.open" : "minecraft:item.book.page_turn", 0.7f, toChests ? 1.4f : 1.2f);
+        }
     }
 
     void rebuildLayer() {
-        if (hovered != null) {
-            setHover(hovered, false);
-            hovered = null;
+        if (chests.active()) {
+            updateStatus();
+            refreshInfo();
+        } else if (current != null) {
+            showTab(current.id, true);
         }
-        selected = null;
-        if (layer != null) {
-            layer.remove();
-        }
-        if (current != null) {
-            layer = new NodeLayer(this, current);
-            layer.build(animate);
-        }
-        updateStatus();
-        refreshInfo();
     }
 
     void sound(String key, float volume, float pitch) {

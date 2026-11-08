@@ -1,5 +1,7 @@
 package com.upgradetree.tree;
 
+import com.upgradetree.config.Localized;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -18,10 +20,10 @@ public final class TreeRegistry {
     private final Map<String, UpgradeNode> nodes = new LinkedHashMap<>();
     private final Map<String, UpgradeNode> lower = new HashMap<>();
     private final Map<String, List<UpgradeNode>> children = new HashMap<>();
-    private final List<String> issues;
+    private final List<Localized<String>> issues;
     private final Set<String> unreachable;
 
-    public TreeRegistry(List<UpgradeTree> trees, List<String> issues, Set<String> unreachable) {
+    public TreeRegistry(List<UpgradeTree> trees, List<Localized<String>> issues, Set<String> unreachable) {
         List<UpgradeTree> sorted = new ArrayList<>(trees);
         sorted.sort((a, b) -> Integer.compare(a.order, b.order));
         this.trees = Collections.unmodifiableList(sorted);
@@ -94,7 +96,8 @@ public final class TreeRegistry {
         return t;
     }
 
-    public List<String> issues() {
+    /** Problems found while loading, in Turkish and English (see {@link com.upgradetree.config.Problems}). */
+    public List<Localized<String>> issues() {
         return issues;
     }
 

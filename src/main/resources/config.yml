@@ -1,10 +1,13 @@
 # ============================================================
 #  UpgradeTree - Roblox tarzı altıgen yükseltme ağacı
 #  Ağaçlar (düğümler, bedeller, efektler) trees/ klasöründe; her dosya menüde bir sekme.
-#  Mesajlar lang/ klasöründe. Değişikliklerden sonra: /yukselt yenile
+#  Mesajlar lang/ klasöründe. Değişikliklerden sonra: /tigo reload
 # ============================================================
 
-# Mesaj dili: tr veya en (lang/<dil>.yml)
+# Sunucunun mesaj dili: tr veya en (lang/<dil>.yml). Oyunda: /tigo serverlanguage <dil>
+# Her oyuncu kendi dilini /tigo language <dil> ile seçebilir.
+# Ağaç ve sandık metinleri (trees/*.yml, chests.yml) de dile göre yazılır: name: { tr: "...", en: "..." }
+# Oyuncunun dilinde yazılmamış metin önce sunucu dilinde, o da yoksa ilk yazılan dilde görünür.
 language: tr
 
 currency:
@@ -12,16 +15,17 @@ currency:
   # VAULT     -> Para ile ödeme (Vault + EssentialsX/CMI gibi bir ekonomi eklentisi gerekir)
   # POINTS    -> Eklentinin kendi yükseltme puanı (aşağıdaki "points" ile kazanılır)
   type: XP_LEVELS
-  # Panelde ve mesajlarda görünen para birimi adı
-  name: "Seviye"
+  # Panelde ve mesajlarda görünen para birimi adı. Boş bırakılırsa her oyuncu kendi dilindeki adı görür
+  # (Seviye / Levels, Puan / Points, Para / Money). Sabit ad: "Elmas"   Dile göre: { tr: "Elmas", en: "Diamonds" }
+  name: ""
   # Panelin sağ üstündeki simge
   symbol: "✦"
 
 points:
   # Puanlar sadece currency.type POINTS iken kazanılır
   starting-points: 0
-  per-mob-kill: 1
-  per-player-kill: 5
+  per-mob-kill: 0.3
+  per-player-kill: 3
   # Mob tipine özel puan (listede olmayanlar per-mob-kill alır, 0 = puan yok)
   mob-points:
     WITHER: 50
@@ -50,7 +54,7 @@ points:
              "#lapis_ores", "#diamond_ores", "#emerald_ores", NETHER_GOLD_ORE, NETHER_QUARTZ_ORE]
   # Her yeni başarım (advancement) için
   advancement: 2
-  # Günde bir kez, o günün ilk girişinde (/yukselt gunluk)
+  # Günde bir kez, o günün ilk girişinde (/tigo daily)
   daily: 3
 
 prestige:
@@ -65,24 +69,24 @@ prestige:
   # Prestij seviyesi başına kalıcı bonuslar (yazımı ağaç dosyalarındaki efektlerle aynı)
   effects:
     - type: XP_BOOST
-      amount: 0.05
+      amount: 0.03
     - type: ATTRIBUTE
       attribute: max_health
-      amount: 1
+      amount: 0.5
   # Prestij olunca konsoldan çalışır ({player} {uuid} {prestige})
   commands: []
 
 respec:
   # Oyuncular yükseltmelerini sıfırlayıp harcadıklarının bir kısmını geri alabilir
   enabled: true
-  refund-percent: 80
-  # İki sıfırlama arası bekleme (saniye)
-  cooldown: 3600
+  refund-percent: 75
+  # İki sıfırlama arası bekleme (saniye). Uzun tutmak savaştan hemen önce yetenek değiştirmeyi önler.
+  cooldown: 21600
 
 menu:
   # AUTO    -> Bedrock (Geyser/Floodgate) oyunculara sandık menüsü, diğerlerine 3B panel
   # DISPLAY -> herkese 3B panel      CHEST -> herkese sandık menüsü
-  # Oyuncu kendi tercihini /yukselt menu panel|sandik ile seçebilir.
+  # Oyuncu kendi tercihini /tigo menu panel|chest ile seçebilir.
   mode: AUTO
   # Panelin açılırken oyuncuya uzaklığı (blok). Önünde duvar varsa panel kendiliğinden yaklaşır.
   distance: 1.6
@@ -132,10 +136,15 @@ access:
     enabled: false
     material: NETHER_STAR
     slot: 8
-    name: "<gradient:#7DD3FC:#C084FC><b>Yükseltme Ağacı</b></gradient> <gray>(Sağ Tık)"
+    # Boş: oyuncunun dilindeki ad (lang dosyası access-item-name). Dile göre de yazılabilir: { tr: "...", en: "..." }
+    name: ""
   # Bu etikete sahip varlığa (NPC, köylü, zırh askı...) sağ tıklayınca menü açılır.
-  # Baktığın varlığa etiket koymak için: /yukselt npc
+  # Baktığın varlığa etiket koymak için: /tigo npc
   entity-tag: upgradetree_npc
+  # Oyuncunun Seçenekler > Kontroller > Quick Actions tuşu küçük bir pencere açar, "Ağacı Aç" butonu ağacı açar.
+  # Pencere herkese aynı gönderildiği için tüm dillerin yazısını gösterir (sunucu dili önce).
+  # Değişiklik yeniden başlatınca geçerli olur.
+  quick-action: true
 
 notify:
   # Yeni bir yükseltme alınabilir olunca aksiyon çubuğunda haber ver
@@ -149,7 +158,7 @@ restrictions:
 
 leaderboard:
   size: 10
-  # Hologram konumu oyunda /yukselt top koy ile ayarlanır
+  # Hologram konumu oyunda /tigo top place ile ayarlanır
   hologram: ""
 
 storage:
@@ -176,8 +185,8 @@ effects:
   # Ağaç kesmede bir seferde en fazla kütük
   tree-feller-max: 96
 
-# Eklentiyi kaldırmadan önce true yapıp /yukselt yenile: oyuncular girdikçe eklentinin verdiği
-# tüm bonuslar silinir (çevrimiçiler için /yukselt temizle herkes).
+# Eklentiyi kaldırmadan önce true yapıp /tigo reload: oyuncular girdikçe eklentinin verdiği
+# tüm bonuslar silinir (çevrimiçiler için /tigo cleanup all).
 cleanup-mode: false
 
 # Not: Eski config.yml'deki "messages:" bölümü hâlâ çalışır ve lang dosyasını ezer.

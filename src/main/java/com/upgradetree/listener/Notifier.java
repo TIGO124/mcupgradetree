@@ -49,7 +49,7 @@ public final class Notifier implements Listener {
                 continue;
             }
             lastSent.put(p.getUniqueId(), now);
-            p.sendActionBar(plugin.lang().plain("notify-available"));
+            p.sendActionBar(plugin.lang(p).plain("notify-available"));
             p.playSound(p.getLocation(), "minecraft:block.note_block.chime", SoundCategory.MASTER, 0.6f, 1.8f);
         }
     }

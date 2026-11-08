@@ -1,0 +1,702 @@
+# ============================================================
+#  Ana ağaç (menüde bir sekme). Her .yml dosyası trees/ içinde ayrı bir sekmedir.
+#  Değişikliklerden sonra: /upgrade reload   •   Hata kontrolü: /upgrade check
+# ============================================================
+#
+# KONUM (altıgen ızgara):
+#   x, y : Yan komşu x±1 (aynı y). Çapraz komşu x±0.5 ve y±1.
+#          Ardışık satırlar yarım kayar: y çift ise x tam sayı, y tek ise x buçuklu (0.5, 1.5 ...).
+#          Panel ağacı otomatik ölçekler.
+#
+# DÜĞÜM AYARLARI:
+#   name, icon, color (#RRGGBB), description, max-level
+#   icon-model     : Kaynak paketi modeli (ör. "sunucum:kilic")    icon-texture: kafa dokusu (base64)
+#   cost, cost-increase, cost-multiplier, costs: [2, 3, 5]   (bedel = cost * çarpan^seviye + artış * seviye)
+#   requires       : Hepsinden en az 1 seviye gerekir
+#   requires-any   : Bunlardan biri yeter
+#   requires-level : { keskinlik: 3 }  belirli seviye gerekir
+#   exclusive-with : Bunlardan biri alındıysa bu alınamaz (sınıf seçimi)
+#   permission     : Yetki gerekir          min-prestige: Prestij seviyesi gerekir
+#   always-visible : true ise kademeli açılmada baştan görünür
+#   bonus          : "şu an → sonraki" satırı ({value})   bonus-multiplier / bonus-per-level
+#
+# KADEMELİ AÇILMA: Bir düğüm, gösterdiği (requires/requires-any/requires-level) düğümlerden
+#   biri alınınca görünür. Kök düğümler (gereksinimsiz) her zaman görünür.
+#
+# EFEKTLER (miktarlar SEVİYE BAŞINA):
+#   ATTRIBUTE   attribute: max_health | attack_damage | attack_speed | armor | armor_toughness | luck
+#               movement_speed | knockback_resistance | block_break_speed | mining_efficiency
+#               submerged_mining_speed | jump_strength | safe_fall_distance | fall_damage_multiplier
+#               step_height | scale | block_interaction_range | entity_interaction_range
+#               sweeping_damage_ratio | oxygen_bonus | water_movement_efficiency | burning_time ...
+#               amount, operation: ADD_NUMBER (düz) | ADD_SCALAR (yüzde, 0.1 = %10)
+#   POTION      effect: speed | haste | strength | resistance | night_vision | regeneration ...
+#               amplifier (0 = I), amplifier-per-level
+#   XP_BOOST    amount: 0.1 = +%10 XP           DOUBLE_DROP  amount: şans, blocks: [..] veya "#logs"
+#   CRIT        amount: şans, multiplier: 1.5   LIFESTEAL    amount: verilen hasarın oranı
+#   DODGE       amount: saldırıdan kaçma şansı  AUTO_SMELT   amount: cevheri eritme şansı
+#   VEIN_MINER  amount: blok sayısı (eğilerek)  TREE_FELLER  amount: kütük sayısı (eğilerek)
+#   MOB_DROPS   amount: mob ganimeti x2 şansı   KEEP_XP      amount: ölünce kalan XP oranı
+#   KEEP_INVENTORY amount: eşyaları koruma şansı  HUNGER_SAVE amount: açlık harcamama şansı
+#   ABILITY     ability: DASH | LEAP | HEAL | SHIELD | SPEED | NOVA
+#               trigger: SNEAK_SWAP (Shift+F) | DOUBLE_SNEAK (çift Shift) | SNEAK_JUMP (Shift+Zıpla)
+#               cooldown, cooldown-per-level, power, power-per-level   (her tetik için bir yetenek)
+#   COMMAND     commands: ["give {player} diamond 1"]  ({player} {uuid} {level} {node})
+
+title: "<gradient:#7DD3FC:#C084FC><b>YÜKSELTME AĞACI</b></gradient>"
+tab:
+  name: "<white>Ana Ağaç"
+  icon: NETHER_STAR
+  order: 1
+
+nodes:
+
+  baslangic:
+    name: "<gradient:#67E8F9:#22D3EE>Başlangıç</gradient>"
+    icon: NETHER_STAR
+    x: 0
+    y: 0
+    max-level: 1
+    cost: 1
+    color: "#06B6D4"
+    description:
+      - "<gray>Ağacın kalbi."
+      - "<gray>Altı dalın kilidini açar."
+    bonus: "+{value} ❤"
+    bonus-multiplier: 0.5
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 2
+
+  # --------------------------------------------------------------- SAVAŞ (doğu)
+  keskinlik:
+    name: "<#FCA5A5>Keskin Kılıç"
+    icon: IRON_SWORD
+    x: 1
+    y: 0
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [baslangic]
+    color: "#EF4444"
+    description:
+      - "<gray>Tüm saldırıların daha"
+      - "<gray>fazla hasar verir."
+    bonus: "+{value} hasar"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.3
+
+  seri_darbe:
+    name: "<#FCA5A5>Seri Darbeler"
+    icon: GOLDEN_SWORD
+    x: 2
+    y: 0
+    max-level: 4
+    cost: 3
+    cost-increase: 1
+    requires: [keskinlik]
+    color: "#EF4444"
+    description:
+      - "<gray>Daha hızlı saldırırsın."
+    bonus: "+%{value} saldırı hızı"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_speed
+        amount: 0.03
+        operation: ADD_SCALAR
+
+  kritik:
+    name: "<#FCA5A5>Kritik Vuruş"
+    icon: SPECTRAL_ARROW
+    x: 2.5
+    y: -1
+    max-level: 4
+    cost: 4
+    cost-increase: 2
+    requires: [seri_darbe]
+    color: "#EF4444"
+    description:
+      - "<gray>Vuruşların 1.4 kat"
+      - "<gray>hasar verebilir."
+    bonus: "%{value} şans"
+    bonus-multiplier: 100
+    effects:
+      - type: CRIT
+        amount: 0.04
+        multiplier: 1.4
+
+  can_calma:
+    name: "<#FCA5A5>Kan Emici"
+    icon: FERMENTED_SPIDER_EYE
+    x: 2.5
+    y: 1
+    max-level: 3
+    cost: 5
+    cost-increase: 2
+    requires: [seri_darbe]
+    color: "#EF4444"
+    description:
+      - "<gray>Verdiğin hasarın bir"
+      - "<gray>kısmı can olarak döner."
+    bonus: "%{value} can çalma"
+    bonus-multiplier: 100
+    effects:
+      - type: LIFESTEAL
+        amount: 0.025
+
+  ofke:
+    name: "<#FCA5A5>Öfke"
+    icon: BLAZE_POWDER
+    x: 3
+    y: 0
+    max-level: 2
+    cost: 6
+    cost-increase: 4
+    requires: [seri_darbe]
+    color: "#EF4444"
+    description:
+      - "<gray>Öfken tüm saldırılarına"
+      - "<gray>güç katar."
+    bonus: "+{value} hasar"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.25
+
+  kasirga:
+    name: "<#FCA5A5>Kasırga"
+    icon: NETHERITE_SWORD
+    x: 4
+    y: 0
+    max-level: 3
+    cost: 6
+    cost-increase: 2
+    requires: [ofke]
+    color: "#EF4444"
+    description:
+      - "<gray>Süpürme saldırıların"
+      - "<gray>daha güçlü olur."
+    bonus: "+%{value} süpürme"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: sweeping_damage_ratio
+        amount: 0.15
+
+  savas_ustasi:
+    name: "<gradient:#F87171:#FBBF24><b>Savaş Ustası</b></gradient>"
+    icon: TRIDENT
+    x: 5
+    y: 0
+    max-level: 1
+    cost: 20
+    requires: [kasirga]
+    requires-level:
+      kritik: 2
+    color: "#DC2626"
+    description:
+      - "<gray>Savaş dalının ustası."
+      - "<red>+0.5 hasar <gray>• <red>+%5 saldırı hızı"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.5
+      - type: ATTRIBUTE
+        attribute: attack_speed
+        amount: 0.05
+        operation: ADD_SCALAR
+
+  # --------------------------------------------------------------- DAYANIKLILIK (batı)
+  can:
+    name: "<#93C5FD>Can Artışı"
+    icon: GOLDEN_APPLE
+    x: -1
+    y: 0
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [baslangic]
+    color: "#3B82F6"
+    description:
+      - "<gray>Maksimum canın artar."
+    bonus: "+{value} ❤"
+    bonus-multiplier: 0.5
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 1
+
+  zirh:
+    name: "<#93C5FD>Demir Deri"
+    icon: IRON_CHESTPLATE
+    x: -2
+    y: 0
+    max-level: 5
+    cost: 3
+    cost-increase: 1
+    requires: [can]
+    color: "#3B82F6"
+    description:
+      - "<gray>Zırh giymeden bile"
+      - "<gray>ekstra zırh kazanırsın."
+    bonus: "+{value} zırh"
+    effects:
+      - type: ATTRIBUTE
+        attribute: armor
+        amount: 0.6
+
+  sarsilmaz:
+    name: "<#93C5FD>Sarsılmaz"
+    icon: SHIELD
+    x: -2.5
+    y: -1
+    max-level: 3
+    cost: 3
+    cost-increase: 2
+    requires: [zirh]
+    color: "#3B82F6"
+    description:
+      - "<gray>Geri savrulmaya karşı"
+      - "<gray>direnç kazanırsın."
+    bonus: "%{value} direnç"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: knockback_resistance
+        amount: 0.05
+
+  kacinma:
+    name: "<#93C5FD>Gölge Adım"
+    icon: PHANTOM_MEMBRANE
+    x: -2.5
+    y: 1
+    max-level: 3
+    cost: 5
+    cost-increase: 2
+    requires: [zirh]
+    color: "#3B82F6"
+    description:
+      - "<gray>Saldırılardan tamamen"
+      - "<gray>kaçınma şansı."
+    bonus: "%{value} kaçınma"
+    bonus-multiplier: 100
+    effects:
+      - type: DODGE
+        amount: 0.03
+
+  yenilenme:
+    name: "<#93C5FD>Yenilenme"
+    icon: GHAST_TEAR
+    x: -3
+    y: 0
+    max-level: 1
+    cost: 25
+    requires: [zirh]
+    color: "#3B82F6"
+    description:
+      - "<gray>Canın sürekli yavaşça"
+      - "<gray>yenilenir."
+    effects:
+      - type: POTION
+        effect: regeneration
+        amplifier: 0
+
+  dev_kalkan:
+    name: "<#93C5FD>Dev Kalkan"
+    icon: NETHERITE_CHESTPLATE
+    x: -4
+    y: 0
+    max-level: 3
+    cost: 6
+    cost-increase: 2
+    requires: [yenilenme]
+    color: "#3B82F6"
+    description:
+      - "<gray>Ağır darbeleri daha"
+      - "<gray>iyi karşılarsın."
+    bonus: "+{value} zırh sağlamlığı"
+    effects:
+      - type: ATTRIBUTE
+        attribute: armor_toughness
+        amount: 0.5
+
+  titan:
+    name: "<gradient:#60A5FA:#A5F3FC><b>Titan</b></gradient>"
+    icon: TOTEM_OF_UNDYING
+    x: -5
+    y: 0
+    max-level: 1
+    cost: 20
+    requires: [dev_kalkan]
+    requires-level:
+      sarsilmaz: 3
+    color: "#2563EB"
+    description:
+      - "<gray>Biraz daha büyük ve"
+      - "<gray>daha dayanıklısın."
+      - "<aqua>+1 ❤ <gray>• <aqua>%10 boy"
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 2
+      - type: ATTRIBUTE
+        attribute: scale
+        amount: 0.1
+
+  # --------------------------------------------------------------- MADENCİLİK (kuzeydoğu)
+  madenci:
+    name: "<#FCD34D>Madenci"
+    icon: IRON_PICKAXE
+    x: 0.5
+    y: -1
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [baslangic]
+    color: "#F59E0B"
+    description:
+      - "<gray>Blokları daha hızlı"
+      - "<gray>kırarsın."
+    bonus: "+%{value} kazma hızı"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: block_break_speed
+        amount: 0.06
+        operation: ADD_SCALAR
+
+  sansli_kazi:
+    name: "<#FCD34D>Şanslı Kazı"
+    icon: DIAMOND
+    x: 1
+    y: -2
+    max-level: 4
+    cost: 4
+    cost-increase: 2
+    requires: [madenci]
+    color: "#F59E0B"
+    description:
+      - "<gray>Cevherlerden iki kat"
+      - "<gray>ganimet düşürme şansı."
+    bonus: "%{value} şans"
+    bonus-multiplier: 100
+    effects:
+      - type: DOUBLE_DROP
+        amount: 0.03
+
+  hazine:
+    name: "<#FCD34D>Hazine Avcısı"
+    icon: GOLD_INGOT
+    x: 2
+    y: -2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [sansli_kazi]
+    color: "#F59E0B"
+    description:
+      - "<gray>Şansın artar: sandık"
+      - "<gray>ve balık ganimeti iyileşir."
+    bonus: "+{value} şans"
+    effects:
+      - type: ATTRIBUTE
+        attribute: luck
+        amount: 0.5
+
+  dalgic:
+    name: "<#FCD34D>Dalgıç Madenci"
+    icon: PRISMARINE_SHARD
+    x: 1.5
+    y: -3
+    max-level: 3
+    cost: 5
+    cost-increase: 2
+    requires: [sansli_kazi]
+    color: "#F59E0B"
+    description:
+      - "<gray>Su altında çok daha"
+      - "<gray>hızlı kazarsın."
+    bonus: "+%{value} su altı hızı"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: submerged_mining_speed
+        amount: 0.4
+
+  usta_gozu:
+    name: "<#E9D5FF>Usta Gözü"
+    icon: SPYGLASS
+    x: 0
+    y: -2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires-any: [madenci, bilgelik]
+    color: "#8B5CF6"
+    description:
+      - "<gray>Bloklara daha uzaktan"
+      - "<gray>uzanırsın."
+    bonus: "+{value} blok erişim"
+    effects:
+      - type: ATTRIBUTE
+        attribute: block_interaction_range
+        amount: 0.5
+
+  # --------------------------------------------------------------- BİLGELİK (kuzeybatı)
+  bilgelik:
+    name: "<#D8B4FE>Bilgelik"
+    icon: EXPERIENCE_BOTTLE
+    x: -0.5
+    y: -1
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [baslangic]
+    color: "#A855F7"
+    description:
+      - "<gray>Topladığın tecrübe"
+      - "<gray>(XP) artar."
+    bonus: "+%{value} XP"
+    bonus-multiplier: 100
+    effects:
+      - type: XP_BOOST
+        amount: 0.06
+
+  kedi_gozu:
+    name: "<#D8B4FE>Kedi Gözü"
+    icon: ENDER_EYE
+    x: -1
+    y: -2
+    max-level: 1
+    cost: 6
+    requires: [bilgelik]
+    color: "#A855F7"
+    description:
+      - "<gray>Karanlıkta da"
+      - "<gray>net görürsün."
+    effects:
+      - type: POTION
+        effect: night_vision
+        amplifier: 0
+
+  hafiza:
+    name: "<#D8B4FE>Güçlü Hafıza"
+    icon: ENCHANTED_BOOK
+    x: -1.5
+    y: -3
+    max-level: 4
+    cost: 5
+    cost-increase: 2
+    requires: [kedi_gozu]
+    color: "#A855F7"
+    description:
+      - "<gray>Ölünce XP'nin bir"
+      - "<gray>kısmını korursun."
+    bonus: "%{value} XP korunur"
+    bonus-multiplier: 100
+    effects:
+      - type: KEEP_XP
+        amount: 0.15
+
+  efsane:
+    name: "<gradient:#C084FC:#F472B6><b>Efsane</b></gradient>"
+    icon: DRAGON_EGG
+    x: 0
+    y: -4
+    max-level: 1
+    cost: 30
+    requires: [dalgic, hafiza]
+    color: "#C026D3"
+    description:
+      - "<gray>Bilgelik ve madencilik"
+      - "<gray>dallarının zirvesi."
+      - "<light_purple>+1 ❤ <gray>• <light_purple>+0.5 şans <gray>• <light_purple>+%5 XP"
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 2
+      - type: ATTRIBUTE
+        attribute: luck
+        amount: 0.5
+      - type: XP_BOOST
+        amount: 0.05
+
+  # --------------------------------------------------------------- ÇEVİKLİK (güneydoğu)
+  ceviklik:
+    name: "<#86EFAC>Çeviklik"
+    icon: FEATHER
+    x: 0.5
+    y: 1
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [baslangic]
+    color: "#22C55E"
+    description:
+      - "<gray>Daha hızlı koşarsın."
+    bonus: "+%{value} hız"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: movement_speed
+        amount: 0.02
+        operation: ADD_SCALAR
+
+  basamak:
+    name: "<#86EFAC>Kolay Adım"
+    icon: OAK_STAIRS
+    x: 0
+    y: 2
+    max-level: 1
+    cost: 6
+    requires: [ceviklik]
+    color: "#22C55E"
+    description:
+      - "<gray>Tam blokları zıplamadan"
+      - "<gray>çıkarsın."
+    effects:
+      - type: ATTRIBUTE
+        attribute: step_height
+        amount: 0.45
+
+  yay_bacak:
+    name: "<#86EFAC>Yay Bacak"
+    icon: RABBIT_FOOT
+    x: 1
+    y: 2
+    max-level: 3
+    cost: 3
+    cost-increase: 2
+    requires: [ceviklik]
+    color: "#22C55E"
+    description:
+      - "<gray>Daha yükseğe zıplarsın."
+    bonus: "+{value} zıplama"
+    effects:
+      - type: ATTRIBUTE
+        attribute: jump_strength
+        amount: 0.04
+
+  tuy:
+    name: "<#86EFAC>Tüy Gibi"
+    icon: SLIME_BALL
+    x: 1.5
+    y: 3
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [yay_bacak]
+    color: "#22C55E"
+    description:
+      - "<gray>Düşme hasarın azalır."
+    bonus: "-%{value} düşme hasarı"
+    bonus-multiplier: -100
+    effects:
+      - type: ATTRIBUTE
+        attribute: fall_damage_multiplier
+        amount: -0.15
+
+  yunus:
+    name: "<#86EFAC>Yunus"
+    icon: HEART_OF_THE_SEA
+    x: 2
+    y: 2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [yay_bacak]
+    color: "#22C55E"
+    description:
+      - "<gray>Su altında daha uzun"
+      - "<gray>kalır, hızlı yüzersin."
+    bonus: "+{value} nefes"
+    effects:
+      - type: ATTRIBUTE
+        attribute: oxygen_bonus
+        amount: 1
+      - type: ATTRIBUTE
+        attribute: water_movement_efficiency
+        amount: 0.15
+
+  # --------------------------------------------------------------- HAYATTA KALMA (güneybatı)
+  tokluk:
+    name: "<#F9A8D4>Tokluk"
+    icon: COOKED_BEEF
+    x: -0.5
+    y: 1
+    max-level: 4
+    cost: 2
+    cost-increase: 1
+    requires: [baslangic]
+    color: "#EC4899"
+    description:
+      - "<gray>Açlığın daha yavaş"
+      - "<gray>azalır."
+    bonus: "%{value} tasarruf"
+    bonus-multiplier: 100
+    effects:
+      - type: HUNGER_SAVE
+        amount: 0.08
+
+  kozlenmez:
+    name: "<#F9A8D4>Közlenmez"
+    icon: MAGMA_CREAM
+    x: -1
+    y: 2
+    max-level: 3
+    cost: 3
+    cost-increase: 2
+    requires: [tokluk]
+    color: "#EC4899"
+    description:
+      - "<gray>Ateş seni daha kısa"
+      - "<gray>süre yakar."
+    bonus: "-%{value} yanma"
+    bonus-multiplier: -100
+    effects:
+      - type: ATTRIBUTE
+        attribute: burning_time
+        amount: -0.25
+        operation: ADD_SCALAR
+
+  avci:
+    name: "<#F9A8D4>Avcı"
+    icon: BONE
+    x: -2
+    y: 2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [kozlenmez]
+    color: "#EC4899"
+    description:
+      - "<gray>Moblardan iki kat"
+      - "<gray>ganimet şansı."
+    bonus: "%{value} şans"
+    bonus-multiplier: 100
+    effects:
+      - type: MOB_DROPS
+        amount: 0.07
+
+  ikinci_sans:
+    name: "<#F9A8D4>İkinci Şans"
+    icon: ENDER_CHEST
+    x: -1.5
+    y: 3
+    max-level: 3
+    cost: 10
+    cost-increase: 5
+    requires: [kozlenmez]
+    color: "#EC4899"
+    description:
+      - "<gray>Ölünce eşyalarını"
+      - "<gray>koruma şansı."
+    bonus: "%{value} şans"
+    bonus-multiplier: 100
+    effects:
+      - type: KEEP_INVENTORY
+        amount: 0.05

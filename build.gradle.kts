@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.upgradetree"
-version = "2.1.0"
+version = "2.2.0"
 
 val paperVersion = "26.3.build.242-stable"
 
@@ -40,7 +40,7 @@ tasks {
         val props = mapOf("version" to project.version.toString())
         inputs.properties(props)
         filteringCharset = "UTF-8"
-        filesMatching("plugin.yml") {
+        filesMatching("paper-plugin.yml") {
             expand(props)
         }
     }

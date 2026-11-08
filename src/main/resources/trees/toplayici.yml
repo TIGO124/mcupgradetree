@@ -1,16 +1,16 @@
 # Toplayıcılık: kazı, odun, tarım. Damar kazma ve ağaç kesme eğilerek (Shift) çalışır.
 # Ayrıntılı açıklama: trees/ana.yml başındaki yorumlar.
 
-title: "<gradient:#FCD34D:#86EFAC><b>TOPLAYICI</b></gradient>"
+title: { tr: "<gradient:#FCD34D:#86EFAC><b>TOPLAYICI</b></gradient>", en: "<gradient:#FCD34D:#86EFAC><b>GATHERER</b></gradient>" }
 tab:
-  name: "<white>Toplayıcı"
+  name: { tr: "<white>Toplayıcı", en: "<white>Gatherer" }
   icon: GOLDEN_PICKAXE
   order: 3
 
 nodes:
 
   toplayici:
-    name: "<gradient:#FCD34D:#FBBF24>Toplayıcı</gradient>"
+    name: { tr: "<gradient:#FCD34D:#FBBF24>Toplayıcı</gradient>", en: "<gradient:#FCD34D:#FBBF24>Gatherer</gradient>" }
     icon: GOLDEN_PICKAXE
     x: 0
     y: 0
@@ -21,16 +21,20 @@ nodes:
     always-visible: true
     color: "#D97706"
     description:
-      - "<gray>Kazmaların daha"
-      - "<gray>verimli çalışır."
-    bonus: "+{value} verimlilik"
+      tr:
+        - "<gray>Kazmaların daha"
+        - "<gray>verimli çalışır."
+      en:
+        - "<gray>Your pickaxes work"
+        - "<gray>more efficiently."
+    bonus: { tr: "+{value} verimlilik", en: "+{value} efficiency" }
     effects:
       - type: ATTRIBUTE
         attribute: mining_efficiency
         amount: 1
 
   damar:
-    name: "<#FCD34D>Damar Avcısı"
+    name: { tr: "<#FCD34D>Damar Avcısı", en: "<#FCD34D>Vein Hunter" }
     icon: DIAMOND_PICKAXE
     x: 1
     y: 0
@@ -40,15 +44,19 @@ nodes:
     requires: [toplayici]
     color: "#F59E0B"
     description:
-      - "<white>Eğilerek</white> <gray>bir cevher kır,"
-      - "<gray>bitişik damar da kırılsın."
-    bonus: "+{value} blok"
+      tr:
+        - "<white>Eğilerek</white> <gray>bir cevher kır,"
+        - "<gray>bitişik damar da kırılsın."
+      en:
+        - "<white>Sneak</white> <gray>and break an ore,"
+        - "<gray>the whole vein breaks too."
+    bonus: { tr: "+{value} blok", en: "+{value} blocks" }
     effects:
       - type: VEIN_MINER
         amount: 4
 
   eritici:
-    name: "<#FCD34D>Erimiş Kazma"
+    name: { tr: "<#FCD34D>Erimiş Kazma", en: "<#FCD34D>Molten Pickaxe" }
     icon: BLAST_FURNACE
     x: 2
     y: 0
@@ -58,16 +66,20 @@ nodes:
     requires: [damar]
     color: "#F59E0B"
     description:
-      - "<gray>Cevherler kırılırken"
-      - "<gray>eriyip külçe olur."
-    bonus: "%{value} şans"
+      tr:
+        - "<gray>Cevherler kırılırken"
+        - "<gray>eriyip külçe olur."
+      en:
+        - "<gray>Ores melt into ingots"
+        - "<gray>as you break them."
+    bonus: { tr: "%{value} şans", en: "{value}% chance" }
     bonus-multiplier: 100
     effects:
       - type: AUTO_SMELT
         amount: 0.25
 
   hiz_tutkusu:
-    name: "<#FCD34D>Hız Tutkusu"
+    name: { tr: "<#FCD34D>Hız Tutkusu", en: "<#FCD34D>Need for Speed" }
     icon: GOLDEN_SHOVEL
     x: 0.5
     y: -1
@@ -77,17 +89,25 @@ nodes:
     requires: [toplayici]
     color: "#F59E0B"
     description:
-      - "<gray>Kalıcı <yellow>Acele</yellow> efekti."
-    bonus: "Acele {value}"
-    bonus-per-level: 1
+      tr:
+        - "<gray>Kalıcı <yellow>Acele I</yellow> ve"
+        - "<gray>daha hızlı kazma."
+      en:
+        - "<gray>Permanent <yellow>Haste I</yellow> and"
+        - "<gray>faster mining."
+    bonus: { tr: "+%{value} kazma hızı", en: "+{value}% mining speed" }
+    bonus-multiplier: 100
     effects:
+      - type: ATTRIBUTE
+        attribute: block_break_speed
+        amount: 0.05
+        operation: ADD_SCALAR
       - type: POTION
         effect: haste
         amplifier: 0
-        amplifier-per-level: 1
 
   olta:
-    name: "<#93C5FD>Şanslı Olta"
+    name: { tr: "<#93C5FD>Şanslı Olta", en: "<#93C5FD>Lucky Rod" }
     icon: FISHING_ROD
     x: -0.5
     y: -1
@@ -97,9 +117,13 @@ nodes:
     requires: [toplayici]
     color: "#0EA5E9"
     description:
-      - "<gray>Balık tutarken daha"
-      - "<gray>iyi ganimet çıkar."
-    bonus: "+{value} şans"
+      tr:
+        - "<gray>Balık tutarken daha"
+        - "<gray>iyi ganimet çıkar."
+      en:
+        - "<gray>Better loot"
+        - "<gray>when fishing."
+    bonus: { tr: "+{value} şans", en: "+{value} luck" }
     bonus-per-level: 0.5
     effects:
       - type: ATTRIBUTE
@@ -107,7 +131,7 @@ nodes:
         amount: 0.5
 
   oduncu:
-    name: "<#A3E635>Oduncu"
+    name: { tr: "<#A3E635>Oduncu", en: "<#A3E635>Lumberjack" }
     icon: IRON_AXE
     x: -1
     y: 0
@@ -117,15 +141,19 @@ nodes:
     requires: [toplayici]
     color: "#65A30D"
     description:
-      - "<white>Eğilerek</white> <gray>bir kütük kır,"
-      - "<gray>bütün ağaç düşsün."
-    bonus: "+{value} kütük"
+      tr:
+        - "<white>Eğilerek</white> <gray>bir kütük kır,"
+        - "<gray>bütün ağaç düşsün."
+      en:
+        - "<white>Sneak</white> <gray>and break a log,"
+        - "<gray>the whole tree falls."
+    bonus: { tr: "+{value} kütük", en: "+{value} logs" }
     effects:
       - type: TREE_FELLER
         amount: 16
 
   orman:
-    name: "<#A3E635>Orman Bekçisi"
+    name: { tr: "<#A3E635>Orman Bekçisi", en: "<#A3E635>Forest Keeper" }
     icon: OAK_SAPLING
     x: -2
     y: 0
@@ -135,9 +163,13 @@ nodes:
     requires: [oduncu]
     color: "#65A30D"
     description:
-      - "<gray>Kütüklerden iki kat"
-      - "<gray>odun düşme şansı."
-    bonus: "%{value} şans"
+      tr:
+        - "<gray>Kütüklerden iki kat"
+        - "<gray>odun düşme şansı."
+      en:
+        - "<gray>A chance for double"
+        - "<gray>wood from logs."
+    bonus: { tr: "%{value} şans", en: "{value}% chance" }
     bonus-multiplier: 100
     effects:
       - type: DOUBLE_DROP
@@ -145,7 +177,7 @@ nodes:
         blocks: ["#logs"]
 
   bereket:
-    name: "<#86EFAC>Bereket"
+    name: { tr: "<#86EFAC>Bereket", en: "<#86EFAC>Bounty" }
     icon: WHEAT
     x: 0.5
     y: 1
@@ -155,17 +187,21 @@ nodes:
     requires: [toplayici]
     color: "#16A34A"
     description:
-      - "<gray>Olgun ekinlerden iki"
-      - "<gray>kat ürün şansı."
-    bonus: "%{value} şans"
+      tr:
+        - "<gray>Olgun ekinlerden iki"
+        - "<gray>kat ürün şansı."
+      en:
+        - "<gray>A chance for double"
+        - "<gray>crops from ripe plants."
+    bonus: { tr: "%{value} şans", en: "{value}% chance" }
     bonus-multiplier: 100
     effects:
       - type: DOUBLE_DROP
-        amount: 0.1
+        amount: 0.08
         blocks: [WHEAT, CARROTS, POTATOES, BEETROOTS, NETHER_WART, COCOA]
 
   bahcivan:
-    name: "<#86EFAC>Yeşil Parmak"
+    name: { tr: "<#86EFAC>Yeşil Parmak", en: "<#86EFAC>Green Thumb" }
     icon: MELON_SLICE
     x: -0.5
     y: 1
@@ -175,11 +211,15 @@ nodes:
     requires: [toplayici]
     color: "#16A34A"
     description:
-      - "<gray>Kavun, balkabağı ve"
-      - "<gray>kamıştan iki kat ürün."
-    bonus: "%{value} şans"
+      tr:
+        - "<gray>Kavun, balkabağı ve"
+        - "<gray>kamıştan iki kat ürün."
+      en:
+        - "<gray>Double drops from melons,"
+        - "<gray>pumpkins and sugar cane."
+    bonus: { tr: "%{value} şans", en: "{value}% chance" }
     bonus-multiplier: 100
     effects:
       - type: DOUBLE_DROP
-        amount: 0.12
+        amount: 0.08
         blocks: [MELON, PUMPKIN, SUGAR_CANE, CACTUS, BAMBOO, SWEET_BERRY_BUSH]

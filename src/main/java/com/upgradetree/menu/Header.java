@@ -35,7 +35,8 @@ final class Header {
     private Component currencyCache;
     private String active = "";
 
-    private record Tab(UpgradeTree tree, Group group, List<Part> fill, double cx, double w) {
+    /** A header tab: a tree, or the Chests section ({@link ChestLayer#TAB}). */
+    private record Tab(String id, Group group, List<Part> fill, double cx, double w) {
     }
 
     Header(DisplayMenu menu) {
@@ -46,29 +47,27 @@ final class Header {
         return menu.settings().theme;
     }
 
-    void build(List<UpgradeTree> trees, UpgradeTree current, double startScale) {
+    void build(List<UpgradeTree> trees, UpgradeTree current, double startScale, boolean chests) {
         Painter pt = menu.painter();
         Lang lang = menu.lang();
         group = pt.group(0, HEADER_CY);
         group.scale = startScale;
         pt.roundRect(group, 0, HEADER_CY, HEADER_W, HEADER_H, 0.026, Z_BOX, theme().header(), 3);
 
-        if (trees.size() >= 2) {
+        int count = trees.size() + (chests ? 1 : 0);
+        if (count >= 2) {
             double avail = TABS_X1 - TABS_X0;
-            double w = Math.min(TAB_MAX_W, (avail - (trees.size() - 1) * TAB_GAP) / trees.size());
+            double w = Math.min(TAB_MAX_W, (avail - (count - 1) * TAB_GAP) / count);
             double x = TABS_X0 + w / 2.0;
             for (UpgradeTree t : trees) {
-                Group g = pt.group(x, HEADER_CY);
-                g.scale = startScale;
-                List<Part> fill = pt.roundRect(g, x, HEADER_CY, w, TAB_H, 0.018, Z_BOX_FILL, theme().header(), 3);
-                double iconX = x - w / 2.0 + 0.032;
-                pt.item(g, Part.item(iconX, HEADER_CY, 0.034, Z_ICON), Icons.of(t.tabIcon));
-                pt.text(g, Part.text(x + 0.016, HEADER_CY, 0.026, 1, false, Z_TEXT), t.tabName, 2000);
-                tabs.add(new Tab(t, g, fill, x, w));
+                addTab(t.id, Icons.of(t.tabIcon), t.tabName(lang), x, w, startScale);
                 x += w + TAB_GAP;
             }
+            if (chests) {
+                addTab(ChestLayer.TAB, Icons.of(org.bukkit.Material.CHEST), lang.plain("chests-tab"), x, w, startScale);
+            }
         } else {
-            Component title = current == null ? Text.mm(UpgradeTree.DEFAULT_TITLE) : current.title;
+            Component title = current == null ? lang.plain("tree-title-default") : current.title(lang);
             pt.text(group, Part.text((TABS_X0 + TABS_X1) / 2.0, HEADER_CY, 0.044, 1, false, Z_TEXT), title, 2000);
         }
 
@@ -100,6 +99,17 @@ final class Header {
         setActive(current == null ? "" : current.id);
     }
 
+    private void addTab(String id, org.bukkit.inventory.ItemStack icon, Component name, double x, double w, double startScale) {
+        Painter pt = menu.painter();
+        Group g = pt.group(x, HEADER_CY);
+        g.scale = startScale;
+        List<Part> fill = pt.roundRect(g, x, HEADER_CY, w, TAB_H, 0.018, Z_BOX_FILL, theme().header(), 3);
+        double iconX = x - w / 2.0 + 0.032;
+        pt.item(g, Part.item(iconX, HEADER_CY, 0.034, Z_ICON), icon);
+        pt.text(g, Part.text(x + 0.016, HEADER_CY, 0.026, 1, false, Z_TEXT), name, 2000);
+        tabs.add(new Tab(id, g, fill, x, w));
+    }
+
     List<Group> groups() {
         List<Group> list = new ArrayList<>();
         list.add(group);
@@ -124,10 +134,10 @@ final class Header {
         }
     }
 
-    void setActive(String treeId) {
-        active = treeId;
+    void setActive(String tabId) {
+        active = tabId;
         for (Tab t : tabs) {
-            boolean on = t.tree().id.equals(treeId);
+            boolean on = t.id().equals(tabId);
             int c = on ? Palette.mix(theme().header(), ACCENT, 0.32) : Palette.darken(theme().header(), 0.35);
             for (Part p : t.fill()) {
                 p.recolor(c, 4);
@@ -148,7 +158,7 @@ final class Header {
         }
         for (Tab t : tabs) {
             if (Math.abs(u - t.cx()) <= t.w() / 2.0 && Math.abs(v - HEADER_CY) <= TAB_H / 2.0 + 0.006) {
-                return "tab:" + t.tree().id;
+                return "tab:" + t.id();
             }
         }
         return null;
@@ -173,7 +183,7 @@ final class Header {
             }
             default -> {
                 for (Tab t : tabs) {
-                    if (target.equals("tab:" + t.tree().id)) {
+                    if (target.equals("tab:" + t.id())) {
                         t.group().scale = on ? 1.06 : 1.0;
                         t.group().apply(menu.frame(), 3);
                     }
@@ -221,16 +231,16 @@ final class Header {
         Settings s = menu.settings();
         String amount = c.available() ? c.formatShort(c.balance(menu.player())) : "-";
         return menu.lang().plain("menu-currency", "symbol", Text.escape(s.currencySymbol),
-                "amount", Text.escape(amount), "currency", Text.escape(s.currencyName));
+                "amount", Text.escape(amount), "currency", Text.escape(menu.plugin().currencyName(menu.lang())));
     }
 
     String active() {
         return active;
     }
 
-    double[] tabCenter(String treeId) {
+    double[] tabCenter(String tabId) {
         for (Tab t : tabs) {
-            if (t.tree().id.equalsIgnoreCase(treeId)) {
+            if (t.id().equalsIgnoreCase(tabId)) {
                 return new double[]{t.cx(), HEADER_CY};
             }
         }

@@ -1,5 +1,7 @@
 package com.upgradetree.tree;
 
+import com.upgradetree.config.Lang;
+import com.upgradetree.config.Localized;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
@@ -18,9 +20,8 @@ public final class UpgradeNode {
     /** Lower-case id that is safe to use inside a NamespacedKey. */
     public final String key;
     public final String treeId;
-    public final String nameRaw;
-    public final Component name;
-    public final String namePlain;
+    /** Name, description and bonus line, each possibly written per language (see {@link Localized}). */
+    public final Localized<String> names;
     public final Material icon;
     /** Optional item model (resource packs), e.g. "myserver:sword". */
     public final String iconModel;
@@ -46,8 +47,8 @@ public final class UpgradeNode {
     public final int minPrestige;
     public final boolean alwaysVisible;
     public final int color;
-    public final List<String> description;
-    public final String bonus;
+    public final Localized<List<String>> descriptions;
+    public final Localized<String> bonuses;
     public final double bonusMultiplier;
     public final Double bonusPerLevel;
     public final List<NodeEffect> effects;
@@ -63,9 +64,7 @@ public final class UpgradeNode {
         this.id = b.id;
         this.key = b.key;
         this.treeId = b.treeId;
-        this.nameRaw = b.nameRaw;
-        this.name = Text.mm(b.nameRaw);
-        this.namePlain = Text.plain(b.nameRaw);
+        this.names = b.name == null || b.name.isEmpty() ? Localized.of(b.id) : b.name;
         this.icon = b.icon;
         this.iconModel = blankToNull(b.iconModel);
         this.headTexture = blankToNull(b.headTexture);
@@ -84,8 +83,8 @@ public final class UpgradeNode {
         this.minPrestige = Math.max(0, b.minPrestige);
         this.alwaysVisible = b.alwaysVisible;
         this.color = b.color;
-        this.description = List.copyOf(b.description);
-        this.bonus = b.bonus == null ? "" : b.bonus;
+        this.descriptions = b.description == null ? Localized.of(List.of()) : b.description;
+        this.bonuses = b.bonus == null ? Localized.of("") : b.bonus;
         this.bonusMultiplier = b.bonusMultiplier;
         this.bonusPerLevel = b.bonusPerLevel;
         this.effects = List.copyOf(b.effects);
@@ -99,6 +98,32 @@ public final class UpgradeNode {
             l.addAll(b.requiresLevel.keySet());
         }
         this.links = List.copyOf(l);
+    }
+
+    /** Name in the reader's language (MiniMessage). */
+    public String name(Lang lang) {
+        String n = names.get(lang);
+        return n == null ? id : n;
+    }
+
+    public Component nameComponent(Lang lang) {
+        return Text.mm(name(lang));
+    }
+
+    /** Name for the console and checks (no reader). */
+    public String baseName() {
+        return name(null);
+    }
+
+    public List<String> description(Lang lang) {
+        List<String> d = descriptions.get(lang);
+        return d == null ? List.of() : d;
+    }
+
+    /** Bonus line ("+{value} damage") in the reader's language, "" if none. */
+    public String bonus(Lang lang) {
+        String b = bonuses.get(lang);
+        return b == null ? "" : b;
     }
 
     private static String blankToNull(String s) {
@@ -139,7 +164,7 @@ public final class UpgradeNode {
     public Builder toBuilder() {
         Builder b = new Builder(id, treeId);
         b.key = key;
-        b.nameRaw = nameRaw;
+        b.name = names;
         b.icon = icon;
         b.iconModel = iconModel;
         b.headTexture = headTexture;
@@ -158,8 +183,8 @@ public final class UpgradeNode {
         b.minPrestige = minPrestige;
         b.alwaysVisible = alwaysVisible;
         b.color = color;
-        b.description = new ArrayList<>(description);
-        b.bonus = bonus;
+        b.description = descriptions;
+        b.bonus = bonuses;
         b.bonusMultiplier = bonusMultiplier;
         b.bonusPerLevel = bonusPerLevel;
         b.effects = new ArrayList<>(effects);
@@ -171,7 +196,7 @@ public final class UpgradeNode {
         public final String id;
         public final String treeId;
         public String key;
-        public String nameRaw;
+        public Localized<String> name;
         public Material icon = Material.PAPER;
         public String iconModel;
         public String headTexture;
@@ -190,8 +215,8 @@ public final class UpgradeNode {
         public int minPrestige;
         public boolean alwaysVisible;
         public int color = UpgradeTree.DEFAULT_COLOR;
-        public List<String> description = new ArrayList<>();
-        public String bonus = "";
+        public Localized<List<String>> description = Localized.of(List.of());
+        public Localized<String> bonus = Localized.of("");
         public double bonusMultiplier = 1;
         public Double bonusPerLevel;
         public List<NodeEffect> effects = new ArrayList<>();
@@ -200,7 +225,7 @@ public final class UpgradeNode {
             this.id = id;
             this.treeId = treeId;
             this.key = id;
-            this.nameRaw = id;
+            this.name = Localized.of(id);
         }
 
         public UpgradeNode build() {

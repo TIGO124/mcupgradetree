@@ -9,83 +9,108 @@ import com.upgradetree.service.Leaderboard;
 import com.upgradetree.service.ProgressService;
 import com.upgradetree.tree.UpgradeNode;
 import com.upgradetree.util.Text;
+import io.papermc.paper.command.brigadier.BasicCommand;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.Bukkit;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 
-/** /yukselt – opens the menu; sub commands for players and admins. */
-public final class UpgradeCommand implements TabExecutor {
+/**
+ * /tigo – the only root command: opens the menu; every feature is a sub command
+ * (/tigo info, /tigo chests, /tigo reload ...). Old Turkish sub command spellings still work.
+ */
+public final class UpgradeCommand implements BasicCommand {
 
-    private static final String ADMIN = "upgradetree.admin";
-    private static final String USE = "upgradetree.use";
+    public static final String LABEL = "tigo";
+    public static final List<String> ALIASES = List.of();
+    static final String ADMIN = "upgradetree.admin";
+    static final String USE = "upgradetree.use";
 
     private final UpgradeTreePlugin plugin;
     private final AdminCommands admin;
+    private final LanguageCommands language;
+    private final ChestCommands chests;
+    private final UpgradeTabCompleter tab;
 
     public UpgradeCommand(UpgradeTreePlugin plugin) {
         this.plugin = plugin;
         this.admin = new AdminCommands(plugin);
+        this.language = new LanguageCommands(plugin);
+        this.chests = new ChestCommands(plugin, admin);
+        this.tab = new UpgradeTabCompleter(plugin);
     }
 
-    private Lang lang() {
-        return plugin.lang();
+    /** "/execute as &lt;player&gt; run tigo" (command blocks, NPC plugins) acts for that player. */
+    private static CommandSender sender(CommandSourceStack stack) {
+        return stack.getExecutor() instanceof Player p ? p : stack.getSender();
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public void execute(CommandSourceStack stack, String[] args) {
+        run(sender(stack), args);
+    }
+
+    @Override
+    public Collection<String> suggest(CommandSourceStack stack, String[] args) {
+        return tab.complete(sender(stack), args.length == 0 ? new String[] {""} : args);
+    }
+
+    private Lang lang(CommandSender sender) {
+        return plugin.lang(sender);
+    }
+
+    void run(CommandSender sender, String[] args) {
         if (args.length == 0) {
             if (!(sender instanceof Player p)) {
-                sender.sendMessage(lang().msg("players-only"));
+                sender.sendMessage(lang(sender).msg("players-only"));
             } else if (!p.hasPermission(USE)) {
-                p.sendMessage(lang().msg("no-permission"));
+                p.sendMessage(lang(p).msg("no-permission"));
             } else {
                 plugin.menus().toggle(p);
             }
-            return true;
+            return;
         }
-        String sub = args[0].toLowerCase(Locale.ROOT);
-        switch (sub) {
-            case "help", "yardim", "yardım", "?" -> help(sender);
-            case "info", "bilgi" -> info(sender, args);
-            case "open", "ac", "aç" -> open(sender, args);
-            case "reload", "yenile" -> {
+        switch (CommandAliases.sub(args[0])) {
+            case "help" -> help(sender);
+            case "info" -> info(sender, args);
+            case "open" -> open(sender, args);
+            case "reload" -> {
                 if (isAdmin(sender)) {
                     admin.reload(sender);
                 }
             }
-            case "check", "kontrol" -> {
+            case "check" -> {
                 if (isAdmin(sender)) {
                     admin.check(sender);
                 }
             }
-            case "reset", "sifirla", "sıfırla", "respec", "dagit", "dağıt" -> reset(sender, args);
-            case "set", "ayarla" -> {
+            case "respec" -> respec(sender, args);
+            case "set" -> {
                 if (isAdmin(sender)) {
                     admin.set(sender, args);
                 }
             }
-            case "points", "puan" -> {
+            case "points" -> {
                 if (isAdmin(sender)) {
                     admin.points(sender, args);
                 }
             }
-            case "prestige", "prestij" -> prestige(sender, args);
-            case "top", "liderler" -> top(sender, args);
-            case "menu", "menü" -> menuMode(sender, args);
-            case "daily", "gunluk", "günlük" -> {
+            case "prestige" -> prestige(sender, args);
+            case "top" -> top(sender, args);
+            case "menu" -> menuMode(sender, args);
+            case "daily" -> {
                 if (sender instanceof Player p) {
                     plugin.points().claimDaily(p, true);
+                } else {
+                    sender.sendMessage(lang(sender).msg("players-only"));
                 }
             }
-            case "cleanup", "temizle" -> {
+            case "cleanup" -> {
                 if (isAdmin(sender)) {
-                    admin.cleanup(sender, args.length >= 2 ? args[1] : (sender instanceof Player p ? p.getName() : "herkes"));
+                    admin.cleanup(sender, args.length >= 2 ? args[1] : (sender instanceof Player p ? p.getName() : "all"));
                 }
             }
             case "npc" -> {
@@ -98,16 +123,22 @@ public final class UpgradeCommand implements TabExecutor {
                     admin.debug(sender, args);
                 }
             }
-            case "admin", "panel", "yonetim", "yönetim" -> adminPanel(sender, args);
+            case "admin" -> adminPanel(sender, args);
+            case "chests" -> chests.run(sender, args);
+            case "language" -> language.player(sender, args);
+            case "serverlanguage" -> {
+                if (isAdmin(sender)) {
+                    language.server(sender, args);
+                }
+            }
             default -> help(sender);
         }
-        return true;
     }
 
-    /** /yukselt admin [oyuncu] – operators only. */
+    /** /tigo admin [player] – operators only. */
     private void adminPanel(CommandSender sender, String[] args) {
         if (!(sender instanceof Player p) || !p.isOp()) {
-            sender.sendMessage(lang().msg("admin-only-op"));
+            sender.sendMessage(lang(sender).msg("admin-only-op"));
             return;
         }
         if (args.length >= 2) {
@@ -124,16 +155,17 @@ public final class UpgradeCommand implements TabExecutor {
         if (sender.hasPermission(ADMIN)) {
             return true;
         }
-        sender.sendMessage(lang().msg("no-permission"));
+        sender.sendMessage(lang(sender).msg("no-permission"));
         return false;
     }
 
     private void help(CommandSender sender) {
-        for (String line : lang().rawList("help")) {
+        Lang lang = lang(sender);
+        for (String line : lang.rawList("help")) {
             sender.sendMessage(Text.mm(line));
         }
         if (sender.hasPermission(ADMIN)) {
-            for (String line : lang().rawList("help-admin")) {
+            for (String line : lang.rawList("help-admin")) {
                 sender.sendMessage(Text.mm(line));
             }
         }
@@ -146,26 +178,28 @@ public final class UpgradeCommand implements TabExecutor {
             }
             Player p = Bukkit.getPlayer(args[1]);
             if (p == null) {
-                sender.sendMessage(lang().msg("player-not-found", "player", Text.escape(args[1])));
+                sender.sendMessage(lang(sender).msg("player-not-found", "player", Text.escape(args[1])));
                 return;
             }
             plugin.menus().open(p);
             return;
         }
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(lang().msg("players-only"));
+            sender.sendMessage(lang(sender).msg("players-only"));
         } else if (!p.hasPermission(USE)) {
-            p.sendMessage(lang().msg("no-permission"));
+            p.sendMessage(lang(p).msg("no-permission"));
         } else {
             plugin.menus().open(p);
         }
     }
 
+    /** /tigo info [player]: the upgrades, then the command list. */
     private void info(CommandSender sender, String[] args) {
+        Lang lang = lang(sender);
         AdminCommands.Target t;
         if (args.length >= 2) {
             if (!sender.hasPermission(ADMIN) && !(sender instanceof Player self && self.getName().equalsIgnoreCase(args[1]))) {
-                sender.sendMessage(lang().msg("no-permission"));
+                sender.sendMessage(lang.msg("no-permission"));
                 return;
             }
             t = admin.require(sender, args[1]);
@@ -175,35 +209,37 @@ public final class UpgradeCommand implements TabExecutor {
         } else if (sender instanceof Player p) {
             t = new AdminCommands.Target(p.getUniqueId(), p.getName(), p);
         } else {
-            sender.sendMessage(lang().msg("players-only"));
+            help(sender);
             return;
         }
         PlayerData d = admin.data(t);
-        sender.sendMessage(lang().msg("info-header", "player", Text.escape(t.name()),
+        sender.sendMessage(lang.msg("info-header", "player", Text.escape(t.name()),
                 "owned", String.valueOf(plugin.service().ownedAll(d)), "total", String.valueOf(plugin.trees().nodes().size())));
         boolean any = false;
         for (UpgradeNode n : plugin.trees().nodes()) {
             int lvl = Math.min(n.maxLevel, d.level(n.id));
             if (lvl > 0) {
                 any = true;
-                sender.sendMessage(lang().plain("info-line", "node", n.nameRaw, "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
+                sender.sendMessage(lang.plain("info-line", "node", n.name(lang), "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
             }
         }
         if (!any) {
-            sender.sendMessage(lang().plain("info-empty"));
+            sender.sendMessage(lang.plain("info-empty"));
         }
         if ("POINTS".equals(plugin.settings().currencyType)) {
-            sender.sendMessage(lang().plain("info-points", "currency", Text.escape(plugin.settings().currencyName),
+            sender.sendMessage(lang.plain("info-points", "currency", Text.escape(plugin.currencyName(lang)),
                     "amount", Text.num(d.points())));
         }
         if (d.prestige() > 0) {
-            sender.sendMessage(lang().plain("info-prestige", "level", String.valueOf(d.prestige())));
+            sender.sendMessage(lang.plain("info-prestige", "level", String.valueOf(d.prestige())));
         }
+        sender.sendMessage(Text.mm(" "));
+        help(sender);
     }
 
-    /** /yukselt sifirla [onayla] for players, /yukselt sifirla <oyuncu> for admins. */
-    private void reset(CommandSender sender, String[] args) {
-        boolean confirm = args.length >= 2 && (args[1].equalsIgnoreCase("onayla") || args[1].equalsIgnoreCase("confirm"));
+    /** /tigo respec [confirm] for players, /tigo reset &lt;player&gt; for admins. */
+    private void respec(CommandSender sender, String[] args) {
+        boolean confirm = args.length >= 2 && CommandAliases.word(args[1]).equals("confirm");
         if (args.length >= 2 && !confirm) {
             if (isAdmin(sender)) {
                 admin.reset(sender, args[1]);
@@ -211,17 +247,18 @@ public final class UpgradeCommand implements TabExecutor {
             return;
         }
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(lang().msg("players-only"));
+            sender.sendMessage(lang(sender).msg("players-only"));
             return;
         }
+        Lang lang = lang(p);
         ProgressService ps = plugin.progress();
         PlayerData d = plugin.data().get(p);
         if (!confirm) {
             if (!plugin.settings().respecEnabled) {
-                p.sendMessage(lang().msg("respec-disabled"));
+                p.sendMessage(lang.msg("respec-disabled"));
             } else {
-                p.sendMessage(lang().msg("respec-confirm", "refund", Text.escape(plugin.currency().format(ps.refund(d)))));
-                p.sendMessage(Text.mm("<gray>» <yellow>/yukselt sifirla onayla"));
+                p.sendMessage(lang.msg("respec-confirm", "refund", Text.escape(plugin.money(lang, ps.refund(d)))));
+                p.sendMessage(lang.plain("respec-confirm-hint"));
             }
             return;
         }
@@ -229,194 +266,88 @@ public final class UpgradeCommand implements TabExecutor {
         switch (ps.respec(p)) {
             case DONE -> {
                 plugin.menus().refresh(p);
-                p.sendMessage(lang().msg("respec-done", "refund", Text.escape(plugin.currency().format(refund))));
+                p.sendMessage(lang.msg("respec-done", "refund", Text.escape(plugin.money(lang, refund))));
             }
-            case COOLDOWN -> p.sendMessage(lang().msg("respec-cooldown", "time", Text.duration(ps.respecCooldownLeft(d))));
-            case NOTHING -> p.sendMessage(lang().msg("respec-nothing"));
-            case DISABLED -> p.sendMessage(lang().msg("respec-disabled"));
-            case CANCELLED -> p.sendMessage(lang().msg("purchase-cancelled"));
+            case COOLDOWN -> p.sendMessage(lang.msg("respec-cooldown", "time", Text.duration(ps.respecCooldownLeft(d))));
+            case NOTHING -> p.sendMessage(lang.msg("respec-nothing"));
+            case DISABLED -> p.sendMessage(lang.msg("respec-disabled"));
+            case CANCELLED -> p.sendMessage(lang.msg("purchase-cancelled"));
         }
     }
 
     private void prestige(CommandSender sender, String[] args) {
-        if (args.length >= 2 && (args[1].equalsIgnoreCase("ayarla") || args[1].equalsIgnoreCase("set"))) {
+        String opt = args.length >= 2 ? CommandAliases.word(args[1]) : "";
+        if (opt.equals("set")) {
             if (isAdmin(sender)) {
                 admin.prestigeSet(sender, args);
             }
             return;
         }
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(lang().msg("players-only"));
+            sender.sendMessage(lang(sender).msg("players-only"));
             return;
         }
+        Lang lang = lang(p);
         PlayerData d = plugin.data().get(p);
-        boolean confirm = args.length >= 2 && (args[1].equalsIgnoreCase("onayla") || args[1].equalsIgnoreCase("confirm"));
-        if (!confirm && plugin.progress().prestigeReady(d, p)) {
-            p.sendMessage(lang().msg("prestige-confirm"));
-            p.sendMessage(Text.mm("<gray>» <yellow>/yukselt prestij onayla"));
+        if (!opt.equals("confirm") && plugin.progress().prestigeReady(d, p)) {
+            p.sendMessage(lang.msg("prestige-confirm"));
+            p.sendMessage(lang.plain("prestige-confirm-hint"));
             return;
         }
         switch (plugin.progress().prestige(p)) {
             case DONE -> {
                 plugin.menus().refresh(p);
-                p.sendMessage(lang().msg("prestige-done", "level", String.valueOf(d.prestige())));
+                p.sendMessage(lang.msg("prestige-done", "level", String.valueOf(d.prestige())));
             }
-            case MAX -> p.sendMessage(lang().msg("prestige-max"));
-            case DISABLED -> p.sendMessage(lang().msg("prestige-disabled"));
-            case NOT_READY -> p.sendMessage(lang().msg("prestige-not-ready",
+            case MAX -> p.sendMessage(lang.msg("prestige-max"));
+            case DISABLED -> p.sendMessage(lang.msg("prestige-disabled"));
+            case NOT_READY -> p.sendMessage(lang.msg("prestige-not-ready",
                     "percent", String.valueOf(Math.round(plugin.service().progress(d, p) * 100)),
                     "required", Text.num(plugin.settings().prestigeRequiredPercent)));
-            case CANCELLED -> p.sendMessage(lang().msg("purchase-cancelled"));
+            case CANCELLED -> p.sendMessage(lang.msg("purchase-cancelled"));
         }
     }
 
     private void top(CommandSender sender, String[] args) {
-        String mode = args.length >= 2 ? args[1].toLowerCase(Locale.ROOT) : "prestij";
-        if (mode.equals("koy") || mode.equals("place") || mode.equals("kaldir") || mode.equals("kaldır") || mode.equals("remove")) {
+        String mode = args.length >= 2 ? CommandAliases.word(args[1]) : "prestige";
+        if (mode.equals("place") || mode.equals("remove")) {
             if (isAdmin(sender)) {
-                admin.hologram(sender, mode.equals("koy") || mode.equals("place"));
+                admin.hologram(sender, mode.equals("place"));
             }
             return;
         }
-        Leaderboard.Type type = mode.startsWith("sev") || mode.startsWith("lev") ? Leaderboard.Type.LEVELS : Leaderboard.Type.PRESTIGE;
+        Lang lang = lang(sender);
+        Leaderboard.Type type = mode.equals("levels") ? Leaderboard.Type.LEVELS : Leaderboard.Type.PRESTIGE;
         int size = plugin.settings().leaderboardSize;
-        sender.sendMessage(lang().msg("top-header", "size", String.valueOf(size),
-                "type", lang().raw(type == Leaderboard.Type.PRESTIGE ? "top-type-prestige" : "top-type-levels")));
+        sender.sendMessage(lang.msg("top-header", "size", String.valueOf(size),
+                "type", lang.raw(type == Leaderboard.Type.PRESTIGE ? "top-type-prestige" : "top-type-levels")));
         List<Leaderboard.Entry> list = plugin.leaderboard().top(type, size);
         if (list.isEmpty()) {
-            sender.sendMessage(lang().plain("top-empty"));
+            sender.sendMessage(lang.plain("top-empty"));
         }
         int rank = 1;
         for (Leaderboard.Entry e : list) {
-            sender.sendMessage(lang().plain("top-line", "rank", String.valueOf(rank++),
-                    "player", Text.escape(e.name() == null ? "?" : e.name()), "value", plugin.leaderboard().value(type, e)));
+            sender.sendMessage(lang.plain("top-line", "rank", String.valueOf(rank++),
+                    "player", Text.escape(e.name() == null ? "?" : e.name()), "value", plugin.leaderboard().value(lang, type, e)));
         }
     }
 
     private void menuMode(CommandSender sender, String[] args) {
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(lang().msg("players-only"));
+            sender.sendMessage(lang(sender).msg("players-only"));
             return;
         }
-        String arg = args.length >= 2 ? args[1].toLowerCase(Locale.ROOT) : "";
-        String mode = switch (arg) {
-            case "panel", "3d", "display" -> "PANEL";
-            case "sandik", "sandık", "chest", "gui" -> "CHEST";
+        String mode = switch (args.length >= 2 ? CommandAliases.word(args[1]) : "") {
+            case "panel" -> "PANEL";
+            case "chest" -> "CHEST";
             default -> "";
         };
         PlayerData d = plugin.data().get(p);
         d.menuMode(mode);
         plugin.menus().close(p, true);
-        String shown = mode.equals("CHEST") ? lang().raw("menu-mode-chest")
-                : mode.equals("PANEL") ? lang().raw("menu-mode-panel") : "AUTO";
-        p.sendMessage(lang().msg("menu-mode-set", "mode", shown));
-    }
-
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> out = new ArrayList<>();
-        boolean isAdmin = sender.hasPermission(ADMIN);
-        if (args.length == 1) {
-            List<String> subs = new ArrayList<>(List.of("yardim", "bilgi", "ac", "sifirla", "prestij", "top", "menu", "gunluk"));
-            if (isAdmin) {
-                subs.addAll(List.of("yenile", "kontrol", "ayarla", "puan", "temizle", "npc", "debug"));
-            }
-            if (sender instanceof Player op && op.isOp()) {
-                subs.add("admin");
-            }
-            filter(subs, args[0], out);
-            return out;
-        }
-        String sub = args[0].toLowerCase(Locale.ROOT);
-        if (args.length == 2) {
-            switch (sub) {
-                case "menu", "menü" -> filter(List.of("panel", "sandik", "otomatik"), args[1], out);
-                case "top" -> filter(isAdmin ? List.of("prestij", "seviye", "koy", "kaldir") : List.of("prestij", "seviye"), args[1], out);
-                case "prestij", "prestige" -> filter(isAdmin ? List.of("onayla", "ayarla") : List.of("onayla"), args[1], out);
-                case "sifirla", "reset", "respec" -> {
-                    List<String> opts = new ArrayList<>(List.of("onayla"));
-                    if (isAdmin) {
-                        opts.addAll(onlineNames());
-                    }
-                    filter(opts, args[1], out);
-                }
-                case "puan", "points" -> {
-                    if (isAdmin) {
-                        filter(List.of("ver", "al", "ayarla"), args[1], out);
-                    }
-                }
-                case "temizle", "cleanup" -> {
-                    if (isAdmin) {
-                        List<String> opts = new ArrayList<>(List.of("herkes"));
-                        opts.addAll(onlineNames());
-                        filter(opts, args[1], out);
-                    }
-                }
-                case "debug" -> {
-                    if (isAdmin) {
-                        filter(List.of("onizleme", "bak", "konum", "varlik"), args[1], out);
-                    }
-                }
-                case "admin", "panel" -> {
-                    if (sender instanceof Player op && op.isOp()) {
-                        filter(onlineNames(), args[1], out);
-                    }
-                }
-                case "bilgi", "info", "ayarla", "set", "ac", "open" -> {
-                    if (isAdmin) {
-                        filter(onlineNames(), args[1], out);
-                    }
-                }
-                default -> {
-                }
-            }
-        } else if (args.length == 3 && isAdmin) {
-            switch (sub) {
-                case "ayarla", "set" -> filter(nodeIds(), args[2], out);
-                case "puan", "points", "debug" -> filter(onlineNames(), args[2], out);
-                case "prestij", "prestige" -> filter(onlineNames(), args[2], out);
-                default -> {
-                }
-            }
-        } else if (args.length == 4 && isAdmin) {
-            if (sub.equals("ayarla") || sub.equals("set")) {
-                UpgradeNode n = plugin.trees().node(args[2]);
-                if (n != null) {
-                    List<String> lv = new ArrayList<>();
-                    for (int i = 0; i <= n.maxLevel; i++) {
-                        lv.add(String.valueOf(i));
-                    }
-                    filter(lv, args[3], out);
-                }
-            } else if (sub.equals("debug")) {
-                filter(nodeIds(), args[3], out);
-            }
-        }
-        return out;
-    }
-
-    private List<String> nodeIds() {
-        List<String> ids = new ArrayList<>();
-        for (UpgradeNode n : plugin.trees().nodes()) {
-            ids.add(n.id);
-        }
-        return ids;
-    }
-
-    private static List<String> onlineNames() {
-        List<String> names = new ArrayList<>();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            names.add(p.getName());
-        }
-        return names;
-    }
-
-    private static void filter(List<String> options, String prefix, List<String> out) {
-        String p = prefix.toLowerCase(Locale.ROOT);
-        for (String o : options) {
-            if (o.toLowerCase(Locale.ROOT).startsWith(p)) {
-                out.add(o);
-            }
-        }
+        Lang lang = lang(p);
+        String shown = mode.equals("CHEST") ? lang.raw("menu-mode-chest")
+                : mode.equals("PANEL") ? lang.raw("menu-mode-panel") : "AUTO";
+        p.sendMessage(lang.msg("menu-mode-set", "mode", shown));
     }
 }

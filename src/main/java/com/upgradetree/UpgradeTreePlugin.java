@@ -1,8 +1,12 @@
 package com.upgradetree;
 
 import com.upgradetree.api.UpgradeTreeAPI;
+import com.upgradetree.chest.ChestManager;
+import com.upgradetree.chest.ChestRegistry;
 import com.upgradetree.command.UpgradeCommand;
+import com.upgradetree.config.DefaultFiles;
 import com.upgradetree.config.Lang;
+import com.upgradetree.config.Languages;
 import com.upgradetree.config.Settings;
 import com.upgradetree.currency.Currency;
 import com.upgradetree.currency.PointsCurrency;
@@ -27,6 +31,7 @@ import com.upgradetree.listener.CombatTracker;
 import com.upgradetree.listener.Notifier;
 import com.upgradetree.listener.PlayerListener;
 import com.upgradetree.listener.PointsListener;
+import com.upgradetree.listener.QuickActionListener;
 import com.upgradetree.menu.MenuListener;
 import com.upgradetree.menu.MenuManager;
 import com.upgradetree.service.Leaderboard;
@@ -36,8 +41,13 @@ import com.upgradetree.tree.NodeEffect;
 import com.upgradetree.tree.TreeLoader;
 import com.upgradetree.tree.TreeRegistry;
 import com.upgradetree.tree.UpgradeNode;
+import com.upgradetree.util.Text;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
+import io.papermc.paper.registry.keys.tags.DialogTagKeys;
 import org.bukkit.Material;
-import org.bukkit.command.PluginCommand;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -58,7 +68,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
     public static final String[] DEFAULT_TREES = {"ana", "yetenekler", "toplayici"};
 
     private Settings settings;
-    private Lang lang;
+    private Languages languages;
     private TreeRegistry trees = TreeRegistry.empty();
     private Set<Material> trackedBlocks = EnumSet.noneOf(Material.class);
     private DataStore data;
@@ -72,6 +82,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
     private BedrockHook bedrock;
     private CombatTracker combat;
     private PointsListener points;
+    private ChestRegistry chestTypes = ChestRegistry.empty();
+    private ChestManager chests;
+    private AccessListener access;
 
     @Override
     public void onEnable() {
@@ -82,10 +95,19 @@ public final class UpgradeTreePlugin extends JavaPlugin {
                 saveResource(TreeLoader.FOLDER + "/" + t + ".yml", false);
             }
         }
+        if (!new File(getDataFolder(), ChestRegistry.FILE).exists()) {
+            saveResource(ChestRegistry.FILE, false);
+        }
+        // untouched Turkish-only defaults of older versions get the texts of every language
+        for (String t : DEFAULT_TREES) {
+            DefaultFiles.upgrade(this, TreeLoader.FOLDER + "/" + t + ".yml");
+        }
+        DefaultFiles.upgrade(this, ChestRegistry.FILE);
         loadSettings();
         data = new DataStore(createStorage(), getLogger(), () -> settings == null ? 0 : settings.startingPoints);
         currency = createCurrency(settings);
         loadTrees();
+        loadChests();
 
         service = new UpgradeService(this);
         progress = new ProgressService(this);
@@ -97,6 +119,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         combat = new CombatTracker(this);
         PlacedBlocks placed = new PlacedBlocks(this);
         points = new PointsListener(this, placed);
+        chests = new ChestManager(this);
         Notifier notifier = new Notifier(this);
 
         PluginManager pm = getServer().getPluginManager();
@@ -110,17 +133,19 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         pm.registerEvents(combat, this);
         pm.registerEvents(points, this);
         pm.registerEvents(notifier, this);
-        pm.registerEvents(new AccessListener(this), this);
+        access = new AccessListener(this);
+        pm.registerEvents(access, this);
+        pm.registerEvents(new QuickActionListener(this), this);
+        pm.registerEvents(chests, this);
 
-        PluginCommand cmd = getCommand("yukselt");
-        if (cmd != null) {
-            UpgradeCommand executor = new UpgradeCommand(this);
-            cmd.setExecutor(executor);
-            cmd.setTabCompleter(executor);
-        }
+        UpgradeCommand executor = new UpgradeCommand(this);
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
+                UpgradeCommand.LABEL, "UpgradeTree: upgrade tree and chests (/tigo help)", UpgradeCommand.ALIASES, executor));
+        logQuickAction();
 
         var scheduler = getServer().getScheduler();
         scheduler.runTaskTimer(this, menus::tick, 1L, 1L);
+        scheduler.runTaskTimer(this, chests::tick, 1L, 1L);
         scheduler.runTaskTimer(this, effects::tickPotions, 100L, 100L);
         scheduler.runTaskTimer(this, notifier::tick, 100L, 100L);
         scheduler.runTaskTimer(this, points::tickPlaytime, 1200L, 1200L);
@@ -129,10 +154,10 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         scheduler.runTaskTimer(this, leaderboard::refreshAsync, 20L, 20L * 300);
 
         if (pm.getPlugin("PlaceholderAPI") != null && PapiHook.register(this)) {
-            getLogger().info("PlaceholderAPI bağlandı (%upgradetree_...%).");
+            getLogger().info(log("log-papi"));
         }
         if (bedrock.active()) {
-            getLogger().info("Geyser/Floodgate bulundu: Bedrock oyuncular sandık menüsünü kullanacak.");
+            getLogger().info(log("log-bedrock"));
         }
         UpgradeTreeAPI.init(this);
 
@@ -141,10 +166,11 @@ public final class UpgradeTreePlugin extends JavaPlugin {
             data.get(p);
             effects.apply(p);
         }
-        getLogger().info("Yükseltme ağacı hazır: " + trees.trees().size() + " ağaç, " + trees.nodes().size()
-                + " düğüm, para birimi: " + settings.currencyType + ", veri: " + data.storage().describe() + ". Oyunda /yukselt yaz.");
+        getLogger().info(log("log-ready", "trees", String.valueOf(trees.trees().size()), "nodes", String.valueOf(trees.nodes().size()),
+                "chests", String.valueOf(chestTypes.chests().size()), "currency", settings.currencyType,
+                "storage", data.storage().describe()));
         if (settings.cleanupMode) {
-            getLogger().warning("cleanup-mode açık: oyunculardaki tüm eklenti bonusları kaldırılıyor, yükseltmeler etkisiz.");
+            getLogger().warning(log("log-cleanup"));
         }
     }
 
@@ -152,6 +178,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
     public void onDisable() {
         if (menus != null) {
             menus.closeAll(true);
+        }
+        if (chests != null) {
+            chests.finishAll();
         }
         if (leaderboard != null) {
             leaderboard.shutdown();
@@ -164,14 +193,33 @@ public final class UpgradeTreePlugin extends JavaPlugin {
     private void loadSettings() {
         reloadConfig();
         settings = new Settings(getConfig(), getLogger());
-        lang = new Lang(this, settings.language, getConfig());
+        languages = new Languages(this, settings.language, getConfig());
+    }
+
+    /** Tells whether the Quick Actions key (registered by the bootstrapper) is ready. */
+    private void logQuickAction() {
+        try {
+            var registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.DIALOG);
+            boolean registered = registry.get(UpgradeTreeBootstrap.OPEN_KEY) != null;
+            boolean tagged = registered && registry.hasTag(DialogTagKeys.QUICK_ACTIONS)
+                    && registry.getTag(DialogTagKeys.QUICK_ACTIONS).contains(UpgradeTreeBootstrap.OPEN_DIALOG);
+            if (tagged) {
+                getLogger().info(log("log-quick-ready"));
+            } else if (registered) {
+                getLogger().info(log("log-quick-off"));
+            } else {
+                getLogger().warning(log("log-quick-failed"));
+            }
+        } catch (RuntimeException ex) {
+            getLogger().warning(log("log-quick-error", "error", String.valueOf(ex)));
+        }
     }
 
     private void loadTrees() {
         try {
-            trees = TreeLoader.load(getDataFolder(), getLogger());
+            trees = TreeLoader.load(getDataFolder(), getLogger(), lang().code());
         } catch (Exception ex) {
-            getLogger().log(Level.SEVERE, "Ağaçlar okunamadı", ex);
+            getLogger().log(Level.SEVERE, log("log-trees-failed"), ex);
             trees = TreeRegistry.empty();
         }
         Set<Material> tracked = EnumSet.noneOf(Material.class);
@@ -187,18 +235,32 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         trackedBlocks = tracked;
     }
 
-    /** /yukselt yenile */
+    private void loadChests() {
+        try {
+            chestTypes = ChestRegistry.load(getDataFolder(), getLogger(), lang().code());
+        } catch (Exception ex) {
+            getLogger().log(Level.SEVERE, log("log-chests-failed"), ex);
+            chestTypes = ChestRegistry.empty();
+        }
+    }
+
+    /** /tigo reload */
     public boolean reloadAll() {
         if (menus != null) {
             menus.closeAll(false);
+        }
+        if (chests != null) {
+            chests.finishAll();
         }
         loadSettings();
         currency = createCurrency(settings);
         TreeRegistry before = trees;
         loadTrees();
+        loadChests();
         boolean ok = !trees.trees().isEmpty() || before.trees().isEmpty();
         for (Player p : getServer().getOnlinePlayers()) {
             effects.apply(p);
+            languageChanged(p);
         }
         leaderboard.updateHologram();
         return ok;
@@ -217,7 +279,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
                 return sql;
             }
         } catch (Exception e) {
-            getLogger().log(Level.SEVERE, "Veritabanına bağlanılamadı (" + type + "), YAML kullanılıyor: " + e.getMessage());
+            getLogger().log(Level.SEVERE, log("log-db-failed", "type", type, "error", String.valueOf(e.getMessage())));
         }
         return new YamlStorage(playersFolder, getLogger());
     }
@@ -236,18 +298,23 @@ public final class UpgradeTreePlugin extends JavaPlugin {
             for (PlayerData.Snapshot s : all) {
                 sql.save(s);
             }
-            getLogger().info(all.size() + " oyuncunun verisi YAML'dan " + sql.describe() + " veritabanına aktarıldı.");
+            getLogger().info(log("log-migrated", "count", String.valueOf(all.size()), "storage", sql.describe()));
         } catch (Exception e) {
-            getLogger().log(Level.WARNING, "YAML verileri aktarılamadı", e);
+            getLogger().log(Level.WARNING, log("log-migrate-failed"), e);
         }
     }
 
     private Currency createCurrency(Settings s) {
         return switch (s.currencyType) {
-            case "VAULT" -> new VaultCurrency(s.currencyName, getLogger());
-            case "POINTS" -> new PointsCurrency(data, s.currencyName);
-            default -> new XpCurrency(s.currencyName);
+            case "VAULT" -> new VaultCurrency(getLogger());
+            case "POINTS" -> new PointsCurrency(data);
+            default -> new XpCurrency();
         };
+    }
+
+    /** A console line in the server language (lang file "log-..." keys, tags removed). */
+    private String log(String key, String... kv) {
+        return languages == null ? key : Text.plain(lang().format(key, kv));
     }
 
     public String namespace() {
@@ -258,8 +325,35 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         return settings;
     }
 
+    /** Server language (console, broadcasts, hologram). */
     public Lang lang() {
-        return lang;
+        return languages.server();
+    }
+
+    /** The language of whoever reads the message: a player's own choice, else the server language. */
+    public Lang lang(CommandSender viewer) {
+        if (viewer instanceof Player p && data != null) {
+            PlayerData d = data.cachedOrNull(p.getUniqueId());
+            if (d != null) {
+                return languages.get(d.language());
+            }
+        }
+        return languages.server();
+    }
+
+    public Languages languages() {
+        return languages;
+    }
+
+    /** /tigo serverlanguage: writes config.yml "language" and reloads everything. */
+    public boolean setServerLanguage(String code) {
+        if (!languages.has(code)) {
+            return false;
+        }
+        reloadConfig(); // keep edits made to config.yml on disk since the last reload
+        getConfig().set("language", code);
+        saveConfig();
+        return reloadAll();
     }
 
     public TreeRegistry trees() {
@@ -277,6 +371,16 @@ public final class UpgradeTreePlugin extends JavaPlugin {
 
     public Currency currency() {
         return currency;
+    }
+
+    /** An amount with the currency name in the reader's language ("5 Levels", "5 Seviye", "$5"). */
+    public String money(Lang lang, double amount) {
+        return currency.format(amount, settings.currencyName(lang));
+    }
+
+    /** The currency name in the reader's language. */
+    public String currencyName(Lang lang) {
+        return settings.currencyName(lang);
     }
 
     public UpgradeService service() {
@@ -313,5 +417,27 @@ public final class UpgradeTreePlugin extends JavaPlugin {
 
     public PointsListener points() {
         return points;
+    }
+
+    /** Chests sold in the Chests section (chests.yml). */
+    public ChestRegistry chestTypes() {
+        return chestTypes;
+    }
+
+    public ChestManager chests() {
+        return chests;
+    }
+
+    /**
+     * A player's language changed (own choice or the server language): texts that were handed out
+     * once (menu item, leaderboard hologram) follow it. Open menus are closed by the caller.
+     */
+    public void languageChanged(Player p) {
+        if (access != null) {
+            access.giveItem(p);
+        }
+        if (leaderboard != null) {
+            leaderboard.refreshViewer(p);
+        }
     }
 }

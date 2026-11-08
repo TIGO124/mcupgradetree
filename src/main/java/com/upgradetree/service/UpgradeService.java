@@ -106,13 +106,17 @@ public final class UpgradeService {
         return false;
     }
 
-    /** Unmet requirements as MiniMessage fragments, e.g. "Keskin Kılıç", "X veya Y (biri)", "Prestij 1". */
+    /** Unmet requirements in the player's language, e.g. "Sharp Sword", "X or Y (one of)", "Prestige 1". */
     public List<String> missing(PlayerData d, Player p, UpgradeNode n) {
-        Lang lang = plugin.lang();
+        return missing(d, p, n, plugin.lang(p));
+    }
+
+    /** Unmet requirements of {@code p} (permissions) written in {@code lang} (the reader). */
+    public List<String> missing(PlayerData d, Player p, UpgradeNode n, Lang lang) {
         List<String> out = new ArrayList<>();
         for (String r : n.requires) {
             if (d.level(r) <= 0) {
-                out.add(name(r));
+                out.add(name(r, lang));
             }
         }
         if (!n.requiresAny.isEmpty()) {
@@ -120,7 +124,7 @@ public final class UpgradeService {
             List<String> names = new ArrayList<>();
             for (String r : n.requiresAny) {
                 any |= d.level(r) > 0;
-                names.add(name(r));
+                names.add(name(r, lang));
             }
             if (!any) {
                 out.add(lang.format("req-any", "nodes", String.join(lang.raw("req-or"), names)));
@@ -128,7 +132,7 @@ public final class UpgradeService {
         }
         for (Map.Entry<String, Integer> e : n.requiresLevel.entrySet()) {
             if (d.level(e.getKey()) < e.getValue()) {
-                out.add(lang.format("req-level", "node", name(e.getKey()), "level", String.valueOf(e.getValue())));
+                out.add(lang.format("req-level", "node", name(e.getKey(), lang), "level", String.valueOf(e.getValue())));
             }
         }
         if (d.prestige() < n.minPrestige) {
@@ -140,9 +144,9 @@ public final class UpgradeService {
         return out;
     }
 
-    private String name(String id) {
+    private String name(String id, Lang lang) {
         UpgradeNode n = trees().node(id);
-        return n == null ? id : n.nameRaw;
+        return n == null ? id : n.name(lang);
     }
 
     // ------------------------------------------------------------------ cost & purchase

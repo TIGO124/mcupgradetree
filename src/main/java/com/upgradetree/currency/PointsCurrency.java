@@ -9,11 +9,9 @@ import org.bukkit.entity.Player;
 public final class PointsCurrency implements Currency {
 
     private final DataStore store;
-    private final String name;
 
-    public PointsCurrency(DataStore store, String name) {
+    public PointsCurrency(DataStore store) {
         this.store = store;
-        this.name = name;
     }
 
     @Override
@@ -44,7 +42,7 @@ public final class PointsCurrency implements Currency {
     }
 
     @Override
-    public String format(double amount) {
+    public String format(double amount, String name) {
         return formatShort(amount) + " " + name;
     }
 

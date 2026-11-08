@@ -1,5 +1,7 @@
 package com.upgradetree.tree;
 
+import com.upgradetree.config.Localized;
+import com.upgradetree.config.Problems;
 import com.upgradetree.util.Palette;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -27,10 +29,12 @@ public final class TreeLoader {
     public static final String FOLDER = "trees";
 
     private final Logger log;
-    private final List<String> problems = new ArrayList<>();
+    private final String language;
+    private final List<Localized<String>> problems = new ArrayList<>();
 
-    private TreeLoader(Logger log) {
+    private TreeLoader(Logger log, String language) {
         this.log = log;
+        this.language = language;
     }
 
     /** Moves an old single tree.yml into trees/ana.yml. Returns true if something was moved. */
@@ -52,19 +56,24 @@ public final class TreeLoader {
         }
     }
 
-    public static TreeRegistry load(File dataFolder, Logger log) {
-        return new TreeLoader(log).loadAll(new File(dataFolder, FOLDER));
+    /** {@code language}: the server language, used for the console. */
+    public static TreeRegistry load(File dataFolder, Logger log, String language) {
+        return new TreeLoader(log, language).loadAll(new File(dataFolder, FOLDER));
     }
 
-    private void warn(String msg) {
-        problems.add(msg);
-        log.warning(msg);
+    private void warn(String tr, String en) {
+        warn(Problems.of(tr, en));
+    }
+
+    private void warn(Localized<String> problem) {
+        problems.add(problem);
+        log.warning(Problems.console(problem, language));
     }
 
     private TreeRegistry loadAll(File folder) {
         File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
         if (files == null || files.length == 0) {
-            warn("trees klasöründe ağaç dosyası yok.");
+            warn("trees klasöründe ağaç dosyası yok.", "The trees folder has no tree file.");
             return new TreeRegistry(List.of(), problems, Set.of());
         }
         Arrays.sort(files);
@@ -78,14 +87,14 @@ public final class TreeLoader {
             try {
                 y.load(f);
             } catch (Exception ex) {
-                warn("trees/" + f.getName() + " okunamadı: " + ex.getMessage());
+                warn("trees/" + f.getName() + " okunamadı: " + ex.getMessage(), "trees/" + f.getName() + " could not be read: " + ex.getMessage());
                 continue;
             }
             configs.put(treeId, y);
             List<UpgradeNode.Builder> list = new ArrayList<>();
             ConfigurationSection ns = y.getConfigurationSection("nodes");
             if (ns == null) {
-                warn("trees/" + f.getName() + ": 'nodes' bölümü yok.");
+                warn("trees/" + f.getName() + ": 'nodes' bölümü yok.", "trees/" + f.getName() + ": no 'nodes' section.");
             } else {
                 for (String id : ns.getKeys(false)) {
                     ConfigurationSection s = ns.getConfigurationSection(id);
@@ -93,7 +102,8 @@ public final class TreeLoader {
                         continue;
                     }
                     if (all.containsKey(id) || containsIgnoreCase(all.keySet(), id)) {
-                        warn("trees/" + f.getName() + ": '" + id + "' başka bir ağaçta da var, atlandı (düğüm adları tekil olmalı).");
+                        warn("trees/" + f.getName() + ": '" + id + "' başka bir ağaçta da var, atlandı (düğüm adları tekil olmalı).",
+                                "trees/" + f.getName() + ": '" + id + "' is also in another tree, skipped (upgrade ids must be unique).");
                         continue;
                     }
                     try {
@@ -101,7 +111,8 @@ public final class TreeLoader {
                         list.add(b);
                         all.put(id, b);
                     } catch (Exception ex) {
-                        warn("trees/" + f.getName() + ": '" + id + "' okunamadı: " + ex.getMessage());
+                        warn("trees/" + f.getName() + ": '" + id + "' okunamadı: " + ex.getMessage(),
+                                "trees/" + f.getName() + ": '" + id + "' could not be read: " + ex.getMessage());
                     }
                 }
             }
@@ -134,8 +145,8 @@ public final class TreeLoader {
                     new LinkedHashSet<>(b.requiresLevel.keySet()), b.exclusiveWith));
         }
         TreeValidator.Report report = TreeValidator.validate(specs);
-        for (String issue : report.issues()) {
-            warn("Ağaç kontrolü: " + issue);
+        for (Localized<String> issue : report.issues()) {
+            warn(Problems.of("Ağaç kontrolü: " + issue.get("tr", "tr"), "Tree check: " + issue.get("en", "en")));
         }
 
         List<UpgradeTree> trees = new ArrayList<>();
@@ -147,8 +158,8 @@ public final class TreeLoader {
             for (UpgradeNode.Builder b : e.getValue()) {
                 nodes.put(b.id, b.build());
             }
-            String title = y.getString("title", UpgradeTree.DEFAULT_TITLE);
-            String tab = y.getString("tab.name", capitalize(treeId));
+            Localized<String> title = Localized.text(y.get("title"), null);
+            Localized<String> tab = Localized.text(y.get("tab.name"), capitalize(treeId));
             Material tabIcon = material(y.getString("tab.icon", "BOOK"), Material.BOOK, "trees/" + treeId + ".yml tab.icon");
             int order = y.getInt("tab.order", ++index * 10);
             trees.add(new UpgradeTree(treeId, title, tab, tabIcon, order, y.getString("tab.permission", ""), nodes));
@@ -162,9 +173,10 @@ public final class TreeLoader {
         for (String r : refs) {
             String real = all.containsKey(r) ? r : lowerIds.get(r.toLowerCase(Locale.ROOT));
             if (real == null) {
-                warn("'" + owner.id + "' bilinmeyen '" + r + "' düğümünü gösteriyor, yok sayıldı.");
+                warn("'" + owner.id + "' bilinmeyen '" + r + "' düğümünü gösteriyor, yok sayıldı.",
+                        "'" + owner.id + "' refers to the unknown upgrade '" + r + "', ignored.");
             } else if (real.equals(owner.id)) {
-                warn("'" + owner.id + "' kendini gösteremez.");
+                warn("'" + owner.id + "' kendini gösteremez.", "'" + owner.id + "' cannot require itself.");
             } else if (!out.contains(real)) {
                 out.add(real);
             }
@@ -181,7 +193,7 @@ public final class TreeLoader {
             key = base + "_" + i++;
         }
         b.key = key;
-        b.nameRaw = s.getString("name", id);
+        b.name = Localized.text(s.get("name"), id);
         String ctx = "trees/" + treeId + ".yml '" + id + "'";
         b.icon = material(s.getString("icon", "PAPER"), Material.PAPER, ctx + " icon");
         b.iconModel = s.getString("icon-model");
@@ -206,18 +218,18 @@ public final class TreeLoader {
         b.minPrestige = s.getInt("min-prestige", 0);
         b.alwaysVisible = s.getBoolean("always-visible", false);
         b.color = Palette.parse(s.getString("color"), UpgradeTree.DEFAULT_COLOR);
-        b.description = stringList(s, "description");
-        b.bonus = s.getString("bonus", "");
+        b.description = Localized.lines(s.get("description"));
+        b.bonus = Localized.text(s.get("bonus"), "");
         b.bonusMultiplier = s.getDouble("bonus-multiplier", 1);
         b.bonusPerLevel = s.contains("bonus-per-level") ? s.getDouble("bonus-per-level") : null;
-        b.effects = EffectParser.parseAll(ctx, s.getMapList("effects"), new ForwardingLogger(this));
+        b.effects = EffectParser.parseAll(ctx, s.getMapList("effects"), this::warn);
         return b;
     }
 
     private Material material(String name, Material def, String ctx) {
         Material m = Material.matchMaterial(name == null ? "" : name.trim());
         if (m == null || !m.isItem() || m.isAir()) {
-            warn(ctx + ": geçersiz eşya '" + name + "', " + def + " kullanıldı.");
+            warn(ctx + ": geçersiz eşya '" + name + "', " + def + " kullanıldı.", ctx + ": invalid item '" + name + "', using " + def + ".");
             return def;
         }
         return m;
@@ -261,18 +273,4 @@ public final class TreeLoader {
         return sb.isEmpty() ? "node" : sb.toString();
     }
 
-    /** Sends effect parser warnings into the loader's problem list too. */
-    private static final class ForwardingLogger extends Logger {
-        private final TreeLoader loader;
-
-        ForwardingLogger(TreeLoader loader) {
-            super("UpgradeTree-Loader", null);
-            this.loader = loader;
-        }
-
-        @Override
-        public void warning(String msg) {
-            loader.warn(msg);
-        }
-    }
 }

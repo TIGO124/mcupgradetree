@@ -1,5 +1,8 @@
 package com.upgradetree.menu;
 
+import com.upgradetree.chest.ChestReward;
+import com.upgradetree.chest.ChestType;
+import com.upgradetree.chest.Rarity;
 import com.upgradetree.config.Lang;
 import com.upgradetree.currency.Currency;
 import com.upgradetree.data.PlayerData;
@@ -16,6 +19,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +46,9 @@ final class InfoCard {
     private double barFrac = -1;
     private CardButton buy;
     private CardButton minus;
+    /** Chests section: "open" and "buy" side by side when the player owns the shown chest. */
+    private CardButton chestOpen;
+    private CardButton chestBuy;
 
     InfoCard(DisplayMenu menu) {
         this.menu = menu;
@@ -87,6 +94,114 @@ final class InfoCard {
         }
     }
 
+    /** The two half-width buttons of the Chests section (only menus that show that section). */
+    void buildChestButtons() {
+        if (chestOpen != null) {
+            return;
+        }
+        Painter pt = menu.painter();
+        int stroke = menu.settings().theme.panelBorder();
+        double half = (BTN_W - 0.03) / 2.0;
+        chestOpen = CardButton.spawn(pt, CARD_CX - half / 2.0 - 0.015, BTN_Y, half, BTN_H, stroke, menu.settings().theme.gold());
+        chestBuy = CardButton.spawn(pt, CARD_CX + half / 2.0 + 0.015, BTN_Y, half, BTN_H, stroke, menu.settings().theme.buy());
+    }
+
+    boolean hitChestOpen(double u, double v) {
+        return chestOpen != null && chestOpen.hit(u, v);
+    }
+
+    boolean hitChestBuy(double u, double v) {
+        return chestBuy != null && chestBuy.hit(u, v);
+    }
+
+    double[] chestOpenCenter() {
+        return chestOpen == null ? null : new double[]{chestOpen.cx, chestOpen.cy};
+    }
+
+    double[] chestBuyCenter() {
+        return chestBuy == null ? null : new double[]{chestBuy.cx, chestBuy.cy};
+    }
+
+    private void hideChestButtons() {
+        if (chestOpen != null) {
+            chestOpen.hide(menu);
+            chestBuy.hide(menu);
+        }
+    }
+
+    /** Details of a chest in the Chests section, with the buy (and open) buttons. */
+    void showChest(ChestType c, boolean confirmPending) {
+        if (name == null || c == null) {
+            return;
+        }
+        Lang lang = menu.lang();
+        PlayerData d = menu.data();
+        var theme = menu.settings().theme;
+        ItemStack icon = Icons.of(c.icon);
+        if (c.glint) {
+            icon.editMeta(m -> m.setEnchantmentGlintOverride(true));
+        }
+        setIconStack(icon, "chest:" + c.id);
+        colorHex(Palette.mix(c.color, theme.card(), 0.55), Palette.lighten(c.color, 0.25));
+        Painter.setText(name, Text.mm("<b>" + c.name(lang)));
+        int owned = d.chests(c.id);
+        Painter.setText(level, lang.plain("chest-owned", "count", String.valueOf(owned)));
+        setBar(0, c.color);
+        setDesc(String.join("\n", c.description(lang)));
+        StringBuilder odds = new StringBuilder();
+        for (Rarity r : c.rarities()) {
+            if (!odds.isEmpty()) {
+                odds.append(' ');
+            }
+            odds.append(r.tag()).append("■</color><gray>")
+                    .append(lang.format("chest-percent", "chance", Text.num(c.chance(r) * 100))).append("</gray>");
+        }
+        Painter.setText(extra, Text.mm(odds.toString()));
+        Painter.setText(bonus, Component.empty());
+        Currency cur = menu.plugin().currency();
+        boolean afford = menu.plugin().chests().affordable(menu.player(), c);
+        Painter.setText(cost, c.price <= 0 ? lang.plain("info-free")
+                : lang.plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(menu.plugin().money(lang, c.price))));
+        Component buyLabel = lang.plain(!afford ? "button-poor" : confirmPending ? "button-confirm" : "button-buy");
+        int buyColor = !afford ? theme.deny() : confirmPending ? Palette.mix(theme.buy(), theme.gold(), 0.5) : theme.buy();
+        if (owned > 0 && chestOpen != null) {
+            buy.hide(menu);
+            chestOpen.show(menu, lang.plain("button-open", "count", String.valueOf(owned)), Palette.mix(theme.gold(), theme.card(), 0.2));
+            chestBuy.show(menu, buyLabel, buyColor);
+        } else {
+            hideChestButtons();
+            buy.show(menu, buyLabel, buyColor);
+        }
+    }
+
+    /** One possible prize of a chest (hovered in the contents grid): rarity and chance. */
+    void showReward(ChestType c, ChestReward r) {
+        if (name == null || c == null || r == null) {
+            return;
+        }
+        Lang lang = menu.lang();
+        setIconStack(r.icon(), "reward:" + c.id + ":" + r.index);
+        colorHex(Palette.mix(r.rarity.color(), menu.settings().theme.card(), 0.45), r.rarity.color());
+        Painter.setText(name, Text.mm("<b>" + r.coloredLabel(lang)));
+        Painter.setText(level, Text.mm(r.rarity.name(lang)));
+        setBar(c.chance(r), r.rarity.color());
+        setDesc(lang.format("chest-reward-chance", "chance", Text.num(c.chance(r) * 100), "chest", c.name(lang)));
+        Painter.setText(extra, Component.empty());
+        Painter.setText(bonus, Component.empty());
+        Painter.setText(cost, Component.empty());
+        hideChestButtons();
+        buy.hide(menu);
+    }
+
+    private void setIconStack(ItemStack stack, String key) {
+        if (key.equals(iconFor) || !(icon.entity instanceof ItemDisplay id) || !id.isValid()) {
+            return;
+        }
+        iconFor = key;
+        id.setItemStack(stack);
+        icon.material = stack.getType();
+    }
+
     void open(int duration) {
         group.scale = 1.0;
         group.apply(menu.frame(), duration);
@@ -98,6 +213,10 @@ final class InfoCard {
         buy.shrink(menu, duration);
         if (minus != null) {
             minus.shrink(menu, duration);
+        }
+        if (chestOpen != null) {
+            chestOpen.shrink(menu, duration);
+            chestBuy.shrink(menu, duration);
         }
     }
 
@@ -117,8 +236,17 @@ final class InfoCard {
         return minus == null ? null : new double[]{minus.cx, minus.cy};
     }
 
+    private CardButton button(String id) {
+        return switch (id) {
+            case "minus" -> minus;
+            case "chestopen" -> chestOpen;
+            case "chestbuy" -> chestBuy;
+            default -> buy;
+        };
+    }
+
     void setBuyHover(String id, boolean on) {
-        CardButton b = id.equals("minus") ? minus : buy;
+        CardButton b = button(id);
         if (b != null) {
             b.setHover(menu, on);
         }
@@ -132,11 +260,24 @@ final class InfoCard {
         Sparks.shake(menu, (minusButton && minus != null ? minus : buy).group);
     }
 
+    /** Squeeze (ok) or shake (refused) of a button by id ("buy", "chestbuy", "chestopen"). */
+    void feedback(String id, boolean ok) {
+        CardButton b = button(id);
+        if (b != null) {
+            if (ok) {
+                Sparks.pulse(menu, b.group);
+            } else {
+                Sparks.shake(menu, b.group);
+            }
+        }
+    }
+
     /** Shows the upgrade (or the welcome text when null). */
     void show(UpgradeNode n, boolean confirmPending) {
         if (name == null) {
             return;
         }
+        hideChestButtons();
         Lang lang = menu.lang();
         PlayerData d = menu.data();
         UpgradeService svc = menu.plugin().service();
@@ -165,17 +306,18 @@ final class InfoCard {
         int fill = layer == null ? n.color : layer.fillColor(n, st);
         int border = layer == null ? n.color : layer.borderColor(n, st);
         colorHex(fill, border);
-        Painter.setText(name, Text.mm("<b>" + n.nameRaw));
+        Painter.setText(name, Text.mm("<b>" + n.name(lang)));
         Painter.setText(level, lang.plain("info-level", "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
         setBar((double) lvl / n.maxLevel, st == State.MAXED ? theme.gold() : n.color);
-        setDesc(String.join("\n", n.description));
+        setDesc(String.join("\n", n.description(lang)));
         Painter.setText(extra, extraLine(n, d, lvl));
 
-        if (st != State.LOCKED && st != State.BLOCKED && !n.bonus.isBlank()) {
+        String bonusText = n.bonus(lang);
+        if (st != State.LOCKED && st != State.BLOCKED && !bonusText.isBlank()) {
             String hex = String.format("#%06X", Palette.rgb(Palette.lighten(n.color, 0.3)));
-            String now = "<color:" + hex + ">" + Text.apply(n.bonus, "value", Text.num(n.bonusValue(lvl))) + "</color>";
+            String now = "<color:" + hex + ">" + Text.apply(bonusText, "value", Text.num(n.bonusValue(lvl))) + "</color>";
             String next = lvl < n.maxLevel
-                    ? " <dark_gray>→</dark_gray> <color:" + hex + ">" + Text.apply(n.bonus, "value", Text.num(n.bonusValue(lvl + 1))) + "</color>"
+                    ? " <dark_gray>→</dark_gray> <color:" + hex + ">" + Text.apply(bonusText, "value", Text.num(n.bonusValue(lvl + 1))) + "</color>"
                     : "";
             Painter.setText(bonus, Text.mm(now + next));
         } else {
@@ -198,13 +340,13 @@ final class InfoCard {
             }
             case LOCKED -> {
                 Painter.setText(cost, lang.plain("info-requires", "requires",
-                        String.join("<gray>, </gray>", svc.missing(d, who, n))));
+                        String.join("<gray>, </gray>", svc.missing(d, who, n, lang))));
                 setButton(lang.plain("button-locked"), Palette.lighten(theme.locked(), 0.12));
             }
             case BLOCKED -> {
                 List<String> names = new ArrayList<>();
                 for (UpgradeNode b : svc.blockers(d, n)) {
-                    names.add(b.nameRaw);
+                    names.add(b.name(lang));
                 }
                 Painter.setText(cost, lang.plain("info-blocked", "nodes", String.join("<gray>, </gray>", names)));
                 setButton(lang.plain("button-blocked"), Palette.mix(theme.deny(), theme.locked(), 0.5));
@@ -215,7 +357,7 @@ final class InfoCard {
                 if (c <= 0) {
                     Painter.setText(cost, lang.plain("info-free"));
                 } else {
-                    Painter.setText(cost, lang.plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(cur.format(c))));
+                    Painter.setText(cost, lang.plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(menu.plugin().money(lang, c))));
                 }
                 if (!afford) {
                     setButton(lang.plain("button-poor"), theme.deny());

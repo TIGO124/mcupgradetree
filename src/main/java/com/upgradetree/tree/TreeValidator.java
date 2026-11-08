@@ -1,5 +1,8 @@
 package com.upgradetree.tree;
 
+import com.upgradetree.config.Localized;
+import com.upgradetree.config.Problems;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -21,7 +24,7 @@ public final class TreeValidator {
                        List<String> requiresAny, Set<String> requiresLevel, List<String> exclusiveWith) {
     }
 
-    public record Report(List<String> issues, Set<String> unreachable) {
+    public record Report(List<Localized<String>> issues, Set<String> unreachable) {
     }
 
     private TreeValidator() {
@@ -32,13 +35,14 @@ public final class TreeValidator {
         for (Spec s : specs) {
             byId.put(s.id(), s);
         }
-        List<String> issues = new ArrayList<>();
+        List<Localized<String>> issues = new ArrayList<>();
 
         // impossible exclusive rules
         for (Spec s : specs) {
             for (String ex : s.exclusiveWith()) {
                 if (s.requires().contains(ex) || s.requiresLevel().contains(ex)) {
-                    issues.add("'" + s.id() + "' hem '" + ex + "' düğümünü istiyor hem de onunla birlikte alınamıyor.");
+                    issues.add(Problems.of("'" + s.id() + "' hem '" + ex + "' düğümünü istiyor hem de onunla birlikte alınamıyor.",
+                            "'" + s.id() + "' requires '" + ex + "' but cannot be combined with it."));
                 }
             }
         }
@@ -77,12 +81,14 @@ public final class TreeValidator {
         Set<String> inCycle = new HashSet<>();
         for (List<String> cycle : cycles(specs, unreachable)) {
             inCycle.addAll(cycle);
-            issues.add("Gereksinim döngüsü: " + String.join(" → ", cycle) + " → " + cycle.get(0)
-                    + " (bu düğümler hiç açılamaz)");
+            String path = String.join(" → ", cycle) + " → " + cycle.get(0);
+            issues.add(Problems.of("Gereksinim döngüsü: " + path + " (bu düğümler hiç açılamaz)",
+                    "Requirement cycle: " + path + " (these upgrades can never be unlocked)"));
         }
         for (String id : unreachable) {
             if (!inCycle.contains(id) && !impossible(byId.get(id))) {
-                issues.add("'" + id + "' hiç açılamaz: gerektirdiği düğümler açılamıyor.");
+                issues.add(Problems.of("'" + id + "' hiç açılamaz: gerektirdiği düğümler açılamıyor.",
+                        "'" + id + "' can never be unlocked: the upgrades it requires cannot be unlocked."));
             }
         }
 
@@ -97,8 +103,10 @@ public final class TreeValidator {
                 double dx = a.x() - b.x();
                 double dy = (a.y() - b.y()) * HexGrid.ROW_STEP;
                 if (dx * dx + dy * dy < 0.81) {
-                    issues.add("'" + a.id() + "' ve '" + b.id() + "' üst üste çiziliyor (" + a.treeId() + ": x="
-                            + fmt(a.x()) + " y=" + fmt(a.y()) + " / x=" + fmt(b.x()) + " y=" + fmt(b.y()) + ")");
+                    String where = "(" + a.treeId() + ": x=" + fmt(a.x()) + " y=" + fmt(a.y()) + " / x=" + fmt(b.x())
+                            + " y=" + fmt(b.y()) + ")";
+                    issues.add(Problems.of("'" + a.id() + "' ve '" + b.id() + "' üst üste çiziliyor " + where,
+                            "'" + a.id() + "' and '" + b.id() + "' are drawn on top of each other " + where));
                 }
             }
         }

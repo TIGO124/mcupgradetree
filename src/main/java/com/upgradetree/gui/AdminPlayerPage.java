@@ -72,11 +72,11 @@ public final class AdminPlayerPage implements InventoryHolder {
     /** {@code offline} is the loaded data of an offline player, null for online players. */
     public static void open(UpgradeTreePlugin plugin, Player viewer, UUID uuid, String name, PlayerData offline) {
         if (!viewer.isOp()) {
-            viewer.sendMessage(plugin.lang().msg("admin-only-op"));
+            viewer.sendMessage(plugin.lang(viewer).msg("admin-only-op"));
             return;
         }
         AdminPlayerPage page = new AdminPlayerPage(plugin, viewer, uuid, name, offline);
-        page.inventory = Bukkit.createInventory(page, 54, plugin.lang().plain("admin-player-title", "player", Text.escape(name)));
+        page.inventory = Bukkit.createInventory(page, 54, plugin.lang(viewer).plain("admin-player-title", "player", Text.escape(name)));
         page.render();
         viewer.openInventory(page.inventory);
     }
@@ -87,7 +87,7 @@ public final class AdminPlayerPage implements InventoryHolder {
     }
 
     private Lang lang() {
-        return plugin.lang();
+        return plugin.lang(viewer);
     }
 
     private Player online() {
@@ -142,7 +142,7 @@ public final class AdminPlayerPage implements InventoryHolder {
         List<UpgradeTree> trees = plugin.trees().trees();
         for (int i = 0; i < TABS && i < trees.size(); i++) {
             UpgradeTree t = trees.get(i);
-            inventory.setItem(FIRST_TAB + i, GuiItems.glow(GuiItems.item(t.tabIcon, t.tabName, List.of(lang().plain("gui-tab-hint"))), t == tree));
+            inventory.setItem(FIRST_TAB + i, GuiItems.glow(GuiItems.item(t.tabIcon, t.tabName(lang()), List.of(lang().plain("gui-tab-hint"))), t == tree));
         }
         if (tree == null) {
             return;
@@ -164,7 +164,7 @@ public final class AdminPlayerPage implements InventoryHolder {
             }
             UpgradeNode n = nodes.get(idx);
             int lvl = Math.min(d.level(n.id), n.maxLevel);
-            ItemStack it = GuiItems.named(Icons.of(n), Text.mm("<b>" + n.nameRaw),
+            ItemStack it = GuiItems.named(Icons.of(n), Text.mm("<b>" + n.name(lang())),
                     lines("admin-node-lore", "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
             it.setAmount(Math.max(1, Math.min(64, lvl)));
             inventory.setItem(FIRST_NODE + i, GuiItems.glow(it, lvl > 0));
@@ -205,7 +205,7 @@ public final class AdminPlayerPage implements InventoryHolder {
                 if (next != lvl) {
                     d.setLevel(n.id, next);
                     changed(d, next == 0);
-                    viewer.sendActionBar(lang().plain("admin-set", "player", Text.escape(name), "node", n.nameRaw,
+                    viewer.sendActionBar(lang().plain("admin-set", "player", Text.escape(name), "node", n.name(lang()),
                             "level", String.valueOf(next)));
                 }
             }

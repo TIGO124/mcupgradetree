@@ -27,6 +27,8 @@ public final class DataStore {
     private final Storage storage;
     private final Logger log;
     private final DoubleSupplier startingPoints;
+    private static final long PRELOAD_GRACE_MS = 60_000L;
+
     private final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerData.Snapshot> pending = new ConcurrentHashMap<>();
     private final ExecutorService writer = Executors.newSingleThreadExecutor(r -> {
@@ -57,6 +59,11 @@ public final class DataStore {
         if (!cache.containsKey(uuid)) {
             cache.putIfAbsent(uuid, loadNow(uuid, name));
         }
+    }
+
+    /** Cached data or null, never loads (cheap lookups such as the player's language). */
+    public PlayerData cachedOrNull(UUID uuid) {
+        return cache.get(uuid);
     }
 
     /** Cached data if present, otherwise loaded without caching (offline players). */
@@ -121,14 +128,28 @@ public final class DataStore {
         }
     }
 
-    /** Writes dirty data and forgets players that are no longer online. */
+    /**
+     * Writes dirty data, retries failed writes of players who already left and forgets players that
+     * are no longer online. Data loaded in the last minute is kept: it may belong to a player who is
+     * still logging in (pre-login loads it before the player counts as online).
+     */
     public void autosave() {
+        long now = System.currentTimeMillis();
         for (PlayerData d : new ArrayList<>(cache.values())) {
             if (d.isDirty()) {
                 save(d);
             }
-            if (Bukkit.getPlayer(d.uuid) == null && !d.isDirty()) {
+            if (Bukkit.getPlayer(d.uuid) == null && !d.isDirty() && now - d.loadedAt() > PRELOAD_GRACE_MS) {
                 cache.remove(d.uuid, d);
+            }
+        }
+        for (PlayerData.Snapshot s : new ArrayList<>(pending.values())) {
+            if (!cache.containsKey(s.uuid())) {
+                try {
+                    writer.execute(() -> write(s));
+                } catch (RejectedExecutionException e) {
+                    // shutting down; shutdown() flushes what is left
+                }
             }
         }
     }
@@ -165,6 +186,11 @@ public final class DataStore {
     public void shutdown() {
         for (PlayerData d : cache.values()) {
             save(d);
+        }
+        for (PlayerData.Snapshot s : new ArrayList<>(pending.values())) {
+            if (!cache.containsKey(s.uuid())) {
+                writer.execute(() -> write(s));
+            }
         }
         writer.shutdown();
         try {
