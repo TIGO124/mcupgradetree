@@ -140,6 +140,9 @@ final class AdminCommands {
         try {
             amount = Double.parseDouble(args[3].replace(',', '.'));
         } catch (NumberFormatException e) {
+            amount = Double.NaN;
+        }
+        if (!Double.isFinite(amount)) { // "NaN" / "Infinity" would corrupt the stored balance
             sender.sendMessage(lang(sender).msg("invalid-number", "value", Text.escape(args[3])));
             return;
         }

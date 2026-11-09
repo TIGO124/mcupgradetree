@@ -17,6 +17,9 @@ import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.loot.LootContext;
+import org.bukkit.loot.LootTable;
+import org.bukkit.loot.Lootable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class LifeListener implements Listener {
 
     private final UpgradeTreePlugin plugin;
+    private boolean lootWarned;
 
     public LifeListener(UpgradeTreePlugin plugin) {
         this.plugin = plugin;
@@ -92,25 +96,41 @@ public final class LifeListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    /**
+     * Extra mob loot. The mob's loot table is rolled once more instead of copying the drop list:
+     * the drop list also holds the mob's equipment and inventory (picked-up items, a donkey's chest,
+     * saddles, armour), and copying those would duplicate player items.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onMobDeath(EntityDeathEvent e) {
         LivingEntity dead = e.getEntity();
         Player killer = dead.getKiller();
-        if (killer == null || dead instanceof Player || e.getDrops().isEmpty()) {
+        if (killer == null || dead instanceof Player || e.getDrops().isEmpty()
+                || !(dead instanceof Lootable lootable) || lootable.getLootTable() == null) {
             return;
         }
         if (plugin.settings().ignoredSpawnReasons.contains(dead.getEntitySpawnReason())) {
             return;
         }
         double chance = plugin.effects().sum(killer, NodeEffect.MobDrops.class, NodeEffect.MobDrops::amount);
-        if (chance > 0 && ThreadLocalRandom.current().nextDouble() < Math.min(1.0, chance)) {
+        if (chance <= 0 || ThreadLocalRandom.current().nextDouble() >= Math.min(1.0, chance)) {
+            return;
+        }
+        LootTable table = lootable.getLootTable();
+        try {
+            LootContext ctx = new LootContext.Builder(dead.getLocation()).lootedEntity(dead).killer(killer).build();
             List<ItemStack> extra = new ArrayList<>();
-            for (ItemStack drop : e.getDrops()) {
+            for (ItemStack drop : table.populateLoot(ThreadLocalRandom.current(), ctx)) {
                 if (drop != null && !drop.getType().isAir()) {
-                    extra.add(drop.clone());
+                    extra.add(drop);
                 }
             }
             e.getDrops().addAll(extra);
+        } catch (RuntimeException ex) {
+            if (!lootWarned) {
+                lootWarned = true;
+                plugin.getLogger().warning("MOB_DROPS: " + table.getKey() + " could not be rolled: " + ex);
+            }
         }
     }
 

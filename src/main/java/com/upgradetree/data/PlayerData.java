@@ -138,7 +138,11 @@ public final class PlayerData {
         return points;
     }
 
+    /** Sets the balance (never below zero); NaN or infinity from a command or another plugin is ignored. */
     public synchronized void points(double points) {
+        if (!Double.isFinite(points)) {
+            return;
+        }
         this.points = Math.max(0, points);
         dirty = true;
     }

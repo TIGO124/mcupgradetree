@@ -39,9 +39,11 @@ public final class CombatTracker implements Listener {
         }
     }
 
+    /** A combat tag survives a rejoin; only expired tags are dropped. */
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        lastCombat.remove(e.getPlayer().getUniqueId());
+        long cutoff = System.currentTimeMillis() - plugin.settings().combatCooldownMs;
+        lastCombat.values().removeIf(at -> at <= cutoff);
     }
 
     /** Seconds the player still has to wait (0 = free to open the menu). */

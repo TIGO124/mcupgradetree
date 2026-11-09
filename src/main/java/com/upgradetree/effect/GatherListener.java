@@ -10,7 +10,9 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Leaves;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
@@ -20,6 +22,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.FurnaceRecipe;
 import org.bukkit.inventory.ItemStack;
@@ -57,10 +61,51 @@ public final class GatherListener implements Listener {
                 || plugin.trackedBlocks().contains(m);
     }
 
+    /** Blocks with a ripeness: only ripe ones get the bonus, so planting them needs no tracking. */
+    static boolean crop(Material type) {
+        return Tag.CROPS.isTagged(type) || type == Material.NETHER_WART || type == Material.COCOA
+                || type == Material.SWEET_BERRY_BUSH;
+    }
+
+    /**
+     * Planted crops are not marked: every crop on a farm is planted by a player, so marking them
+     * would switch the crop double drop off for good. Unripe crops never get the bonus anyway.
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent e) {
-        if (tracked(e.getBlockPlaced().getType())) {
+        Material type = e.getBlockPlaced().getType();
+        if (tracked(type) && !crop(type)) {
             placed.mark(e.getBlockPlaced());
+        }
+    }
+
+    /** A piston carries the "placed" mark along, so pushing a placed ore does not make it natural. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent e) {
+        BlockFace move = e.getBlock().getBlockData() instanceof Directional d ? d.getFacing() : e.getDirection();
+        movePlaced(e.getBlocks(), move);
+    }
+
+    /** A sticky piston pulls the blocks towards itself, against the way it faces (read from the block). */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent e) {
+        BlockFace move = e.getBlock().getBlockData() instanceof Directional d ? d.getFacing().getOppositeFace() : e.getDirection();
+        movePlaced(e.getBlocks(), move);
+    }
+
+    private void movePlaced(List<Block> blocks, BlockFace direction) {
+        List<Block> marked = new ArrayList<>();
+        for (Block b : blocks) {
+            if (placed.isPlaced(b)) {
+                marked.add(b);
+            }
+        }
+        // all old marks go first: a block may move into the spot another marked block just left
+        for (Block b : marked) {
+            placed.unmark(b);
+        }
+        for (Block b : marked) {
+            placed.mark(b.getRelative(direction));
         }
     }
 
@@ -106,9 +151,7 @@ public final class GatherListener implements Listener {
         }
         boolean doubled = false;
         boolean silk = p.getInventory().getItemInMainHand().containsEnchantment(Enchantment.SILK_TOUCH);
-        boolean crop = Tag.CROPS.isTagged(type) || type == Material.NETHER_WART || type == Material.COCOA
-                || type == Material.SWEET_BERRY_BUSH;
-        boolean unripe = crop && e.getBlockState().getBlockData() instanceof Ageable age && age.getAge() < age.getMaximumAge();
+        boolean unripe = crop(type) && e.getBlockState().getBlockData() instanceof Ageable age && age.getAge() < age.getMaximumAge();
         if (!unripe && chance > 0 && ThreadLocalRandom.current().nextDouble() < Math.min(1.0, chance)) {
             for (Item item : e.getItems()) {
                 ItemStack stack = item.getItemStack();

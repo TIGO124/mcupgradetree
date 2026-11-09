@@ -6,6 +6,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -74,7 +75,9 @@ public final class CombatListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onLifesteal(EntityDamageByEntityEvent e) {
         Player p = attacker(e.getDamager());
-        if (p == null || e.getEntity() == p || !(e.getEntity() instanceof LivingEntity) || p.isDead()) {
+        // armour stands take "damage" too: hitting one must not heal
+        if (p == null || e.getEntity() == p || !(e.getEntity() instanceof LivingEntity) || e.getEntity() instanceof ArmorStand
+                || p.isDead()) {
             return;
         }
         double frac = plugin.effects().sum(p, NodeEffect.Lifesteal.class, NodeEffect.Lifesteal::amount);

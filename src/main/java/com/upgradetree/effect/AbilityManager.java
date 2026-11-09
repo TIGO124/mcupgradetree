@@ -92,12 +92,17 @@ public final class AbilityManager implements Listener {
         }
     }
 
+    /** Cooldowns outlive the session (a quick rejoin must not reset them); only expired ones are dropped. */
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         UUID id = e.getPlayer().getUniqueId();
-        cooldowns.remove(id);
         lastSneak.remove(id);
         noFall.remove(id);
+        long now = System.currentTimeMillis();
+        cooldowns.values().removeIf(map -> {
+            map.values().removeIf(ready -> ready <= now);
+            return map.isEmpty();
+        });
     }
 
     /** Seconds left on the cooldown of an ability node (0 = ready). */

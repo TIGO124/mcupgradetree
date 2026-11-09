@@ -105,6 +105,18 @@ class LogicTest {
     }
 
     @Test
+    void invalidPointAmountsAreIgnored() {
+        PlayerData d = new PlayerData(UUID.randomUUID(), "x");
+        d.points(4);
+        d.points(Double.NaN);
+        d.addPoints(Double.POSITIVE_INFINITY);
+        d.points(Double.NEGATIVE_INFINITY);
+        assertEquals(4, d.points());
+        d.points(-3);
+        assertEquals(0, d.points());
+    }
+
+    @Test
     void textHelpers() {
         assertEquals("5", Text.num(5.0));
         assertEquals("2.5", Text.num(2.5));

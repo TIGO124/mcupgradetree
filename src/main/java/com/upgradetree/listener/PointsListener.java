@@ -119,12 +119,17 @@ public final class PointsListener implements Listener {
         }, 60L);
     }
 
+    /** Kill cooldowns survive a rejoin (relogging must not allow farming the same victim); expired ones go. */
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         UUID id = e.getPlayer().getUniqueId();
         lastActive.remove(id);
         activeMinutes.remove(id);
-        playerKills.remove(id);
+        long cutoff = System.currentTimeMillis() - plugin.settings().playerKillCooldownMs;
+        playerKills.values().removeIf(victims -> {
+            victims.values().removeIf(at -> at <= cutoff);
+            return victims.isEmpty();
+        });
     }
 
     /** Gives the daily reward once per calendar day. Returns true if it was given now. */
