@@ -9,6 +9,7 @@ import com.upgradetree.service.ProgressService;
 import com.upgradetree.service.UpgradeService.Result;
 import com.upgradetree.tree.UpgradeNode;
 import com.upgradetree.tree.UpgradeTree;
+import com.upgradetree.util.Palette;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -49,6 +50,9 @@ public final class DisplayMenu {
 
     private Group chrome;
     private Part progress;
+    private List<Part> progressTrack;
+    private Part progressFill;
+    private double progressFrac = -1;
     private Part footer;
     private UpgradeTree current;
     NodeLayer layer;
@@ -107,9 +111,9 @@ public final class DisplayMenu {
         return settings;
     }
 
-    /** The viewer's language (the menu is closed when it changes, so it never mixes two). */
+    /** The messages (messages.yml). */
     Lang lang() {
-        return plugin.lang(player);
+        return plugin.lang();
     }
 
     /** Data shown and changed by the menu: the viewer's, or the edited player's in the admin mode. */
@@ -164,7 +168,7 @@ public final class DisplayMenu {
         try {
             build();
         } catch (RuntimeException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Menü oluşturulamadı", ex);
+            plugin.getLogger().log(Level.SEVERE, "Could not build the menu", ex);
             closing = true;
             release();
             removeAll();
@@ -180,11 +184,22 @@ public final class DisplayMenu {
         Settings.Theme t = settings.theme;
         chrome = painter.group(PANEL_CX, PANEL_CY);
         chrome.scale = startScale;
-        painter.roundRect(chrome, PANEL_CX, PANEL_CY, PANEL_W + 2 * PANEL_STROKE, PANEL_H + 2 * PANEL_STROKE, 0.046,
-                Z_PANEL_STROKE, t.panelBorder(), 3);
-        painter.roundRect(chrome, PANEL_CX, PANEL_CY, PANEL_W, PANEL_H, 0.04, Z_PANEL, t.background(), 3);
-        if (settings.stars) {
-            Stars.spawn(painter, chrome, player.getUniqueId().hashCode());
+        // the picture needs the plugin's resource pack; without it the panel gets the plain colour
+        boolean image = settings.background == Settings.Background.IMAGE && plugin.pack().imageReady(player);
+        if (image) {
+            painter.roundRect(chrome, PANEL_CX, PANEL_CY, PANEL_W + 2 * PANEL_STROKE, PANEL_H + 2 * PANEL_STROKE, 0.012,
+                    Z_PANEL_STROKE, t.panelBorder(), 1);
+            painter.image(chrome, Part.image(PANEL_CX, PANEL_CY, PANEL_W, PANEL_H, Z_PANEL), plugin.pack().item());
+        } else {
+            painter.roundRect(chrome, PANEL_CX, PANEL_CY, PANEL_W + 2 * PANEL_STROKE, PANEL_H + 2 * PANEL_STROKE, 0.046,
+                    Z_PANEL_STROKE, t.panelBorder(), 3);
+            painter.roundRect(chrome, PANEL_CX, PANEL_CY, PANEL_W, PANEL_H, 0.04, Z_PANEL, Palette.alpha(t.background(), 255), 3);
+        }
+        switch (settings.background) {
+            case PLANKS -> Planks.spawn(painter, chrome, t.background(), settings.highQuality, player.getUniqueId().hashCode());
+            case STARS -> Stars.spawn(painter, chrome, player.getUniqueId().hashCode());
+            default -> {
+            }
         }
         header.build(trees, current, startScale, chests.enabled());
         info.build(startScale);
@@ -192,6 +207,10 @@ public final class DisplayMenu {
             info.buildChestButtons();
         }
         progress = painter.text(chrome, Part.text(CANVAS_CX, PROGRESS_Y, 0.032, 1, false, Z_TEXT), Component.empty(), 2000);
+        progressTrack = painter.roundRect(chrome, CANVAS_CX, PROGRESS_BAR_Y, PROGRESS_BAR_W, PROGRESS_BAR_H, PROGRESS_BAR_H / 2.0,
+                Z_BOX_FILL, 0, 2);
+        progressFill = painter.rect(chrome, Part.rect(CANVAS_CX - (PROGRESS_BAR_W - 0.004) / 2.0, PROGRESS_BAR_Y, 0,
+                PROGRESS_BAR_H - 0.004, Z_BORDER, 0));
         if (startOnChests) {
             chests.open();
         } else if (current != null) {
@@ -336,6 +355,7 @@ public final class DisplayMenu {
         header.update(subject == null && plugin.progress().prestigeReady(data(), player));
         if (chests.active()) {
             chests.updateStatus(progress);
+            setProgressBar(-1);
             return;
         }
         if (current != null) {
@@ -343,7 +363,31 @@ public final class DisplayMenu {
             int total = current.nodes().size();
             Painter.setText(progress, lang().plain(doneCount >= total && total > 0 ? "menu-progress-done" : "menu-progress",
                     "done", String.valueOf(doneCount), "total", String.valueOf(total)));
+            setProgressBar(total <= 0 ? -1 : (double) doneCount / total);
         }
+    }
+
+    /** The completion bar under the progress text; a negative fraction hides it (Chests section). */
+    private void setProgressBar(double frac) {
+        if (progressFill == null || Math.abs(frac - progressFrac) < 1e-6) {
+            return;
+        }
+        boolean shown = frac >= 0;
+        boolean wasShown = progressFrac >= 0;
+        progressFrac = frac;
+        Settings.Theme t = settings.theme;
+        if (shown != wasShown) {
+            int track = shown ? Palette.lighten(Palette.mix(Palette.alpha(t.locked(), 255), Palette.alpha(t.panelBorder(), 255), 0.7), 0.08) : 0;
+            for (Part p : progressTrack) {
+                p.recolor(track, 4);
+            }
+        }
+        double inner = PROGRESS_BAR_W - 0.004;
+        double w = inner * Math.max(0, Math.min(1, frac));
+        progressFill.w = w;
+        progressFill.cx = CANVAS_CX - inner / 2.0 + w / 2.0;
+        chrome.apply(frame(), progressFill, 5);
+        progressFill.recolor(!shown || w <= 0 ? 0 : frac >= 1 ? t.maxed() : t.gold(), 5);
     }
 
     void refreshInfo() {

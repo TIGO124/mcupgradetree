@@ -1,5 +1,6 @@
 package com.upgradetree.chest;
 
+import com.upgradetree.UpgradeTreePlugin;
 import com.upgradetree.config.Lang;
 import com.upgradetree.util.Palette;
 import com.upgradetree.util.Text;
@@ -10,7 +11,6 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +35,6 @@ final class Roulette {
     private static final double FADE_END = 4.45;
     private static final double FRAME_W = 2 * FADE_END * PITCH + 0.06;
     private static final double FRAME_H = CARD_H + 0.08;
-    private static final int DARK = 0xFF10131D;
 
     private final class Slot {
         TextDisplay bg;
@@ -46,7 +45,7 @@ final class Roulette {
         double fade = -1;
     }
 
-    private final Plugin plugin;
+    private final UpgradeTreePlugin plugin;
     private final Player viewer;
     private final Location at;
     private final ChestType chest;
@@ -60,7 +59,7 @@ final class Roulette {
     private double scale = 0.001;
     private double position;
 
-    Roulette(Plugin plugin, Player viewer, Location at, ChestType chest, Strip strip) {
+    Roulette(UpgradeTreePlugin plugin, Player viewer, Location at, ChestType chest, Strip strip) {
         this.plugin = plugin;
         this.viewer = viewer;
         this.at = at;
@@ -78,29 +77,35 @@ final class Roulette {
         return icons.computeIfAbsent(r.index, i -> r.icon());
     }
 
-    private static int cardColor(ChestReward r) {
-        return Palette.mix(r.rarity.color(), DARK, 0.74);
+    /** Card background: the node base colour of the menu style, a little darker. */
+    private int dark() {
+        return Palette.darken(Palette.alpha(plugin.settings().theme.locked(), 255), 0.25);
+    }
+
+    private int cardColor(ChestReward r) {
+        return Palette.mix(r.rarity.color(), dark(), 0.74);
     }
 
     // ------------------------------------------------------------------ spawning
 
     /** Spawns everything at (almost) zero size; {@link #setScale} grows it. */
     void spawn(Lang lang) {
-        frame.add(Displays.rect(plugin, viewer, at, 0xFF2A3150, Displays.rect(0, 0, -0.012, 0.001, 0.001)));
-        frame.add(Displays.rect(plugin, viewer, at, 0xF00A0D16, Displays.rect(0, 0, -0.006, 0.001, 0.001)));
+        var theme = plugin.settings().theme;
+        frame.add(Displays.rect(plugin, viewer, at, Palette.alpha(theme.panelBorder(), 255), Displays.rect(0, 0, -0.012, 0.001, 0.001)));
+        frame.add(Displays.rect(plugin, viewer, at, Palette.alpha(theme.background(), 0xF0), Displays.rect(0, 0, -0.006, 0.001, 0.001)));
         for (int i = 0; i < SLOTS; i++) {
             Slot s = new Slot();
-            s.bg = Displays.rect(plugin, viewer, at, DARK, Displays.rect(0, 0, 0, 0.001, 0.001));
-            s.bar = Displays.rect(plugin, viewer, at, DARK, Displays.rect(0, 0, 0.004, 0.001, 0.001));
+            s.bg = Displays.rect(plugin, viewer, at, dark(), Displays.rect(0, 0, 0, 0.001, 0.001));
+            s.bar = Displays.rect(plugin, viewer, at, dark(), Displays.rect(0, 0, 0.004, 0.001, 0.001));
             s.icon = Displays.item(plugin, viewer, at, new ItemStack(org.bukkit.Material.CHEST), Displays.item(0, 0, 0.07, 0.001));
             s.badge = Displays.text(plugin, viewer, at, Component.empty(), Displays.text(0, 0, 0.012, 0.001, 1));
             slots.add(s);
         }
-        marker = Displays.rect(plugin, viewer, at, 0xFFFFD54A, Displays.rect(0, 0, 0.16, 0.001, 0.001));
-        title = Displays.text(plugin, viewer, at, Text.mm("<b>" + chest.name(lang)), Displays.text(0, 0.37, 0, 0.001, 1));
+        marker = Displays.rect(plugin, viewer, at, theme.maxed(), Displays.rect(0, 0, 0.16, 0.001, 0.001));
+        title = Displays.text(plugin, viewer, at, Text.mm("<b>" + chest.name()), Displays.text(0, 0.37, 0, 0.001, 1));
         result = Displays.text(plugin, viewer, at, Component.empty(), Displays.text(0, -0.37, 0, 0.001, 1));
-        frame.add(Displays.rect(plugin, viewer, at, 0xFFFFD54A, Displays.rect(0, 0, 0.16, 0.001, 0.001)));
-        frame.add(Displays.rect(plugin, viewer, at, 0xFFFFD54A, Displays.rect(0, 0, 0.16, 0.001, 0.001)));
+        frame.add(Displays.rect(plugin, viewer, at, theme.maxed(), Displays.rect(0, 0, 0.16, 0.001, 0.001)));
+        frame.add(Displays.rect(plugin, viewer, at, theme.maxed(), Displays.rect(0, 0, 0.16, 0.001, 0.001)));
         scale = 0.001;
         update(position, 0, true);
     }
@@ -153,7 +158,7 @@ final class Roulette {
                     s.icon.setItemStack(icon(r));
                     Displays.recolor(s.bg, cardColor(r), 0);
                     Displays.recolor(s.bar, r.rarity.color(), 0);
-                    s.badge.text(Text.mm("<white><b>" + r.badge()));
+                    s.badge.text(Text.mm("<hi><b>" + r.badge()));
                 }
             }
             double f = reward(card) == null ? 0 : fade(card - p);
@@ -194,19 +199,19 @@ final class Roulette {
             if (s.card == strip.winner) {
                 continue;
             }
-            Displays.recolor(s.bg, Palette.darken(DARK, 0.4), 8);
-            Displays.recolor(s.bar, Palette.mix(DARK, 0xFF3A3F55, 0.5), 8);
+            Displays.recolor(s.bg, Palette.darken(dark(), 0.4), 8);
+            Displays.recolor(s.bar, Palette.darken(dark(), 0.2), 8);
             place(s, (s.card - position) * PITCH, s.fade * scale * 0.9, 6, 1.0);
         }
         Slot w = winnerSlot();
         if (w != null) {
-            Displays.recolor(w.bg, Palette.mix(color, DARK, 0.45), 6);
+            Displays.recolor(w.bg, Palette.mix(color, dark(), 0.45), 6);
             place(w, (w.card - position) * PITCH, scale, 5, 1.18);
             w.icon.setGlowColorOverride(Color.fromRGB(Palette.rgb(color)));
             w.icon.setGlowing(true);
         }
         Displays.recolor(marker, color, 6);
-        result.text(Text.mm("<b>" + prize.coloredLabel(lang) + "</b>\n" + prize.rarity.name(lang)));
+        result.text(Text.mm("<b>" + prize.coloredLabel(lang) + "</b>\n" + prize.rarity.name()));
         Displays.push(result, Displays.text(0, -0.40 * scale, 0, 0.068 * scale, 2), 0);
     }
 

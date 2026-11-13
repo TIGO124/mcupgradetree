@@ -70,12 +70,13 @@ final class MenuSnapshot {
                 case RECT -> drawRect(g, p, px, py, s, ppu);
                 case TEXT -> drawText(g, p, px, py, s, ppu);
                 case ITEM -> drawItem(g, p, px, py, s, ppu, textures);
+                case IMAGE -> drawImage(g, p, px, py, s, ppu, menu.plugin().pack().image());
             }
         }
         g.dispose();
         File parent = out.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
-            throw new IOException("Klasör oluşturulamadı: " + parent);
+            throw new IOException("Could not create the folder: " + parent);
         }
         ImageIO.write(img, "png", out);
     }
@@ -94,6 +95,17 @@ final class MenuSnapshot {
         g.setTransform(old);
     }
 
+    /** The background picture, stretched over the part like the resource pack model. */
+    private static void drawImage(Graphics2D g, Part p, double px, double py, double s, double ppu, BufferedImage img) {
+        double rw = p.w * s * ppu;
+        double rh = p.h * s * ppu;
+        if (img == null || rw < 1 || rh < 1) {
+            return;
+        }
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(img, (int) Math.round(px - rw / 2), (int) Math.round(py - rh / 2), (int) Math.round(rw), (int) Math.round(rh), null);
+    }
+
     private static void drawText(Graphics2D g, Part p, double px, double py, double s, double ppu) {
         if (!(p.entity instanceof TextDisplay td)) {
             return;
@@ -108,6 +120,10 @@ final class MenuSnapshot {
             return;
         }
         double top = p.topAnchored ? py : py - lines.length * lineH / 2.0;
+        // like the client: the block is as wide as its longest line and centred; lines align inside it
+        List<List<Object[]>> parsed = new ArrayList<>();
+        double[] widths = new double[lines.length];
+        double block = 0;
         int carried = 0xFFFFFF;
         boolean bold = false;
         for (int i = 0; i < lines.length; i++) {
@@ -116,11 +132,20 @@ final class MenuSnapshot {
             parse(lines[i], segs, state);
             carried = state[0];
             bold = state[1] == 1;
-            double width = 0;
             for (Object[] seg : segs) {
-                width += g.getFontMetrics(font((Boolean) seg[2], lineH)).stringWidth((String) seg[0]);
+                widths[i] += g.getFontMetrics(font((Boolean) seg[2], lineH)).stringWidth((String) seg[0]);
             }
-            double x = px - width / 2.0;
+            block = Math.max(block, widths[i]);
+            parsed.add(segs);
+        }
+        for (int i = 0; i < lines.length; i++) {
+            List<Object[]> segs = parsed.get(i);
+            double width = widths[i];
+            double x = switch (td.getAlignment()) {
+                case LEFT -> px - block / 2.0;
+                case RIGHT -> px + block / 2.0 - width;
+                default -> px - width / 2.0;
+            };
             double baseline = top + (i + 0.8) * lineH;
             for (Object[] seg : segs) {
                 Font f = font((Boolean) seg[2], lineH);

@@ -91,7 +91,7 @@ final class CrateDrop {
     }
 
     private Lang lang() {
-        return plugin.lang(owner);
+        return plugin.lang();
     }
 
     // ------------------------------------------------------------------ life cycle
@@ -129,9 +129,8 @@ final class CrateDrop {
         if (!waiting()) {
             return false;
         }
-        ThreadLocalRandom rnd = ThreadLocalRandom.current();
-        prize = chest.roll(rnd);
-        strip = Strip.build(chest.chances(), prize.index, manager.registry().spinTicks, rnd);
+        prize = manager.roll(owner, chest);
+        strip = Strip.build(chest.chances(), prize.index, manager.registry().spinTicks, ThreadLocalRandom.current());
         Displays.remove(label);
         label = null;
         model.outline(null);
@@ -212,7 +211,7 @@ final class CrateDrop {
             model.outline(Color.fromRGB(Palette.rgb(chest.color)));
             label = Displays.spawn(plugin, owner, base.clone().add(0, ChestModel.HEIGHT + 0.35, 0), TextDisplay.class, d -> {
                 d.setBillboard(Display.Billboard.CENTER);
-                d.text(Text.mm("<b>" + chest.name(lang()) + "</b>\n" + lang().raw("chest-label-hint")));
+                d.text(Text.mm("<b>" + chest.name() + "</b>\n" + lang().raw("chest-label-hint")));
                 d.setBackgroundColor(Color.fromARGB(0x50000000));
                 d.setDefaultBackground(false);
                 d.setShadowed(true);
@@ -220,7 +219,7 @@ final class CrateDrop {
                 d.setTransformation(new Transformation(new Vector3f(), new Quaternionf(), new Vector3f(0.7f, 0.7f, 0.7f),
                         new Quaternionf()));
             });
-            owner.sendActionBar(lang().plain("chest-appeared", "chest", chest.name(lang())));
+            owner.sendActionBar(lang().plain("chest-appeared", "chest", chest.name()));
         }
     }
 
@@ -230,7 +229,7 @@ final class CrateDrop {
             particles(Particle.ENCHANT, base.clone().add(0, 0.7, 0), 10, 0.3, 0.3, 0.3, 0.4);
         }
         if (idle % 120 == 0) {
-            owner.sendActionBar(lang().plain("chest-appeared", "chest", chest.name(lang())));
+            owner.sendActionBar(lang().plain("chest-appeared", "chest", chest.name()));
         }
         boolean away = !owner.getWorld().equals(base.getWorld()) || owner.getLocation().distanceSquared(base) > 24 * 24;
         if (away || idle > manager.registry().despawnTicks) {

@@ -22,7 +22,11 @@ final class Layout {
     static final double CANVAS_Y0 = -0.372;
     static final double CANVAS_Y1 = 0.36;
     static final double CANVAS_CX = (CANVAS_X0 + CANVAS_X1) / 2.0;
-    static final double PROGRESS_Y = -0.413;
+    static final double PROGRESS_Y = -0.392;
+    /** Thin completion bar under the progress text. */
+    static final double PROGRESS_BAR_Y = -0.423;
+    static final double PROGRESS_BAR_W = 0.46;
+    static final double PROGRESS_BAR_H = 0.009;
 
     static final double CARD_X0 = 0.43;
     static final double CARD_X1 = 0.935;
@@ -37,6 +41,7 @@ final class Layout {
     static final double PILL_X = 0.70;
     static final double PILL_W = 0.27;
     static final double PILL_H = 0.054;
+    static final double PILL_ICON = 0.036;
     static final double RESPEC_X = 0.485;
     static final double RESPEC_W = 0.14;
     static final double PRESTIGE_X = 0.325;
@@ -48,21 +53,34 @@ final class Layout {
     static final double TAB_H = 0.054;
     static final double TAB_GAP = 0.012;
     static final double TAB_MAX_W = 0.27;
+    static final double TAB_ICON = 0.04;
+    static final double TAB_TEXT = 0.026;
+    /** Accent line under the active tab. */
+    static final double TAB_LINE_H = 0.006;
 
     static final double INFO_HEX_Y = 0.262;
     static final double INFO_HEX_R = 0.072;
     static final double INFO_NAME_Y = 0.158;
-    static final double INFO_LEVEL_Y = 0.118;
-    static final double INFO_BAR_Y = 0.089;
-    static final double INFO_BAR_W = 0.42;
-    static final double INFO_BAR_H = 0.014;
-    static final double INFO_DESC_TOP = 0.066;
+    static final double INFO_LEVEL_Y = 0.12;
+    static final double INFO_BAR_Y = 0.092;
+    static final double INFO_BAR_W = 0.36;
+    static final double INFO_BAR_H = 0.012;
+    static final double INFO_DESC_TOP = 0.068;
     static final double INFO_DESC_LH = 0.026;
     static final int INFO_DESC_MAX_LINES = 4;
     static final int INFO_DESC_WRAP_PX = 158;
-    static final double INFO_EXTRA_Y = -0.072;
-    static final double INFO_BONUS_Y = -0.112;
-    static final double INFO_COST_Y = -0.158;
+    static final double INFO_EXTRA_Y = -0.062;
+    /** Stats box of an upgrade: the bonus row ("now → next") above the cost row. */
+    static final double STAT_TOP = -0.088;
+    static final double STAT_BOTTOM = -0.212;
+    static final double INFO_BONUS_Y = -0.122;
+    static final double INFO_COST_Y = -0.178;
+    /** Odds box of a chest: one row per rarity (name left, chance right) above the cost row. */
+    static final double ODDS_TOP = 0.004;
+    static final double ODDS_ROWS_TOP = -0.014;
+    static final double ODDS_LH = 0.022;
+    static final int ODDS_MAX_ROWS = 6;
+    static final double BOX_W = 0.42;
     static final double BTN_Y = -0.29;
     static final double BTN_W = 0.42;
     static final double BTN_H = 0.068;
@@ -81,7 +99,6 @@ final class Layout {
     static final double Z_HALO = 0.008;
     static final double Z_BORDER = 0.010;
     static final double Z_FILL = 0.012;
-    static final double Z_SHINE = 0.014;
     static final double Z_TEXT = 0.020;
     static final double Z_ICON = 0.030;
 }

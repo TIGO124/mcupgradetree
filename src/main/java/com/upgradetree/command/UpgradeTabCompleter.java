@@ -10,13 +10,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Tab completion of /tigo. Only English names are suggested (Turkish aliases still run). */
+/** Tab completion of /tigo (main names only, see {@link CommandAliases}). */
 final class UpgradeTabCompleter {
 
     private static final List<String> PLAYER_SUBS = List.of("help", "info", "open", "chests", "respec", "prestige", "top",
-            "menu", "daily", "language");
+            "menu", "daily");
     private static final List<String> ADMIN_SUBS = List.of("reload", "check", "reset", "set", "points", "cleanup", "npc",
-            "debug", "serverlanguage");
+            "debug", "admin");
 
     private final UpgradeTreePlugin plugin;
 
@@ -78,16 +78,6 @@ final class UpgradeTabCompleter {
                 case "info", "set", "open" -> {
                     if (isAdmin) {
                         filter(onlineNames(), last, out);
-                    }
-                }
-                case "language" -> {
-                    List<String> opts = new ArrayList<>(plugin.languages().codes());
-                    opts.add("default");
-                    filter(opts, last, out);
-                }
-                case "serverlanguage" -> {
-                    if (isAdmin) {
-                        filter(new ArrayList<>(plugin.languages().codes()), last, out);
                     }
                 }
                 case "chests" -> {

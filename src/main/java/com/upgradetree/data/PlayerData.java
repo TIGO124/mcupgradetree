@@ -18,7 +18,6 @@ public final class PlayerData {
     private long lastRespec;
     private String lastDaily = "";
     private String menuMode = "";
-    private String language = "";
     /** Bought but not yet opened chests (chest id → count). */
     private final Map<String, Integer> chests = new LinkedHashMap<>();
     private volatile boolean dirty;
@@ -33,7 +32,7 @@ public final class PlayerData {
     /** Immutable copy used for saving on another thread. */
     public record Snapshot(UUID uuid, String name, Map<String, Integer> levels, Map<String, Double> spent,
                            double points, int prestige, long lastRespec, String lastDaily, String menuMode,
-                           String language, Map<String, Integer> chests) {
+                           Map<String, Integer> chests) {
 
         public Snapshot {
             chests = chests == null ? Map.of() : chests;
@@ -50,7 +49,7 @@ public final class PlayerData {
 
     public synchronized Snapshot snapshot() {
         return new Snapshot(uuid, name, Map.copyOf(levels), Map.copyOf(spent), points, prestige, lastRespec,
-                lastDaily, menuMode, language, Map.copyOf(chests));
+                lastDaily, menuMode, Map.copyOf(chests));
     }
 
     public static PlayerData of(Snapshot s) {
@@ -62,13 +61,27 @@ public final class PlayerData {
         d.lastRespec = s.lastRespec();
         d.lastDaily = s.lastDaily() == null ? "" : s.lastDaily();
         d.menuMode = s.menuMode() == null ? "" : s.menuMode();
-        d.language = s.language() == null ? "" : s.language();
         for (Map.Entry<String, Integer> e : s.chests().entrySet()) {
             if (e.getValue() != null && e.getValue() > 0) {
                 d.chests.put(e.getKey(), e.getValue());
             }
         }
         return d;
+    }
+
+    /** Takes over the levels, spent amounts and chests of {@code s} (ids moved to new names). */
+    public synchronized void replaceIds(Snapshot s) {
+        levels.clear();
+        levels.putAll(s.levels());
+        spent.clear();
+        spent.putAll(s.spent());
+        chests.clear();
+        for (Map.Entry<String, Integer> e : s.chests().entrySet()) {
+            if (e.getValue() != null && e.getValue() > 0) {
+                chests.put(e.getKey(), e.getValue());
+            }
+        }
+        dirty = true;
     }
 
     public long loadedAt() {
@@ -184,16 +197,6 @@ public final class PlayerData {
 
     public synchronized void menuMode(String mode) {
         this.menuMode = mode == null ? "" : mode;
-        dirty = true;
-    }
-
-    /** Chosen message language ("" = server language). */
-    public synchronized String language() {
-        return language;
-    }
-
-    public synchronized void language(String code) {
-        this.language = code == null ? "" : code;
         dirty = true;
     }
 

@@ -122,7 +122,7 @@ public final class SqlStorage implements Storage {
                     UUID id = UUID.fromString(rs.getString(1));
                     out.add(DataCodec.decode(id, rs.getString(2), rs.getString(3)));
                 } catch (Exception e) {
-                    log.fine("Atlandı: " + rs.getString(1));
+                    log.fine("Skipped: " + rs.getString(1));
                 }
             }
         }

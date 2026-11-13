@@ -1,7 +1,10 @@
 package com.upgradetree.util;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,7 +20,30 @@ import java.util.regex.Pattern;
  */
 public final class Text {
 
-    private static final MiniMessage MM = MiniMessage.miniMessage();
+    /**
+     * Message colour names of the chosen style ({@code <hi>}, {@code <body>}, {@code <dim>}, {@code <accent>},
+     * {@code <value>}, {@code <bad>}, {@code <good>}, {@code <info>}, {@code <magic>}), name → #RRGGBB.
+     */
+    private static volatile Map<String, String> palette = com.upgradetree.config.Style.DEFAULT.palette;
+    private static volatile MiniMessage MM = MiniMessage.builder().tags(paletteTags(palette)).build();
+
+    /** Switches the message colours (style chosen in config.yml). */
+    public static void palette(Map<String, String> colors) {
+        palette = Map.copyOf(colors);
+        MM = MiniMessage.builder().tags(paletteTags(palette)).build();
+    }
+
+    public static Map<String, String> palette() {
+        return palette;
+    }
+
+    private static TagResolver paletteTags(Map<String, String> colors) {
+        TagResolver.Builder b = TagResolver.builder().resolver(TagResolver.standard());
+        for (Map.Entry<String, String> e : colors.entrySet()) {
+            b.resolver(Placeholder.styling(e.getKey(), TextColor.fromHexString(e.getValue())));
+        }
+        return b.build();
+    }
     private static final Pattern HEX_AMP = Pattern.compile("[&§]#([0-9a-fA-F]{6})");
     private static final Pattern BUKKIT_HEX = Pattern.compile("[&§][xX]((?:[&§][0-9a-fA-F]){6})");
     private static final Map<Character, String> CODES = new HashMap<>();
@@ -108,6 +134,28 @@ public final class Text {
         return s;
     }
 
+    /** The currency symbol before an amount ("{symbol}" in menu-currency), or nothing when none is set. */
+    public static String symbol(String symbol) {
+        return symbol == null || symbol.isEmpty() ? "" : "<accent>" + escape(symbol) + "</accent> ";
+    }
+
+    /** Roman numeral for levels and prestige (1 → I, 4 → IV); plain digits from 4000 on or below 1. */
+    public static String roman(int n) {
+        if (n < 1 || n >= 4000) {
+            return String.valueOf(n);
+        }
+        int[] values = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
+        String[] marks = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < values.length; i++) {
+            while (n >= values[i]) {
+                sb.append(marks[i]);
+                n -= values[i];
+            }
+        }
+        return sb.toString();
+    }
+
     /** Escapes a value that must not be interpreted as MiniMessage (player names etc.). */
     public static String escape(String s) {
         return s == null ? "" : MM.escapeTags(s);
@@ -138,7 +186,6 @@ public final class Text {
             case ';':
             case '|':
             case 'i':
-            case 'ı':
                 return 2;
             case '`':
             case 'l':
@@ -148,7 +195,6 @@ public final class Text {
             case ')':
             case '*':
             case 'I':
-            case 'İ':
             case '[':
             case ']':
             case 't':

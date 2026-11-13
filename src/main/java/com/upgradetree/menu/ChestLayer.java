@@ -31,7 +31,7 @@ final class ChestLayer {
     private static final double CELL_W = 0.105;
     private static final double CELL_H = 0.088;
     private static final double CELL_GAP = 0.012;
-    private static final int DARK = 0xFF10131D;
+    private static final int MAX_PER_ROW = 10;
 
     static final class CardView {
         final ChestType chest;
@@ -41,6 +41,7 @@ final class ChestLayer {
         final double w;
         final double h;
         List<Part> border = List.of();
+        List<Part> fill = List.of();
         Part price;
         Part badge;
         boolean hover;
@@ -55,10 +56,14 @@ final class ChestLayer {
         }
     }
 
+    /** One prize cell; it slides to the slot of the shown chest (rows are balanced per chest). */
     static final class CellView {
         final Group group;
-        final double cx;
-        final double cy;
+        /** Where its parts were spawned (the group offset moves it from there). */
+        final double baseX;
+        final double baseY;
+        double cx;
+        double cy;
         Part bg;
         Part bar;
         Part icon;
@@ -66,6 +71,8 @@ final class ChestLayer {
 
         CellView(Group group, double cx, double cy) {
             this.group = group;
+            this.baseX = cx;
+            this.baseY = cy;
             this.cx = cx;
             this.cy = cy;
         }
@@ -76,6 +83,9 @@ final class ChestLayer {
     final List<CellView> cells = new ArrayList<>();
     private Group texts;
     private Part label;
+    /** Most cells in a row, and the top of the grid. */
+    private int perRow;
+    private double cellTop;
     private ChestType shown;
     private List<ChestReward> shownRewards = List.of();
 
@@ -85,6 +95,11 @@ final class ChestLayer {
 
     private Settings.Theme theme() {
         return menu.settings().theme;
+    }
+
+    /** Background of the reward cells: the node base of the style, a little darker. */
+    private int dark() {
+        return Palette.darken(Palette.alpha(theme().locked(), 255), 0.25);
     }
 
     private List<ChestType> chests() {
@@ -101,7 +116,7 @@ final class ChestLayer {
         double cardH = rows == 1 ? 0.27 : 0.19;
         double[] rowY = rows == 1 ? new double[]{0.145} : new double[]{0.2, -0.005};
         double labelY = rows == 1 ? -0.03 : -0.118;
-        double cellTop = rows == 1 ? -0.075 : -0.16;
+        cellTop = rows == 1 ? -0.075 : -0.16;
         int cellRows = rows == 1 ? 3 : 2;
 
         texts = pt.group(CANVAS_CX, 0);
@@ -119,16 +134,11 @@ final class ChestLayer {
             }
         }
 
-        int perRow = (int) Math.floor((AVAIL + CELL_GAP) / (CELL_W + CELL_GAP));
+        perRow = Math.min(MAX_PER_ROW, (int) Math.floor((AVAIL + CELL_GAP) / (CELL_W + CELL_GAP)));
         int needed = Math.min(perRow * cellRows, menu.plugin().chestTypes().maxRewards());
         for (int i = 0; i < needed; i++) {
-            int row = i / perRow;
-            int col = i % perRow;
-            int inRow = Math.min(perRow, needed - row * perRow);
-            double rowW = inRow * CELL_W + (inRow - 1) * CELL_GAP;
-            double cx = CANVAS_CX - rowW / 2.0 + CELL_W / 2.0 + col * (CELL_W + CELL_GAP);
-            double cy = cellTop - CELL_H / 2.0 - row * (CELL_H + CELL_GAP);
-            cells.add(spawnCell(cx, cy));
+            double[] at = slot(i, needed);
+            cells.add(spawnCell(at[0], at[1]));
         }
         if (pop && menu.animate()) {
             for (int i = 0; i < cards.size(); i++) {
@@ -143,25 +153,41 @@ final class ChestLayer {
         Group g = pt.group(cx, cy);
         g.scale = pop && menu.animate() ? 0.001 : 1.0;
         CardView v = new CardView(c, g, cx, cy, w, h);
-        v.border = pt.roundRect(g, cx, cy, w + 0.014, h + 0.014, 0.024, Z_BORDER, border(v), 3);
-        pt.roundRect(g, cx, cy, w, h, 0.02, Z_FILL, Palette.mix(theme().card(), c.color, 0.1), 3);
+        Painter.Box box = pt.framedBox(g, cx, cy, w, h, 0.02, Z_BORDER, Z_FILL, fill(v), border(v));
+        v.border = box.frame();
+        v.fill = box.fill();
         ItemStack icon = Icons.of(c.icon);
         if (c.glint) {
             icon.editMeta(m -> m.setEnchantmentGlintOverride(true));
         }
         pt.item(g, Part.item(cx, cy + h * 0.15, Math.min(0.11, w * 0.45), Z_ICON), icon);
-        pt.text(g, Part.text(cx, cy - h * 0.19, 0.024, 1, false, Z_TEXT), Text.mm("<b>" + c.name(menu.lang())), 4000);
+        pt.text(g, Part.text(cx, cy - h * 0.19, 0.024, 1, false, Z_TEXT), Text.mm("<b>" + c.name()), 4000);
         v.price = pt.text(g, Part.text(cx, cy - h * 0.35, 0.021, 1, false, Z_TEXT), Component.empty(), 4000);
         v.badge = pt.text(g, Part.text(cx + w / 2 - 0.032, cy + h / 2 - 0.03, 0.024, 1, false, Z_TEXT), Component.empty(), 400);
         return v;
+    }
+
+    /**
+     * Centre of cell {@code i} when {@code count} cells are shown: as few rows as possible, filled
+     * evenly (16 prizes: 8 + 8, not 11 + 5), every row centred.
+     */
+    private double[] slot(int i, int count) {
+        int rows = Math.max(1, (int) Math.ceil(count / (double) perRow));
+        int cols = Math.max(1, (int) Math.ceil(count / (double) rows));
+        int row = i / cols;
+        int col = i % cols;
+        int inRow = Math.max(1, Math.min(cols, count - row * cols));
+        double rowW = inRow * CELL_W + (inRow - 1) * CELL_GAP;
+        return new double[]{CANVAS_CX - rowW / 2.0 + CELL_W / 2.0 + col * (CELL_W + CELL_GAP),
+                cellTop - CELL_H / 2.0 - row * (CELL_H + CELL_GAP)};
     }
 
     private CellView spawnCell(double cx, double cy) {
         Painter pt = menu.painter();
         Group g = pt.group(cx, cy);
         CellView v = new CellView(g, cx, cy);
-        v.bg = pt.rect(g, Part.rect(cx, cy, CELL_W, CELL_H, Z_BOX_FILL, DARK));
-        v.bar = pt.rect(g, Part.rect(cx, cy - CELL_H / 2 + 0.006, CELL_W, 0.012, Z_BORDER, DARK));
+        v.bg = pt.rect(g, Part.rect(cx, cy, CELL_W, CELL_H, Z_BOX_FILL, dark()));
+        v.bar = pt.rect(g, Part.rect(cx, cy - CELL_H / 2 + 0.006, CELL_W, 0.012, Z_BORDER, dark()));
         v.icon = pt.item(g, Part.item(cx, cy + 0.006, 0.058, Z_ICON), Icons.of(org.bukkit.Material.CHEST));
         return v;
     }
@@ -208,13 +234,21 @@ final class ChestLayer {
 
     private int border(CardView v) {
         if (v.hover) {
-            return 0xFFFFFFFF;
+            return theme().hover();
         }
         ChestType sel = menu.chests.selected();
         if (sel != null && sel.id.equals(v.chest.id)) {
-            return theme().gold();
+            // the chest's own colour, bright: clearly different from the white hover frame
+            return Palette.alpha(Palette.lighten(v.chest.color, 0.3), 255);
         }
         return Palette.mix(v.chest.color, theme().panelBorder(), 0.35);
+    }
+
+    /** Card fill: tinted with the chest's colour, more when it is the selected chest. */
+    private int fill(CardView v) {
+        ChestType sel = menu.chests.selected();
+        boolean selected = sel != null && sel.id.equals(v.chest.id);
+        return Palette.mix(theme().card(), v.chest.color, selected ? 0.3 : 0.1);
     }
 
     /** Prices (red when too expensive), owned counts and the selection frame. */
@@ -224,13 +258,17 @@ final class ChestLayer {
         for (CardView v : cards) {
             ChestType c = v.chest;
             Component price = c.price <= 0 ? menu.lang().plain("info-free")
-                    : Text.mm((menu.plugin().chests().affordable(menu.player(), c) ? "<yellow>" : "<red>") + Text.escape(menu.plugin().money(menu.lang(), c.price)));
+                    : Text.mm((menu.plugin().chests().affordable(menu.player(), c) ? "<value>" : "<bad>") + Text.escape(menu.plugin().money(c.price)));
             Painter.setText(v.price, price);
             int owned = d.chests(c.id);
             Painter.setText(v.badge, owned > 0 ? menu.lang().plain("chests-owned-badge", "count", String.valueOf(owned)) : Component.empty());
             int b = border(v);
             for (Part p : v.border) {
                 p.recolor(b, 3);
+            }
+            int f = fill(v);
+            for (Part p : v.fill) {
+                p.recolor(f, 3);
             }
         }
     }
@@ -240,12 +278,24 @@ final class ChestLayer {
         if (c == null || (shown != null && shown.id.equals(c.id) && shown == c)) {
             return;
         }
+        boolean first = shown == null;
         shown = c;
         shownRewards = c.sortedRewards();
-        Painter.setText(label, menu.lang().plain("chests-contents", "chest", c.name(menu.lang())));
+        Painter.setText(label, menu.lang().plain("chests-contents", "chest", c.name()));
+        int count = Math.min(cells.size(), shownRewards.size());
         for (int i = 0; i < cells.size(); i++) {
             CellView v = cells.get(i);
             ChestReward r = i < shownRewards.size() ? shownRewards.get(i) : null;
+            if (r != null) {
+                double[] at = slot(i, count);
+                v.cx = at[0];
+                v.cy = at[1];
+                v.group.dx = at[0] - v.baseX;
+                v.group.dy = at[1] - v.baseY;
+                if (v.visible) {
+                    v.group.apply(menu.frame(), first ? 0 : 3);
+                }
+            }
             if (r == null) {
                 if (v.visible) {
                     v.visible = false;
@@ -254,7 +304,7 @@ final class ChestLayer {
                 }
                 continue;
             }
-            v.bg.recolor(Palette.mix(r.rarity.color(), DARK, 0.74), 3);
+            v.bg.recolor(Palette.mix(r.rarity.color(), dark(), 0.74), 3);
             v.bar.recolor(r.rarity.color(), 3);
             if (v.icon.entity instanceof ItemDisplay id && id.isValid()) {
                 id.setItemStack(r.icon());

@@ -20,7 +20,7 @@ import java.util.List;
 
 /**
  * /tigo – the only root command: opens the menu; every feature is a sub command
- * (/tigo info, /tigo chests, /tigo reload ...). Old Turkish sub command spellings still work.
+ * (/tigo info, /tigo chests, /tigo reload ...).
  */
 public final class UpgradeCommand implements BasicCommand {
 
@@ -31,14 +31,12 @@ public final class UpgradeCommand implements BasicCommand {
 
     private final UpgradeTreePlugin plugin;
     private final AdminCommands admin;
-    private final LanguageCommands language;
     private final ChestCommands chests;
     private final UpgradeTabCompleter tab;
 
     public UpgradeCommand(UpgradeTreePlugin plugin) {
         this.plugin = plugin;
         this.admin = new AdminCommands(plugin);
-        this.language = new LanguageCommands(plugin);
         this.chests = new ChestCommands(plugin, admin);
         this.tab = new UpgradeTabCompleter(plugin);
     }
@@ -59,7 +57,7 @@ public final class UpgradeCommand implements BasicCommand {
     }
 
     private Lang lang(CommandSender sender) {
-        return plugin.lang(sender);
+        return plugin.lang();
     }
 
     void run(CommandSender sender, String[] args) {
@@ -102,10 +100,10 @@ public final class UpgradeCommand implements BasicCommand {
             case "top" -> top(sender, args);
             case "menu" -> menuMode(sender, args);
             case "daily" -> {
-                if (sender instanceof Player p) {
-                    plugin.points().claimDaily(p, true);
-                } else {
+                if (!(sender instanceof Player p)) {
                     sender.sendMessage(lang(sender).msg("players-only"));
+                } else if (canUse(p)) {
+                    plugin.points().claimDaily(p, true);
                 }
             }
             case "cleanup" -> {
@@ -125,12 +123,6 @@ public final class UpgradeCommand implements BasicCommand {
             }
             case "admin" -> adminPanel(sender, args);
             case "chests" -> chests.run(sender, args);
-            case "language" -> language.player(sender, args);
-            case "serverlanguage" -> {
-                if (isAdmin(sender)) {
-                    language.server(sender, args);
-                }
-            }
             default -> help(sender);
         }
     }
@@ -149,6 +141,15 @@ public final class UpgradeCommand implements BasicCommand {
             return;
         }
         AdminPanel.open(plugin, p);
+    }
+
+    /** Player sub commands (respec, prestige, daily, menu) need upgradetree.use, like opening the menu. */
+    private boolean canUse(Player p) {
+        if (p.hasPermission(USE)) {
+            return true;
+        }
+        p.sendMessage(lang(p).msg("no-permission"));
+        return false;
     }
 
     private boolean isAdmin(CommandSender sender) {
@@ -220,14 +221,14 @@ public final class UpgradeCommand implements BasicCommand {
             int lvl = Math.min(n.maxLevel, d.level(n.id));
             if (lvl > 0) {
                 any = true;
-                sender.sendMessage(lang.plain("info-line", "node", n.name(lang), "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
+                sender.sendMessage(lang.plain("info-line", "node", n.name(), "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
             }
         }
         if (!any) {
             sender.sendMessage(lang.plain("info-empty"));
         }
         if ("POINTS".equals(plugin.settings().currencyType)) {
-            sender.sendMessage(lang.plain("info-points", "currency", Text.escape(plugin.currencyName(lang)),
+            sender.sendMessage(lang.plain("info-points", "currency", Text.escape(plugin.currencyName()),
                     "amount", Text.num(d.points())));
         }
         if (d.prestige() > 0) {
@@ -250,6 +251,9 @@ public final class UpgradeCommand implements BasicCommand {
             sender.sendMessage(lang(sender).msg("players-only"));
             return;
         }
+        if (!canUse(p)) {
+            return;
+        }
         Lang lang = lang(p);
         ProgressService ps = plugin.progress();
         PlayerData d = plugin.data().get(p);
@@ -257,7 +261,7 @@ public final class UpgradeCommand implements BasicCommand {
             if (!plugin.settings().respecEnabled) {
                 p.sendMessage(lang.msg("respec-disabled"));
             } else {
-                p.sendMessage(lang.msg("respec-confirm", "refund", Text.escape(plugin.money(lang, ps.refund(d)))));
+                p.sendMessage(lang.msg("respec-confirm", "refund", Text.escape(plugin.money(ps.refund(d)))));
                 p.sendMessage(lang.plain("respec-confirm-hint"));
             }
             return;
@@ -266,11 +270,12 @@ public final class UpgradeCommand implements BasicCommand {
         switch (ps.respec(p)) {
             case DONE -> {
                 plugin.menus().refresh(p);
-                p.sendMessage(lang.msg("respec-done", "refund", Text.escape(plugin.money(lang, refund))));
+                p.sendMessage(lang.msg("respec-done", "refund", Text.escape(plugin.money(refund))));
             }
             case COOLDOWN -> p.sendMessage(lang.msg("respec-cooldown", "time", Text.duration(ps.respecCooldownLeft(d))));
             case NOTHING -> p.sendMessage(lang.msg("respec-nothing"));
             case DISABLED -> p.sendMessage(lang.msg("respec-disabled"));
+            case UNAVAILABLE -> p.sendMessage(lang.msg("currency-unavailable"));
             case CANCELLED -> p.sendMessage(lang.msg("purchase-cancelled"));
         }
     }
@@ -285,6 +290,9 @@ public final class UpgradeCommand implements BasicCommand {
         }
         if (!(sender instanceof Player p)) {
             sender.sendMessage(lang(sender).msg("players-only"));
+            return;
+        }
+        if (!canUse(p)) {
             return;
         }
         Lang lang = lang(p);
@@ -335,6 +343,9 @@ public final class UpgradeCommand implements BasicCommand {
     private void menuMode(CommandSender sender, String[] args) {
         if (!(sender instanceof Player p)) {
             sender.sendMessage(lang(sender).msg("players-only"));
+            return;
+        }
+        if (!canUse(p)) {
             return;
         }
         String mode = switch (args.length >= 2 ? CommandAliases.word(args[1]) : "") {

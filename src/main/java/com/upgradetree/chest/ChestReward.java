@@ -1,7 +1,6 @@
 package com.upgradetree.chest;
 
 import com.upgradetree.config.Lang;
-import com.upgradetree.config.Localized;
 import com.upgradetree.util.Text;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
@@ -28,40 +27,34 @@ public final class ChestReward {
     public final Rarity rarity;
     public final Material material;
     public final int amount;
-    /** Optional MiniMessage name (items only), possibly per language. */
-    public final Localized<String> names;
+    /** Optional MiniMessage name (items only), null for the plain item name. */
+    public final String customName;
     /** Enchantment key → level, resolved when the item is created. */
     public final Map<String, Integer> enchantments;
-    public final Localized<List<String>> lore;
+    public final List<String> lore;
     public final int levels;
     /** Relative weight inside its rarity (1 = same as the others). */
     public final double weight;
 
-    ChestReward(int index, Type type, Rarity rarity, Material material, int amount, Localized<String> names,
-                Map<String, Integer> enchantments, Localized<List<String>> lore, int levels, double weight) {
+    ChestReward(int index, Type type, Rarity rarity, Material material, int amount, String customName,
+                Map<String, Integer> enchantments, List<String> lore, int levels, double weight) {
         this.index = index;
         this.type = type;
         this.rarity = rarity;
         this.material = material;
         this.amount = Math.max(1, amount);
-        this.names = names == null ? Localized.empty() : names;
+        this.customName = customName == null || customName.isBlank() ? null : customName;
         this.enchantments = Map.copyOf(enchantments);
-        this.lore = lore == null ? Localized.of(List.of()) : lore;
+        this.lore = lore == null ? List.of() : List.copyOf(lore);
         this.levels = Math.max(0, levels);
         this.weight = Math.max(0, weight);
     }
 
-    /** Custom name in the reader's language, or null for the plain item name. */
-    public String customName(Lang lang) {
-        String n = names.get(lang);
-        return n == null || n.isBlank() ? null : n;
-    }
-
-    /** The stack given to the player (items only), named in the receiver's language. */
-    public ItemStack create(Lang lang) {
+    /** The stack given to the player (items only). */
+    public ItemStack create() {
         ItemStack it = new ItemStack(material, Math.min(amount, 99));
-        String name = customName(lang);
-        List<String> lines = lore.get(lang);
+        String name = customName;
+        List<String> lines = lore;
         it.editMeta(m -> {
             if (name != null) {
                 m.customName(Text.mm(name).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
@@ -100,8 +93,7 @@ public final class ChestReward {
         if (type == Type.LEVELS) {
             return lang.format("chest-reward-levels", "amount", String.valueOf(levels));
         }
-        String custom = customName(lang);
-        String base = custom != null ? custom : "<lang:" + material.translationKey() + ">";
+        String base = customName != null ? customName : "<lang:" + material.translationKey() + ">";
         return amount > 1 ? base + " ×" + amount : base;
     }
 

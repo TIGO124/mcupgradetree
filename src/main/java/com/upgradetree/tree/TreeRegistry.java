@@ -1,6 +1,6 @@
 package com.upgradetree.tree;
 
-import com.upgradetree.config.Localized;
+import com.upgradetree.config.LegacyIds;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -20,10 +20,10 @@ public final class TreeRegistry {
     private final Map<String, UpgradeNode> nodes = new LinkedHashMap<>();
     private final Map<String, UpgradeNode> lower = new HashMap<>();
     private final Map<String, List<UpgradeNode>> children = new HashMap<>();
-    private final List<Localized<String>> issues;
+    private final List<String> issues;
     private final Set<String> unreachable;
 
-    public TreeRegistry(List<UpgradeTree> trees, List<Localized<String>> issues, Set<String> unreachable) {
+    public TreeRegistry(List<UpgradeTree> trees, List<String> issues, Set<String> unreachable) {
         List<UpgradeTree> sorted = new ArrayList<>(trees);
         sorted.sort((a, b) -> Integer.compare(a.order, b.order));
         this.trees = Collections.unmodifiableList(sorted);
@@ -64,7 +64,8 @@ public final class TreeRegistry {
                 return x;
             }
         }
-        return null;
+        String other = LegacyIds.tree(id);
+        return other == null ? null : byId.get(other);
     }
 
     public UpgradeTree first() {
@@ -80,7 +81,20 @@ public final class TreeRegistry {
             return null;
         }
         UpgradeNode n = nodes.get(id);
-        return n != null ? n : lower.get(id.toLowerCase(Locale.ROOT));
+        if (n == null) {
+            n = lower.get(id.toLowerCase(Locale.ROOT));
+        }
+        if (n == null) {
+            // an id from before 2.3 (commands, placeholders of other plugins)
+            String other = LegacyIds.node(id);
+            n = other == null ? null : nodes.get(other);
+        }
+        return n;
+    }
+
+    /** True if an upgrade with exactly this id is loaded (old ids do not count). */
+    public boolean has(String id) {
+        return nodes.containsKey(id);
     }
 
     /** Nodes that mention {@code id} in one of their requirements. */
@@ -96,8 +110,8 @@ public final class TreeRegistry {
         return t;
     }
 
-    /** Problems found while loading, in Turkish and English (see {@link com.upgradetree.config.Problems}). */
-    public List<Localized<String>> issues() {
+    /** Problems found while loading. */
+    public List<String> issues() {
         return issues;
     }
 

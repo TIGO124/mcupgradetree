@@ -79,11 +79,11 @@ public final class ChestMenu implements InventoryHolder {
     }
 
     private Lang lang() {
-        return plugin.lang(player);
+        return plugin.lang();
     }
 
     private Component title() {
-        return lang().plain("gui-title", "tree", tree.tabRaw(lang()));
+        return lang().plain("gui-title", "tree", tree.tabRaw());
     }
 
     private List<UpgradeNode> visibleNodes() {
@@ -113,7 +113,7 @@ public final class ChestMenu implements InventoryHolder {
             inventory.setItem(i, nodeItem(n));
             slots.put(i, n.id);
         }
-        ItemStack filler = named(new ItemStack(Material.BLACK_STAINED_GLASS_PANE), Component.empty(), List.of());
+        ItemStack filler = GuiItems.filler();
         for (int i = 45; i < 54; i++) {
             inventory.setItem(i, filler);
         }
@@ -129,14 +129,14 @@ public final class ChestMenu implements InventoryHolder {
             inventory.setItem(RESPEC, named(new ItemStack(Material.GRINDSTONE),
                     lang().plain(confirm ? "button-respec-confirm" : "button-respec"),
                     List.of(lang().plain("respec-confirm", "refund",
-                            Text.escape(plugin.money(lang(), plugin.progress().refund(plugin.data().get(player))))))));
+                            Text.escape(plugin.money(plugin.progress().refund(plugin.data().get(player))))))));
         }
         boolean chests = plugin.chestTypes().active();
         if (trees.size() + (chests ? 1 : 0) > 1) {
             int treeTabs = treeTabs();
             for (int i = 0; i < treeTabs; i++) {
                 UpgradeTree t = trees.get(i);
-                ItemStack tab = named(Icons.of(t.tabIcon), t.tabName(lang()), List.of(lang().plain("gui-tab-hint")));
+                ItemStack tab = named(Icons.of(t.tabIcon), t.tabName(), List.of(lang().plain("gui-tab-hint")));
                 if (t == tree) {
                     tab.editMeta(m -> m.setEnchantmentGlintOverride(true));
                 }
@@ -160,9 +160,9 @@ public final class ChestMenu implements InventoryHolder {
         PlayerData d = plugin.data().get(player);
         Currency c = plugin.currency();
         List<Component> lore = new ArrayList<>();
-        lore.add(lang().plain("menu-currency", "symbol", Text.escape(plugin.settings().currencySymbol),
+        lore.add(lang().plain("menu-currency", "symbol", Text.symbol(plugin.settings().currencySymbol),
                 "amount", Text.escape(c.available() ? c.formatShort(c.balance(player)) : "-"),
-                "currency", Text.escape(plugin.currencyName(lang()))));
+                "currency", Text.escape(plugin.currencyName())));
         lore.add(lang().plain("menu-progress", "done", String.valueOf(plugin.service().maxed(d, tree)),
                 "total", String.valueOf(tree.nodes().size())));
         if (d.prestige() > 0) {
@@ -178,37 +178,37 @@ public final class ChestMenu implements InventoryHolder {
         int lvl = Math.min(d.level(n.id), n.maxLevel);
         List<Component> lore = new ArrayList<>();
         lore.add(lang().plain("info-level", "level", String.valueOf(lvl), "max", String.valueOf(n.maxLevel)));
-        for (String line : n.description(lang())) {
+        for (String line : n.description()) {
             lore.add(Text.mm(line));
         }
-        String bonus = n.bonus(lang());
+        String bonus = n.bonus();
         if (st != State.LOCKED && st != State.BLOCKED && !bonus.isBlank()) {
-            String next = lvl < n.maxLevel ? " <dark_gray>→</dark_gray> " + Text.apply(bonus, "value", Text.num(n.bonusValue(lvl + 1))) : "";
-            lore.add(Text.mm("<aqua>" + Text.apply(bonus, "value", Text.num(n.bonusValue(lvl))) + next));
+            String next = lvl < n.maxLevel ? " <dim>→</dim> " + Text.apply(bonus, "value", Text.num(n.bonusValue(lvl + 1))) : "";
+            lore.add(Text.mm("<info>" + Text.apply(bonus, "value", Text.num(n.bonusValue(lvl))) + next));
         }
         switch (st) {
             case MAXED -> lore.add(lang().plain("info-completed"));
             case LOCKED -> lore.add(lang().plain("info-requires", "requires",
-                    String.join("<gray>, </gray>", svc.missing(d, player, n))));
+                    String.join("<body>, </body>", svc.missing(d, player, n))));
             case BLOCKED -> {
                 List<String> names = new ArrayList<>();
                 for (UpgradeNode b : svc.blockers(d, n)) {
-                    names.add(b.name(lang()));
+                    names.add(b.name());
                 }
-                lore.add(lang().plain("info-blocked", "nodes", String.join("<gray>, </gray>", names)));
+                lore.add(lang().plain("info-blocked", "nodes", String.join("<body>, </body>", names)));
             }
             default -> {
                 double cost = svc.cost(d, n);
                 Currency c = plugin.currency();
                 boolean afford = cost <= 0 || (c.available() && c.balance(player) + 1e-9 >= cost);
                 lore.add(cost <= 0 ? lang().plain("info-free")
-                        : lang().plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(plugin.money(lang(), cost))));
+                        : lang().plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(plugin.money(cost))));
                 lore.add(Component.empty());
                 lore.add(n.id.equals(confirmNode) && System.currentTimeMillis() < confirmUntil
                         ? lang().plain("button-confirm") : lang().plain("gui-buy-hint"));
             }
         }
-        ItemStack it = named(Icons.of(n), Text.mm("<b>" + n.name(lang())), lore);
+        ItemStack it = named(Icons.of(n), Text.mm("<b>" + n.name()), lore);
         it.setAmount(Math.max(1, Math.min(64, lvl)));
         if (st == State.OWNED || st == State.MAXED) {
             it.editMeta(m -> m.setEnchantmentGlintOverride(true));
@@ -292,7 +292,7 @@ public final class ChestMenu implements InventoryHolder {
             int lvl = plugin.data().get(player).level(n.id);
             sound("minecraft:entity.player.levelup", lvl >= n.maxLevel ? 2.0f : 1.5f);
             player.sendActionBar(lang().plain(lvl >= n.maxLevel ? "purchase-max" : "purchase-success",
-                    "node", n.name(lang()), "level", String.valueOf(lvl)));
+                    "node", n.name(), "level", String.valueOf(lvl), "roman", Text.roman(lvl)));
             plugin.leaderboard().touch(plugin.data().get(player));
         } else {
             sound("minecraft:block.note_block.bass", 0.7f);
@@ -300,17 +300,17 @@ public final class ChestMenu implements InventoryHolder {
             Currency c = plugin.currency();
             List<String> blockers = new ArrayList<>();
             for (UpgradeNode b : svc.blockers(d, n)) {
-                blockers.add(b.name(lang()));
+                blockers.add(b.name());
             }
             player.sendActionBar(switch (r) {
                 case MAXED -> lang().plain("purchase-maxed");
-                case LOCKED -> lang().plain("purchase-locked", "requires", String.join("<gray>, </gray>", svc.missing(d, player, n)));
-                case BLOCKED -> lang().plain("purchase-blocked", "nodes", String.join("<gray>, </gray>", blockers));
+                case LOCKED -> lang().plain("purchase-locked", "requires", String.join("<body>, </body>", svc.missing(d, player, n)));
+                case BLOCKED -> lang().plain("purchase-blocked", "nodes", String.join("<body>, </body>", blockers));
                 case UNAVAILABLE -> lang().plain("currency-unavailable");
                 case CANCELLED -> lang().plain("purchase-cancelled");
-                default -> lang().plain("purchase-not-enough", "currency", Text.escape(plugin.currencyName(lang())),
-                        "cost", Text.escape(plugin.money(lang(), cost)),
-                        "balance", Text.escape(plugin.money(lang(), c.available() ? c.balance(player) : 0)));
+                default -> lang().plain("purchase-not-enough", "currency", Text.escape(plugin.currencyName()),
+                        "cost", Text.escape(plugin.money(cost)),
+                        "balance", Text.escape(plugin.money(c.available() ? c.balance(player) : 0)));
             });
         }
         render();
@@ -327,10 +327,11 @@ public final class ChestMenu implements InventoryHolder {
         double refund = ps.refund(plugin.data().get(player));
         ProgressService.RespecResult r = ps.respec(player);
         player.sendActionBar(switch (r) {
-            case DONE -> lang().plain("respec-done", "refund", Text.escape(plugin.money(lang(), refund)));
+            case DONE -> lang().plain("respec-done", "refund", Text.escape(plugin.money(refund)));
             case COOLDOWN -> lang().plain("respec-cooldown", "time", Text.duration(ps.respecCooldownLeft(plugin.data().get(player))));
             case NOTHING -> lang().plain("respec-nothing");
             case DISABLED -> lang().plain("respec-disabled");
+            case UNAVAILABLE -> lang().plain("currency-unavailable");
             case CANCELLED -> lang().plain("purchase-cancelled");
         });
     }

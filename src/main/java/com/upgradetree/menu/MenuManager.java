@@ -83,7 +83,7 @@ public final class MenuManager {
     /** /tigo chests: the Chests section (3D tab, or the chests shop menu for chest-menu users). */
     public boolean openChests(Player p) {
         if (!plugin.chestTypes().active()) {
-            p.sendMessage(plugin.lang(p).msg("chests-disabled"));
+            p.sendMessage(plugin.lang().msg("chests-disabled"));
             return false;
         }
         DisplayMenu shown = open.get(p.getUniqueId());
@@ -100,17 +100,17 @@ public final class MenuManager {
     private boolean open(Player p, boolean chests) {
         Settings s = plugin.settings();
         if (s.worldDisabled(p.getWorld().getName())) {
-            p.sendMessage(plugin.lang(p).msg("disabled-world"));
+            p.sendMessage(plugin.lang().msg("disabled-world"));
             return false;
         }
         int combat = plugin.combat().secondsLeft(p);
         if (combat > 0) {
-            p.sendMessage(plugin.lang(p).msg("cannot-open-combat", "seconds", String.valueOf(combat)));
+            p.sendMessage(plugin.lang().msg("cannot-open-combat", "seconds", String.valueOf(combat)));
             return false;
         }
         List<UpgradeTree> trees = treesFor(p);
         if (trees.isEmpty() && !(chests && plugin.chestTypes().active())) {
-            p.sendMessage(plugin.lang(p).msg("tree-not-found", "tree", "-"));
+            p.sendMessage(plugin.lang().msg("tree-not-found", "tree", "-"));
             return false;
         }
         UpgradeTree start = trees.isEmpty() ? null : trees.get(0);
@@ -129,12 +129,12 @@ public final class MenuManager {
             return true;
         }
         if (!canOpen(p)) {
-            p.sendMessage(plugin.lang(p).msg("cannot-open"));
+            p.sendMessage(plugin.lang().msg("cannot-open"));
             return false;
         }
         DisplayMenu menu = new DisplayMenu(plugin, this, p, trees, start, null, chests);
         if (!start(menu)) {
-            p.sendMessage(plugin.lang(p).msg("cannot-open"));
+            p.sendMessage(plugin.lang().msg("cannot-open"));
             return false;
         }
         open.put(p.getUniqueId(), menu);
@@ -150,7 +150,7 @@ public final class MenuManager {
             menu.open();
             return true;
         } catch (RuntimeException ex) {
-            plugin.getLogger().warning("Menü açılamadı (" + menu.player().getName() + "): " + ex);
+            plugin.getLogger().warning("Could not open the menu (" + menu.player().getName() + "): " + ex);
             try {
                 menu.forceRemove();
             } catch (RuntimeException ignored) {
@@ -198,7 +198,7 @@ public final class MenuManager {
      */
     public boolean openAdmin(Player viewer, UUID target, String name, com.upgradetree.data.PlayerData offline) {
         if (!viewer.isOp()) {
-            viewer.sendMessage(plugin.lang(viewer).msg("admin-only-op"));
+            viewer.sendMessage(plugin.lang().msg("admin-only-op"));
             return false;
         }
         close(viewer, true);
@@ -207,13 +207,13 @@ public final class MenuManager {
         }
         List<UpgradeTree> trees = plugin.trees().trees();
         if (trees.isEmpty() || !canOpen(viewer)) {
-            viewer.sendMessage(plugin.lang(viewer).msg("cannot-open"));
+            viewer.sendMessage(plugin.lang().msg("cannot-open"));
             return false;
         }
         DisplayMenu menu = new DisplayMenu(plugin, this, viewer, trees, trees.get(0),
                 new DisplayMenu.AdminTarget(target, name, offline), false);
         if (!start(menu)) {
-            viewer.sendMessage(plugin.lang(viewer).msg("cannot-open"));
+            viewer.sendMessage(plugin.lang().msg("cannot-open"));
             return false;
         }
         open.put(viewer.getUniqueId(), menu);
@@ -277,7 +277,7 @@ public final class MenuManager {
             try {
                 menu.tick();
             } catch (Exception ex) {
-                plugin.getLogger().warning("Menü hatası (" + menu.player().getName() + "): " + ex);
+                plugin.getLogger().warning("Menu error (" + menu.player().getName() + "): " + ex);
                 close(menu.player(), true);
             }
         }

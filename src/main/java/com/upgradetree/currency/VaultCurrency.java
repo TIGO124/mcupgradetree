@@ -43,7 +43,7 @@ public final class VaultCurrency implements Currency {
             Class<?> eco = Class.forName("net.milkbowl.vault.economy.Economy");
             RegisteredServiceProvider<?> rsp = Bukkit.getServicesManager().getRegistration((Class) eco);
             if (rsp == null || rsp.getProvider() == null) {
-                warnOnce("Vault bulundu ama kayıtlı bir ekonomi eklentisi yok (EssentialsX, CMI vb.).");
+                warnOnce("Vault was found but no economy plugin is registered (EssentialsX, CMI...).");
                 return false;
             }
             Object provider = rsp.getProvider();
@@ -58,9 +58,9 @@ public final class VaultCurrency implements Currency {
             economy = provider;
             return true;
         } catch (ClassNotFoundException e) {
-            warnOnce("currency.type VAULT seçili ama Vault yüklü değil.");
+            warnOnce("currency.type is VAULT but Vault is not installed.");
         } catch (Exception e) {
-            warnOnce("Vault ekonomisine bağlanılamadı: " + e);
+            warnOnce("Could not connect to the Vault economy: " + e);
         }
         return false;
     }
@@ -110,7 +110,7 @@ public final class VaultCurrency implements Currency {
             }
             return Boolean.TRUE.equals(transactionSuccess.invoke(response));
         } catch (Exception e) {
-            log.warning("Vault ödeme hatası: " + e);
+            log.warning("Vault payment error: " + e);
             return false;
         }
     }
@@ -133,7 +133,7 @@ public final class VaultCurrency implements Currency {
             }
             return Boolean.TRUE.equals(transactionSuccess.invoke(response));
         } catch (Exception e) {
-            log.warning("Vault iade hatası: " + e);
+            log.warning("Vault refund error: " + e);
             return false;
         }
     }

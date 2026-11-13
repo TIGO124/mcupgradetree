@@ -1,0 +1,702 @@
+# ============================================================
+#  Main tree (one tab of the menu). Every .yml file in trees/ is a tab of its own.
+#  After changes: /tigo reload   ·   Check for mistakes: /tigo check
+# ============================================================
+#
+# POSITION (hexagon grid):
+#   x, y : Side neighbours are x±1 (same y). Diagonal neighbours are x±0.5 and y±1.
+#          Rows are offset by half a cell: on even rows x is a whole number, on odd rows it ends in .5
+#          (0.5, 1.5 ...). The panel scales the tree to fit.
+#
+# UPGRADE SETTINGS (the key, e.g. "sharp_sword", is the id used by commands and placeholders):
+#   name, icon, color (#RRGGBB), description, max-level
+#   icon-model     : Resource pack item model (e.g. "myserver:sword")    icon-texture: player head texture (base64)
+#   cost, cost-increase, cost-multiplier, costs: [2, 3, 5]   (cost = cost * multiplier^level + increase * level)
+#   requires       : Every one of these needs at least level 1
+#   requires-any   : One of these is enough
+#   requires-level : { sharp_sword: 3 }  needs a certain level
+#   exclusive-with : Can't be bought while one of these is owned (class choice)
+#   permission     : Needs a permission          min-prestige: needs a prestige level
+#   always-visible : true = visible from the start (progressive reveal)
+#   bonus          : The "now → next" line of the info card ({value})   bonus-multiplier / bonus-per-level
+#
+# PROGRESSIVE REVEAL: an upgrade appears once one of the upgrades it points to
+#   (requires / requires-any / requires-level) is bought. Upgrades without requirements are always visible.
+#
+# EFFECTS (amounts are PER LEVEL):
+#   ATTRIBUTE   attribute: max_health | attack_damage | attack_speed | armor | armor_toughness | luck
+#               movement_speed | knockback_resistance | block_break_speed | mining_efficiency
+#               submerged_mining_speed | jump_strength | safe_fall_distance | fall_damage_multiplier
+#               step_height | scale | block_interaction_range | entity_interaction_range
+#               sweeping_damage_ratio | oxygen_bonus | water_movement_efficiency | burning_time ...
+#               amount, operation: ADD_NUMBER (flat) | ADD_SCALAR (percent, 0.1 = 10%)
+#   POTION      effect: speed | haste | strength | resistance | night_vision | regeneration ...
+#               amplifier (0 = I), amplifier-per-level
+#   XP_BOOST    amount: 0.1 = +10% XP              DOUBLE_DROP  amount: chance, blocks: [..] or "#logs"
+#   CRIT        amount: chance, multiplier: 1.5    LIFESTEAL    amount: share of the damage dealt
+#   DODGE       amount: chance to dodge a hit      AUTO_SMELT   amount: chance to smelt the ore
+#   VEIN_MINER  amount: blocks (while sneaking)    TREE_FELLER  amount: logs (while sneaking)
+#   MOB_DROPS   amount: chance of double mob loot  KEEP_XP      amount: share of XP kept on death
+#   KEEP_INVENTORY amount: chance to keep items    HUNGER_SAVE  amount: chance to lose no hunger
+#   ABILITY     ability: DASH | LEAP | HEAL | SHIELD | SPEED | NOVA
+#               trigger: SNEAK_SWAP (Sneak + F) | DOUBLE_SNEAK (sneak twice) | SNEAK_JUMP (Sneak + Jump)
+#               cooldown, cooldown-per-level, power, power-per-level   (one ability per trigger)
+#   COMMAND     commands: ["give {player} diamond 1"]  ({player} {uuid} {level} {node})
+
+title: "<b>UPGRADE TREE</b>"
+tab:
+  name: "<hi>Main Tree"
+  icon: NETHER_STAR
+  order: 1
+
+nodes:
+
+  origin:
+    name: "Origin"
+    icon: NETHER_STAR
+    x: 0
+    y: 0
+    max-level: 1
+    cost: 1
+    color: "#4A8580"
+    description:
+      - "<body>The heart of the tree."
+      - "<body>Unlocks all six branches."
+    bonus: "+{value} ❤"
+    bonus-multiplier: 0.5
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 2
+
+  # --------------------------------------------------------------- COMBAT (east)
+  sharp_sword:
+    name: "Sharp Sword"
+    icon: IRON_SWORD
+    x: 1
+    y: 0
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#A8452F"
+    description:
+      - "<body>All your attacks"
+      - "<body>deal more damage."
+    bonus: "+{value} damage"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.3
+
+  swift_strikes:
+    name: "Swift Strikes"
+    icon: GOLDEN_SWORD
+    x: 2
+    y: 0
+    max-level: 4
+    cost: 3
+    cost-increase: 1
+    requires: [sharp_sword]
+    color: "#A8452F"
+    description:
+      - "<body>You attack faster."
+    bonus: "+{value}% attack speed"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_speed
+        amount: 0.03
+        operation: ADD_SCALAR
+
+  critical_hit:
+    name: "Critical Hit"
+    icon: DIAMOND_SWORD
+    x: 2.5
+    y: -1
+    max-level: 4
+    cost: 4
+    cost-increase: 2
+    requires: [swift_strikes]
+    color: "#A8452F"
+    description:
+      - "<body>Your hits can deal"
+      - "<body>1.4x damage."
+    bonus: "{value}% chance"
+    bonus-multiplier: 100
+    effects:
+      - type: CRIT
+        amount: 0.04
+        multiplier: 1.4
+
+  bloodsucker:
+    name: "Bloodsucker"
+    icon: FERMENTED_SPIDER_EYE
+    x: 2.5
+    y: 1
+    max-level: 3
+    cost: 5
+    cost-increase: 2
+    requires: [swift_strikes]
+    color: "#A8452F"
+    description:
+      - "<body>Part of the damage"
+      - "<body>you deal heals you."
+    bonus: "{value}% lifesteal"
+    bonus-multiplier: 100
+    effects:
+      - type: LIFESTEAL
+        amount: 0.025
+
+  rage:
+    name: "Rage"
+    icon: BLAZE_POWDER
+    x: 3
+    y: 0
+    max-level: 2
+    cost: 6
+    cost-increase: 4
+    requires: [swift_strikes]
+    color: "#A8452F"
+    description:
+      - "<body>Your rage powers"
+      - "<body>all of your attacks."
+    bonus: "+{value} damage"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.25
+
+  whirlwind:
+    name: "Whirlwind"
+    icon: NETHERITE_SWORD
+    x: 4
+    y: 0
+    max-level: 3
+    cost: 6
+    cost-increase: 2
+    requires: [rage]
+    color: "#A8452F"
+    description:
+      - "<body>Your sweeping attacks"
+      - "<body>get stronger."
+    bonus: "+{value}% sweeping"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: sweeping_damage_ratio
+        amount: 0.15
+
+  warmaster:
+    name: "<b>Warmaster</b>"
+    icon: TRIDENT
+    x: 5
+    y: 0
+    max-level: 1
+    cost: 20
+    requires: [whirlwind]
+    requires-level:
+      critical_hit: 2
+    color: "#923826"
+    description:
+      - "<body>Master of the combat branch."
+      - "<value>+0.5 damage <body>· <value>+5% attack speed"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.5
+      - type: ATTRIBUTE
+        attribute: attack_speed
+        amount: 0.05
+        operation: ADD_SCALAR
+
+  # --------------------------------------------------------------- ENDURANCE (west)
+  health_boost:
+    name: "Health Boost"
+    icon: GOLDEN_APPLE
+    x: -1
+    y: 0
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#4F7591"
+    description:
+      - "<body>Your maximum health grows."
+    bonus: "+{value} ❤"
+    bonus-multiplier: 0.5
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 1
+
+  iron_skin:
+    name: "Iron Skin"
+    icon: IRON_CHESTPLATE
+    x: -2
+    y: 0
+    max-level: 5
+    cost: 3
+    cost-increase: 1
+    requires: [health_boost]
+    color: "#4F7591"
+    description:
+      - "<body>Gain extra armor"
+      - "<body>even without wearing any."
+    bonus: "+{value} armor"
+    effects:
+      - type: ATTRIBUTE
+        attribute: armor
+        amount: 0.6
+
+  unshakable:
+    name: "Unshakable"
+    icon: SHIELD
+    x: -2.5
+    y: -1
+    max-level: 3
+    cost: 3
+    cost-increase: 2
+    requires: [iron_skin]
+    color: "#4F7591"
+    description:
+      - "<body>Gain resistance"
+      - "<body>against knockback."
+    bonus: "{value}% resistance"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: knockback_resistance
+        amount: 0.05
+
+  shadow_step:
+    name: "Shadow Step"
+    icon: PHANTOM_MEMBRANE
+    x: -2.5
+    y: 1
+    max-level: 3
+    cost: 5
+    cost-increase: 2
+    requires: [iron_skin]
+    color: "#4F7591"
+    description:
+      - "<body>A chance to fully"
+      - "<body>dodge attacks."
+    bonus: "{value}% dodge"
+    bonus-multiplier: 100
+    effects:
+      - type: DODGE
+        amount: 0.03
+
+  regeneration:
+    name: "Regeneration"
+    icon: GHAST_TEAR
+    x: -3
+    y: 0
+    max-level: 1
+    cost: 25
+    requires: [iron_skin]
+    color: "#4F7591"
+    description:
+      - "<body>Your health slowly"
+      - "<body>regenerates all the time."
+    effects:
+      - type: POTION
+        effect: regeneration
+        amplifier: 0
+
+  giant_shield:
+    name: "Giant Shield"
+    icon: NETHERITE_CHESTPLATE
+    x: -4
+    y: 0
+    max-level: 3
+    cost: 6
+    cost-increase: 2
+    requires: [regeneration]
+    color: "#4F7591"
+    description:
+      - "<body>You withstand heavy"
+      - "<body>blows better."
+    bonus: "+{value} armor toughness"
+    effects:
+      - type: ATTRIBUTE
+        attribute: armor_toughness
+        amount: 0.5
+
+  titan:
+    name: "<b>Titan</b>"
+    icon: TOTEM_OF_UNDYING
+    x: -5
+    y: 0
+    max-level: 1
+    cost: 20
+    requires: [giant_shield]
+    requires-level:
+      unshakable: 3
+    color: "#44657F"
+    description:
+      - "<body>A little bigger and"
+      - "<body>a lot tougher."
+      - "<value>+1 ❤ <body>· <value>10% size"
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 2
+      - type: ATTRIBUTE
+        attribute: scale
+        amount: 0.1
+
+  # --------------------------------------------------------------- MINING (north-east)
+  miner:
+    name: "Miner"
+    icon: IRON_PICKAXE
+    x: 0.5
+    y: -1
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#B98433"
+    description:
+      - "<body>You break blocks"
+      - "<body>faster."
+    bonus: "+{value}% mining speed"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: block_break_speed
+        amount: 0.06
+        operation: ADD_SCALAR
+
+  lucky_dig:
+    name: "Lucky Dig"
+    icon: DIAMOND
+    x: 1
+    y: -2
+    max-level: 4
+    cost: 4
+    cost-increase: 2
+    requires: [miner]
+    color: "#B98433"
+    description:
+      - "<body>A chance for double"
+      - "<body>drops from ores."
+    bonus: "{value}% chance"
+    bonus-multiplier: 100
+    effects:
+      - type: DOUBLE_DROP
+        amount: 0.03
+
+  treasure_hunter:
+    name: "Treasure Hunter"
+    icon: GOLD_INGOT
+    x: 2
+    y: -2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [lucky_dig]
+    color: "#B98433"
+    description:
+      - "<body>More luck: better chest"
+      - "<body>and fishing loot."
+    bonus: "+{value} luck"
+    effects:
+      - type: ATTRIBUTE
+        attribute: luck
+        amount: 0.5
+
+  diver_miner:
+    name: "Diver Miner"
+    icon: PRISMARINE_SHARD
+    x: 1.5
+    y: -3
+    max-level: 3
+    cost: 5
+    cost-increase: 2
+    requires: [lucky_dig]
+    color: "#B98433"
+    description:
+      - "<body>You mine much faster"
+      - "<body>underwater."
+    bonus: "+{value}% underwater speed"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: submerged_mining_speed
+        amount: 0.4
+
+  masters_eye:
+    name: "Master's Eye"
+    icon: SPYGLASS
+    x: 0
+    y: -2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires-any: [miner, wisdom]
+    color: "#6F5A9A"
+    description:
+      - "<body>You reach blocks"
+      - "<body>from farther away."
+    bonus: "+{value} block reach"
+    effects:
+      - type: ATTRIBUTE
+        attribute: block_interaction_range
+        amount: 0.5
+
+  # --------------------------------------------------------------- WISDOM (north-west)
+  wisdom:
+    name: "Wisdom"
+    icon: EXPERIENCE_BOTTLE
+    x: -0.5
+    y: -1
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#7A5A99"
+    description:
+      - "<body>You gain more"
+      - "<body>experience (XP)."
+    bonus: "+{value}% XP"
+    bonus-multiplier: 100
+    effects:
+      - type: XP_BOOST
+        amount: 0.06
+
+  cats_eye:
+    name: "Cat's Eye"
+    icon: ENDER_EYE
+    x: -1
+    y: -2
+    max-level: 1
+    cost: 6
+    requires: [wisdom]
+    color: "#7A5A99"
+    description:
+      - "<body>You see clearly"
+      - "<body>even in the dark."
+    effects:
+      - type: POTION
+        effect: night_vision
+        amplifier: 0
+
+  strong_memory:
+    name: "Strong Memory"
+    icon: ENCHANTED_BOOK
+    x: -1.5
+    y: -3
+    max-level: 4
+    cost: 5
+    cost-increase: 2
+    requires: [cats_eye]
+    color: "#7A5A99"
+    description:
+      - "<body>You keep part of"
+      - "<body>your XP when you die."
+    bonus: "{value}% XP kept"
+    bonus-multiplier: 100
+    effects:
+      - type: KEEP_XP
+        amount: 0.15
+
+  legend:
+    name: "<b>Legend</b>"
+    icon: DRAGON_EGG
+    x: 0
+    y: -4
+    max-level: 1
+    cost: 30
+    requires: [diver_miner, strong_memory]
+    color: "#7E4479"
+    description:
+      - "<body>The peak of the wisdom"
+      - "<body>and mining branches."
+      - "<value>+1 ❤ <body>· <value>+0.5 luck <body>· <value>+5% XP"
+    effects:
+      - type: ATTRIBUTE
+        attribute: max_health
+        amount: 2
+      - type: ATTRIBUTE
+        attribute: luck
+        amount: 0.5
+      - type: XP_BOOST
+        amount: 0.05
+
+  # --------------------------------------------------------------- AGILITY (south-east)
+  agility:
+    name: "Agility"
+    icon: FEATHER
+    x: 0.5
+    y: 1
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#6B8A3A"
+    description:
+      - "<body>You run faster."
+    bonus: "+{value}% speed"
+    bonus-multiplier: 100
+    effects:
+      - type: ATTRIBUTE
+        attribute: movement_speed
+        amount: 0.02
+        operation: ADD_SCALAR
+
+  easy_step:
+    name: "Easy Step"
+    icon: OAK_STAIRS
+    x: 0
+    y: 2
+    max-level: 1
+    cost: 6
+    requires: [agility]
+    color: "#6B8A3A"
+    description:
+      - "<body>You step up full blocks"
+      - "<body>without jumping."
+    effects:
+      - type: ATTRIBUTE
+        attribute: step_height
+        amount: 0.45
+
+  spring_legs:
+    name: "Spring Legs"
+    icon: RABBIT_FOOT
+    x: 1
+    y: 2
+    max-level: 3
+    cost: 3
+    cost-increase: 2
+    requires: [agility]
+    color: "#6B8A3A"
+    description:
+      - "<body>You jump higher."
+    bonus: "+{value} jump"
+    effects:
+      - type: ATTRIBUTE
+        attribute: jump_strength
+        amount: 0.04
+
+  feather:
+    name: "Light as a Feather"
+    icon: SLIME_BALL
+    x: 1.5
+    y: 3
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [spring_legs]
+    color: "#6B8A3A"
+    description:
+      - "<body>You take less fall damage."
+    bonus: "-{value}% fall damage"
+    bonus-multiplier: -100
+    effects:
+      - type: ATTRIBUTE
+        attribute: fall_damage_multiplier
+        amount: -0.15
+
+  dolphin:
+    name: "Dolphin"
+    icon: HEART_OF_THE_SEA
+    x: 2
+    y: 2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [spring_legs]
+    color: "#6B8A3A"
+    description:
+      - "<body>You stay underwater longer"
+      - "<body>and swim faster."
+    bonus: "+{value} breath"
+    effects:
+      - type: ATTRIBUTE
+        attribute: oxygen_bonus
+        amount: 1
+      - type: ATTRIBUTE
+        attribute: water_movement_efficiency
+        amount: 0.15
+
+  # --------------------------------------------------------------- SURVIVAL (south-west)
+  satiety:
+    name: "Satiety"
+    icon: COOKED_BEEF
+    x: -0.5
+    y: 1
+    max-level: 4
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#94485E"
+    description:
+      - "<body>Your hunger drops"
+      - "<body>more slowly."
+    bonus: "{value}% saved"
+    bonus-multiplier: 100
+    effects:
+      - type: HUNGER_SAVE
+        amount: 0.08
+
+  fireproof:
+    name: "Fireproof"
+    icon: MAGMA_CREAM
+    x: -1
+    y: 2
+    max-level: 3
+    cost: 3
+    cost-increase: 2
+    requires: [satiety]
+    color: "#94485E"
+    description:
+      - "<body>Fire burns you for"
+      - "<body>a shorter time."
+    bonus: "-{value}% burning"
+    bonus-multiplier: -100
+    effects:
+      - type: ATTRIBUTE
+        attribute: burning_time
+        amount: -0.25
+        operation: ADD_SCALAR
+
+  hunter:
+    name: "Hunter"
+    icon: BONE
+    x: -2
+    y: 2
+    max-level: 3
+    cost: 4
+    cost-increase: 2
+    requires: [fireproof]
+    color: "#94485E"
+    description:
+      - "<body>A chance for double"
+      - "<body>loot from mobs."
+    bonus: "{value}% chance"
+    bonus-multiplier: 100
+    effects:
+      - type: MOB_DROPS
+        amount: 0.07
+
+  second_chance:
+    name: "Second Chance"
+    icon: ENDER_CHEST
+    x: -1.5
+    y: 3
+    max-level: 3
+    cost: 10
+    cost-increase: 5
+    requires: [fireproof]
+    color: "#94485E"
+    description:
+      - "<body>A chance to keep your"
+      - "<body>items when you die."
+    bonus: "{value}% chance"
+    bonus-multiplier: 100
+    effects:
+      - type: KEEP_INVENTORY
+        amount: 0.05

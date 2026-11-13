@@ -1,7 +1,6 @@
 package com.upgradetree.tree;
 
 import com.upgradetree.config.Lang;
-import com.upgradetree.config.Localized;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
@@ -19,12 +18,13 @@ import java.util.Map;
 /** One upgrade tree (a tab of the menu), loaded from one file in trees/. */
 public final class UpgradeTree {
 
-    public static final int DEFAULT_COLOR = 0xFF22C55E;
+    public static final int DEFAULT_COLOR = 0xFF6B7A8F;
 
     public final String id;
-    /** Title (shown when there is only one tree); empty = the language file's default title. */
-    public final Localized<String> titles;
-    public final Localized<String> tabs;
+    /** Title (shown when there is only one tree); null = the default title of messages.yml. */
+    public final String title;
+    /** Tab name (MiniMessage). */
+    public final String tab;
     public final Material tabIcon;
     public final int order;
     public final String permission;
@@ -32,11 +32,11 @@ public final class UpgradeTree {
     private final List<UpgradeNode[]> edges;
     private final Map<String, Integer> depth;
 
-    public UpgradeTree(String id, Localized<String> titles, Localized<String> tabs, Material tabIcon, int order,
+    public UpgradeTree(String id, String title, String tab, Material tabIcon, int order,
                        String permission, Map<String, UpgradeNode> nodes) {
         this.id = id;
-        this.titles = titles;
-        this.tabs = tabs.isEmpty() ? Localized.of(id) : tabs;
+        this.title = title == null || title.isBlank() ? null : title;
+        this.tab = tab == null || tab.isBlank() ? id : tab;
         this.tabIcon = tabIcon;
         this.order = order;
         this.permission = permission == null || permission.isBlank() ? null : permission.trim();
@@ -54,24 +54,22 @@ public final class UpgradeTree {
         this.depth = computeDepth();
     }
 
-    /** Title in the reader's language (MiniMessage). */
+    /** Title (MiniMessage); the default title of messages.yml when the file has none. */
     public String titleRaw(Lang lang) {
-        String t = titles.get(lang);
-        return t != null ? t : lang == null ? id : lang.raw("tree-title-default");
+        return title != null ? title : lang == null ? id : lang.raw("tree-title-default");
     }
 
     public Component title(Lang lang) {
         return Text.mm(titleRaw(lang));
     }
 
-    /** Tab name in the reader's language (MiniMessage). */
-    public String tabRaw(Lang lang) {
-        String t = tabs.get(lang);
-        return t != null ? t : id;
+    /** Tab name (MiniMessage). */
+    public String tabRaw() {
+        return tab;
     }
 
-    public Component tabName(Lang lang) {
-        return Text.mm(tabRaw(lang));
+    public Component tabName() {
+        return Text.mm(tab);
     }
 
     public Collection<UpgradeNode> nodes() {

@@ -7,6 +7,7 @@ import com.upgradetree.config.Settings;
 import com.upgradetree.data.PlayerData;
 import com.upgradetree.tree.UpgradeNode;
 import com.upgradetree.util.Text;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -16,7 +17,7 @@ import java.util.Map;
 /** Respec (reset with refund) and prestige (reset for permanent bonuses). */
 public final class ProgressService {
 
-    public enum RespecResult { DONE, DISABLED, COOLDOWN, NOTHING, CANCELLED }
+    public enum RespecResult { DONE, DISABLED, COOLDOWN, NOTHING, CANCELLED, UNAVAILABLE }
 
     public enum PrestigeResult { DONE, DISABLED, MAX, NOT_READY, CANCELLED }
 
@@ -70,16 +71,21 @@ public final class ProgressService {
             return RespecResult.COOLDOWN;
         }
         double refund = refund(d);
+        // no economy to pay the refund into: the upgrades stay rather than vanish unpaid
+        if (refund > 0 && !plugin.currency().available()) {
+            return RespecResult.UNAVAILABLE;
+        }
         UpgradeResetEvent event = new UpgradeResetEvent(p, UpgradeResetEvent.Cause.RESPEC, refund);
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled()) {
             return RespecResult.CANCELLED;
         }
+        // the refund first: if the economy refuses it, nothing is reset
+        if (refund > 0 && !plugin.currency().deposit(p, refund)) {
+            return RespecResult.UNAVAILABLE;
+        }
         d.clearLevels();
         d.lastRespec(System.currentTimeMillis());
-        if (refund > 0 && plugin.currency().available()) {
-            plugin.currency().deposit(p, refund);
-        }
         plugin.data().save(d);
         plugin.effects().apply(p);
         plugin.effects().clearManagedPotions(p);
@@ -146,16 +152,14 @@ public final class ProgressService {
             try {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), c);
             } catch (Exception ex) {
-                plugin.getLogger().warning("Prestij komutu çalıştırılamadı '" + c + "': " + ex.getMessage());
+                plugin.getLogger().warning("Could not run the prestige command '" + c + "': " + ex.getMessage());
             }
         }
-        // every reader gets the broadcast in their own language
+        Component news = plugin.lang().msg("prestige-broadcast", "player", Text.escape(p.getName()), "level", String.valueOf(next));
         for (Player online : Bukkit.getOnlinePlayers()) {
-            online.sendMessage(plugin.lang(online).msg("prestige-broadcast", "player", Text.escape(p.getName()),
-                    "level", String.valueOf(next)));
+            online.sendMessage(news);
         }
-        Bukkit.getConsoleSender().sendMessage(plugin.lang().msg("prestige-broadcast", "player", Text.escape(p.getName()),
-                "level", String.valueOf(next)));
+        Bukkit.getConsoleSender().sendMessage(news);
         p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.0f);
         plugin.leaderboard().touch(d);
         return PrestigeResult.DONE;

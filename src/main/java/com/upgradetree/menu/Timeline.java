@@ -56,7 +56,7 @@ final class Timeline {
                 try {
                     t.task().run();
                 } catch (Exception ex) {
-                    log.log(Level.WARNING, "Menü animasyon hatası", ex);
+                    log.log(Level.WARNING, "Menu animation error", ex);
                 }
             }
         }

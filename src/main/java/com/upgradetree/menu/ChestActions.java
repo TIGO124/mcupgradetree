@@ -34,8 +34,8 @@ final class ChestActions {
             s.confirmId = c.id;
             s.confirmUntil = m.tick + 60;
             m.sound("minecraft:block.note_block.pling", 0.6f, 1.2f);
-            m.player().sendActionBar(m.lang().plain("chest-confirm", "chest", c.name(m.lang()),
-                    "cost", Text.escape(m.plugin().money(m.lang(), c.price))));
+            m.player().sendActionBar(m.lang().plain("chest-confirm", "chest", c.name(),
+                    "cost", Text.escape(m.plugin().money(c.price))));
             m.refreshInfo();
             return;
         }
@@ -47,17 +47,17 @@ final class ChestActions {
                 m.sound("minecraft:entity.player.levelup", 0.55f, 1.6f);
                 m.sound("minecraft:block.chest.open", 0.7f, 1.2f);
                 if (chests().busy(m.player())) {
-                    m.player().sendActionBar(m.lang().plain("chest-bought-stash", "chest", c.name(m.lang())));
+                    m.player().sendActionBar(m.lang().plain("chest-bought-stash", "chest", c.name()));
                     m.updateStatus();
                     m.refreshInfo();
                     return;
                 }
-                m.player().sendMessage(m.lang().msg("chest-bought", "chest", c.name(m.lang())));
+                m.player().sendMessage(m.lang().msg("chest-bought", "chest", c.name()));
                 summon(c);
             }
             case NOT_ENOUGH -> deny(button, m.lang().plain("purchase-not-enough",
-                    "currency", Text.escape(m.plugin().currencyName(m.lang())), "cost", Text.escape(m.plugin().money(m.lang(), c.price)),
-                    "balance", Text.escape(m.plugin().money(m.lang(), cur.available() ? cur.balance(m.player()) : 0))));
+                    "currency", Text.escape(m.plugin().currencyName()), "cost", Text.escape(m.plugin().money(c.price)),
+                    "balance", Text.escape(m.plugin().money(cur.available() ? cur.balance(m.player()) : 0))));
             case UNAVAILABLE -> deny(button, m.lang().plain("currency-unavailable"));
             case DISABLED -> deny(button, m.lang().plain("chests-disabled"));
         }
@@ -69,7 +69,7 @@ final class ChestActions {
             return;
         }
         if (m.data().chests(c.id) <= 0) {
-            deny("chestopen", m.lang().plain("chest-none", "chest", c.name(m.lang())));
+            deny("chestopen", m.lang().plain("chest-none", "chest", c.name()));
             return;
         }
         if (chests().busy(m.player())) {

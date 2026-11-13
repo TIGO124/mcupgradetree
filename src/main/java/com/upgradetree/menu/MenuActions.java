@@ -81,7 +81,7 @@ final class MenuActions {
         m.sound(delta > 0 ? "minecraft:block.amethyst_block.chime" : "minecraft:block.amethyst_block.break", 0.9f,
                 delta > 0 ? 1.4f : 0.9f);
         m.player().sendActionBar(m.lang().plain("admin-set", "player", Text.escape(m.subjectName()),
-                "node", n.name(m.lang()), "level", String.valueOf(after)));
+                "node", n.name(), "level", String.valueOf(after)));
         m.updateStatus();
         m.refreshInfo();
     }
@@ -97,8 +97,8 @@ final class MenuActions {
             m.confirmNode = n.id;
             m.confirmUntil = m.tick + 60;
             m.sound("minecraft:block.note_block.pling", 0.6f, 1.2f);
-            m.player().sendActionBar(m.lang().plain("purchase-confirm", "node", n.name(m.lang()),
-                    "cost", Text.escape(m.plugin().money(m.lang(), cost))));
+            m.player().sendActionBar(m.lang().plain("purchase-confirm", "node", n.name(),
+                    "cost", Text.escape(m.plugin().money(cost))));
             m.refreshInfo();
             return;
         }
@@ -130,23 +130,23 @@ final class MenuActions {
                 m.sound("minecraft:entity.player.levelup", 0.55f, max ? 2.0f : 1.5f);
                 m.sound("minecraft:block.amethyst_block.chime", 1.0f, 1.2f);
                 m.player().sendActionBar(m.lang().plain(max ? "purchase-max" : "purchase-success",
-                        "node", n.name(m.lang()), "level", String.valueOf(lvl)));
+                        "node", n.name(), "level", String.valueOf(lvl), "roman", Text.roman(lvl)));
                 m.plugin().leaderboard().touch(d);
             }
             case MAXED -> deny(n, viaButton, m.lang().plain("purchase-maxed"));
             case LOCKED -> deny(n, viaButton, m.lang().plain("purchase-locked", "requires",
-                    String.join("<gray>, </gray>", m.plugin().service().missing(d, m.player(), n))));
+                    String.join("<body>, </body>", m.plugin().service().missing(d, m.player(), n))));
             case BLOCKED -> {
                 List<String> names = new ArrayList<>();
                 for (UpgradeNode b : m.plugin().service().blockers(d, n)) {
-                    names.add(b.name(m.lang()));
+                    names.add(b.name());
                 }
-                deny(n, viaButton, m.lang().plain("purchase-blocked", "nodes", String.join("<gray>, </gray>", names)));
+                deny(n, viaButton, m.lang().plain("purchase-blocked", "nodes", String.join("<body>, </body>", names)));
             }
             case NOT_ENOUGH -> deny(n, viaButton, m.lang().plain("purchase-not-enough",
-                    "currency", Text.escape(m.plugin().currencyName(m.lang())),
-                    "cost", Text.escape(m.plugin().money(m.lang(), cost)),
-                    "balance", Text.escape(m.plugin().money(m.lang(), balance))));
+                    "currency", Text.escape(m.plugin().currencyName()),
+                    "cost", Text.escape(m.plugin().money(cost)),
+                    "balance", Text.escape(m.plugin().money(balance))));
             case UNAVAILABLE -> deny(n, viaButton, m.lang().plain("currency-unavailable"));
             case CANCELLED -> deny(n, viaButton, m.lang().plain("purchase-cancelled"));
         }
@@ -189,7 +189,7 @@ final class MenuActions {
             }
             m.respecUntil = m.tick + 60;
             m.header.setRespecConfirm(true);
-            m.player().sendActionBar(m.lang().plain("respec-confirm", "refund", Text.escape(m.plugin().money(m.lang(), ps.refund(d)))));
+            m.player().sendActionBar(m.lang().plain("respec-confirm", "refund", Text.escape(m.plugin().money(ps.refund(d)))));
             m.sound("minecraft:block.note_block.pling", 0.6f, 0.9f);
             return;
         }
@@ -199,13 +199,14 @@ final class MenuActions {
         ProgressService.RespecResult r = ps.respec(m.player());
         switch (r) {
             case DONE -> {
-                m.player().sendActionBar(m.lang().plain("respec-done", "refund", Text.escape(m.plugin().money(m.lang(), refund))));
+                m.player().sendActionBar(m.lang().plain("respec-done", "refund", Text.escape(m.plugin().money(refund))));
                 m.sound("minecraft:block.beacon.deactivate", 0.8f, 1.2f);
                 m.rebuildLayer();
             }
             case COOLDOWN -> m.player().sendActionBar(m.lang().plain("respec-cooldown", "time", Text.duration(ps.respecCooldownLeft(d))));
             case NOTHING -> m.player().sendActionBar(m.lang().plain("respec-nothing"));
             case DISABLED -> m.player().sendActionBar(m.lang().plain("respec-disabled"));
+            case UNAVAILABLE -> m.player().sendActionBar(m.lang().plain("currency-unavailable"));
             case CANCELLED -> m.player().sendActionBar(m.lang().plain("purchase-cancelled"));
         }
     }

@@ -10,7 +10,7 @@ import org.bukkit.entity.Player;
 /**
  * Small, stable API for other plugins. Example:
  * <pre>
- * int lvl = UpgradeTreeAPI.level(player, "keskinlik");
+ * int lvl = UpgradeTreeAPI.level(player, "sharp_sword");
  * UpgradeTreeAPI.addPoints(player, 5);
  * </pre>
  * Events live in {@code com.upgradetree.api.event}.

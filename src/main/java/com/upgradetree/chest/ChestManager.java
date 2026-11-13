@@ -6,6 +6,7 @@ import com.upgradetree.currency.Currency;
 import com.upgradetree.data.PlayerData;
 import com.upgradetree.gui.RouletteMenu;
 import com.upgradetree.util.Text;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,6 +22,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -40,6 +42,12 @@ public final class ChestManager implements Listener {
     private final UpgradeTreePlugin plugin;
     private final Map<UUID, CrateDrop> drops = new HashMap<>();
     private final Map<UUID, RouletteMenu> rolls = new HashMap<>();
+    /**
+     * Prizes of openings that could not be finished because the player was dead (chest id → reward
+     * index). The next opening of that chest stops on the same prize, so dying, or leaving on the
+     * death screen, is no way to roll again. In memory only; a reload forgets it (rewards may change).
+     */
+    private final Map<UUID, Map<String, Integer>> unfinished = new HashMap<>();
 
     public ChestManager(UpgradeTreePlugin plugin) {
         this.plugin = plugin;
@@ -116,9 +124,8 @@ public final class ChestManager implements Listener {
             old.discard();
         }
         if (plugin.bedrock().isBedrock(p)) {
-            ThreadLocalRandom rnd = ThreadLocalRandom.current();
-            ChestReward prize = c.roll(rnd);
-            Strip strip = Strip.build(c.chances(), prize.index, registry().spinTicks, rnd);
+            ChestReward prize = roll(p, c);
+            Strip strip = Strip.build(c.chances(), prize.index, registry().spinTicks, ThreadLocalRandom.current());
             rolls.put(p.getUniqueId(), RouletteMenu.open(plugin, p, c, prize, strip));
             return OpenResult.MENU;
         }
@@ -139,10 +146,10 @@ public final class ChestManager implements Listener {
 
     /** Chat feedback for a failed {@link #open}. */
     public void tell(Player p, OpenResult r, ChestType c) {
-        Lang lang = plugin.lang(p);
+        Lang lang = plugin.lang();
         switch (r) {
             case BUSY -> p.sendMessage(lang.msg("chest-busy"));
-            case NONE -> p.sendMessage(lang.msg("chest-none", "chest", c.name(lang)));
+            case NONE -> p.sendMessage(lang.msg("chest-none", "chest", c.name()));
             case DISABLED -> p.sendMessage(lang.msg("chests-disabled"));
             default -> {
             }
@@ -155,40 +162,77 @@ public final class ChestManager implements Listener {
     }
 
     /**
+     * The prize of a new opening: the one already rolled for an opening of this chest that the
+     * player's death left unfinished (see {@link #commit}), else a fresh roll.
+     */
+    ChestReward roll(Player p, ChestType c) {
+        Map<String, Integer> mine = unfinished.get(p.getUniqueId());
+        Integer index = mine == null ? null : mine.get(c.id);
+        if (index != null && index >= 0 && index < c.rewards.size() && c.chance(c.rewards.get(index)) > 0) {
+            return c.rewards.get(index);
+        }
+        return c.roll(ThreadLocalRandom.current());
+    }
+
+    private void forget(Player p, ChestType c) {
+        Map<String, Integer> mine = unfinished.get(p.getUniqueId());
+        if (mine != null && mine.remove(c.id) != null && mine.isEmpty()) {
+            unfinished.remove(p.getUniqueId());
+        }
+    }
+
+    /**
      * Gives the prize and takes the chest from the stash. False (nothing given, the chest stays) if
      * the player is dead (a respawn would wipe the prize) or the chest is no longer in the stash.
+     * The prize of a dead player is remembered: opening that chest again gives the same one.
      */
     public boolean commit(Player p, ChestType c, ChestReward prize) {
         if (p.isDead()) {
+            unfinished.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>()).put(c.id, prize.index);
             return false;
         }
+        forget(p, c);
         PlayerData d = plugin.data().get(p);
         if (!d.takeChest(c.id)) {
-            plugin.getLogger().warning(p.getName() + ": açılan sandık (" + c.id + ") artık yok, ödül verilmedi.");
+            plugin.getLogger().warning(p.getName() + ": the opened chest (" + c.id + ") no longer exists, no reward was given.");
             return false;
         }
         plugin.data().save(d);
-        Lang lang = plugin.lang(p);
+        Lang lang = plugin.lang();
         if (prize.type == ChestReward.Type.LEVELS) {
             p.giveExpLevels(prize.levels);
         } else {
-            for (ItemStack left : p.getInventory().addItem(prize.create(lang)).values()) {
-                p.getWorld().dropItemNaturally(p.getLocation(), left);
+            ItemStack stack = prize.create();
+            // handed out in legal stacks (16 pearls, 1 totem...), never as one oversized stack
+            for (int amount : stacks(stack.getAmount(), stack.getMaxStackSize())) {
+                ItemStack part = stack.clone();
+                part.setAmount(amount);
+                for (ItemStack left : p.getInventory().addItem(part).values()) {
+                    p.getWorld().dropItemNaturally(p.getLocation(), left);
+                }
             }
         }
-        p.sendMessage(lang.msg("chest-won", "chest", c.name(lang), "reward", prize.coloredLabel(lang),
-                "rarity", prize.rarity.name(lang)));
+        p.sendMessage(lang.msg("chest-won", "chest", c.name(), "reward", prize.coloredLabel(lang),
+                "rarity", prize.rarity.name()));
         if (prize.rarity.announce()) {
+            Component news = lang.msg("chest-broadcast", "player", Text.escape(p.getName()), "chest", c.name(),
+                    "reward", prize.coloredLabel(lang), "rarity", prize.rarity.name());
             for (Player online : Bukkit.getOnlinePlayers()) {
-                Lang l = plugin.lang(online);
-                online.sendMessage(l.msg("chest-broadcast", "player", Text.escape(p.getName()), "chest", c.name(l),
-                        "reward", prize.coloredLabel(l), "rarity", prize.rarity.name(l)));
+                online.sendMessage(news);
             }
-            Lang console = plugin.lang();
-            Bukkit.getConsoleSender().sendMessage(console.msg("chest-broadcast", "player", Text.escape(p.getName()),
-                    "chest", c.name(console), "reward", prize.coloredLabel(console), "rarity", prize.rarity.name(console)));
+            Bukkit.getConsoleSender().sendMessage(news);
         }
         return true;
+    }
+
+    /** Splits an amount into stack sizes of at most {@code max} (40 with max 16 → 16, 16, 8). */
+    static List<Integer> stacks(int amount, int max) {
+        int size = Math.max(1, max);
+        List<Integer> out = new ArrayList<>();
+        for (int left = amount; left > 0; left -= size) {
+            out.add(Math.min(size, left));
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ ticking & shutdown
@@ -199,7 +243,7 @@ public final class ChestManager implements Listener {
                 try {
                     drop.tick();
                 } catch (RuntimeException ex) {
-                    plugin.getLogger().warning("Sandık animasyonu hatası (" + drop.owner.getName() + "): " + ex);
+                    plugin.getLogger().warning("Chest animation error (" + drop.owner.getName() + "): " + ex);
                     drop.finishNow();
                 }
                 if (drop.done()) {
@@ -224,6 +268,7 @@ public final class ChestManager implements Listener {
             menu.finishNow();
         }
         rolls.clear();
+        unfinished.clear(); // reward lists may change (reload); remembered indexes would point elsewhere
     }
 
     /** Quit, world change or a long teleport: an opening ends at once, a waiting chest goes back. */
@@ -233,7 +278,7 @@ public final class ChestManager implements Listener {
             boolean waiting = drop.waiting();
             drop.finishNow();
             if (waiting && tell) {
-                p.sendMessage(plugin.lang(p).msg("chest-returned"));
+                p.sendMessage(plugin.lang().msg("chest-returned"));
             }
         }
         RouletteMenu menu = rolls.remove(p.getUniqueId());
@@ -286,7 +331,7 @@ public final class ChestManager implements Listener {
             }
             int count = plugin.data().get(p).totalChests();
             if (count > 0) {
-                p.sendMessage(plugin.lang(p).msg("chests-waiting", "count", String.valueOf(count)));
+                p.sendMessage(plugin.lang().msg("chests-waiting", "count", String.valueOf(count)));
             }
         }, 80L);
     }

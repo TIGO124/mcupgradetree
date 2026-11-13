@@ -45,18 +45,18 @@ public final class AccessListener implements Listener {
                 && stack.getItemMeta().getPersistentDataContainer().has(itemKey, PersistentDataType.BYTE);
     }
 
-    /** The menu item, named in the player's language. */
+    /** The menu item (named by config.yml access.item.name or messages.yml). */
     public ItemStack createItem(Player p) {
         Settings s = plugin.settings();
         ItemStack it = new ItemStack(s.accessItemMaterial);
         it.editMeta(m -> {
-            m.itemName(Text.mm(s.accessItemName(plugin.lang(p))));
+            m.itemName(Text.mm(s.accessItemName(plugin.lang())));
             m.getPersistentDataContainer().set(itemKey, PersistentDataType.BYTE, (byte) 1);
         });
         return it;
     }
 
-    /** Gives the menu item if the player does not have one yet; renames an existing one to the player's language. */
+    /** Gives the menu item if the player does not have one yet; renames an existing one (after a reload). */
     public void giveItem(Player p) {
         Settings s = plugin.settings();
         if (!s.accessItem || !p.hasPermission("upgradetree.use")) {
@@ -66,7 +66,7 @@ public final class AccessListener implements Listener {
         for (ItemStack it : p.getInventory().getContents()) {
             if (isMenuItem(it)) {
                 has = true;
-                it.editMeta(m -> m.itemName(Text.mm(s.accessItemName(plugin.lang(p)))));
+                it.editMeta(m -> m.itemName(Text.mm(s.accessItemName(plugin.lang()))));
             }
         }
         if (has) {

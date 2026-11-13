@@ -17,7 +17,7 @@ public interface Currency {
     boolean deposit(Player player, double amount);
 
     /**
-     * Amount with the currency name in the reader's language, e.g. "5 Levels" or "$1,250"
+     * Amount with the currency name, e.g. "5 Levels" or "$1,250"
      * ({@code name} comes from Settings#currencyName).
      */
     String format(double amount, String name);

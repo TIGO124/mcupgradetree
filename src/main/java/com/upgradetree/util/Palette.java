@@ -1,26 +1,7 @@
 package com.upgradetree.util;
 
-/** ARGB colours used by the in-world menu (Roblox-style dark UI). */
+/** ARGB colour helpers for the in-world menu (the colours themselves come from the theme). */
 public final class Palette {
-
-    public static final int PANEL_STROKE = 0xFF0B0D16;
-    public static final int PANEL = 0xFF1F2438;
-    public static final int HEADER = 0xFF2A3050;
-    public static final int CANVAS = 0xFF161A2A;
-    public static final int SIDEBAR = 0xFF1A1F33;
-    public static final int PILL = 0xFF11152A;
-    public static final int STROKE = 0xFF0B0D16;
-    public static final int LOCKED = 0xFF2E3446;
-    public static final int AVAILABLE = 0xFF56607E;
-    public static final int GOLD = 0xFFFFD54A;
-    public static final int WHITE = 0xFFFFFFFF;
-    public static final int LINE_LOCKED = 0xFF2A3042;
-    public static final int LINE_AVAILABLE = 0xFF8C96B4;
-    public static final int BUY = 0xFF22C55E;
-    public static final int DENY = 0xFFE5484D;
-    public static final int MAXED_BUTTON = 0xFFEAB308;
-    public static final int LOCKED_BUTTON = 0xFF4B5263;
-    public static final int BAR_BG = 0xFF0B0D16;
 
     private Palette() {
     }
@@ -58,7 +39,7 @@ public final class Palette {
         return (Math.max(0, Math.min(255, alpha)) << 24) | (argb & 0xFFFFFF);
     }
 
-    /** Parses "#RRGGBB" / "RRGGBB" into an opaque ARGB int. */
+    /** Parses "#RRGGBB" (opaque) or "#AARRGGBB" (with alpha) into an ARGB int. */
     public static int parse(String hex, int def) {
         if (hex == null) {
             return def;
@@ -67,18 +48,40 @@ public final class Palette {
         if (s.startsWith("#")) {
             s = s.substring(1);
         }
-        if (s.length() != 6) {
-            return def;
-        }
         try {
-            return 0xFF000000 | Integer.parseInt(s, 16);
+            if (s.length() == 6) {
+                return 0xFF000000 | Integer.parseInt(s, 16);
+            }
+            if (s.length() == 8) {
+                return (int) Long.parseLong(s, 16);
+            }
         } catch (NumberFormatException e) {
             return def;
         }
+        return def;
+    }
+
+    /** True when the colour is see-through. */
+    public static boolean translucent(int argb) {
+        return (argb >>> 24) < 0xFF;
     }
 
     public static int rgb(int argb) {
         return argb & 0xFFFFFF;
+    }
+
+    /** Brightness 0..1 (linear weights, no gamma: good enough to compare colours). */
+    public static double luminance(int argb) {
+        return (0.2126 * ((argb >> 16) & 0xFF) + 0.7152 * ((argb >> 8) & 0xFF) + 0.0722 * (argb & 0xFF)) / 255.0;
+    }
+
+    /** The colour, darkened step by step until it is at most {@code max} bright (so white text stays readable). */
+    public static int atMost(int argb, double max) {
+        int c = argb;
+        for (int i = 0; i < 20 && luminance(c) > max; i++) {
+            c = darken(c, 0.15);
+        }
+        return c;
     }
 
     private static int clamp(int v) {

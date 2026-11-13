@@ -16,68 +16,58 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Messages of one language: built-in Turkish defaults, then the built-in file of the language, then
- * the server's lang/&lt;language&gt;.yml, then (server language only) the old "messages:" section of
- * config.yml. All languages together live in {@link Languages}.
+ * Every message of the plugin: the built-in messages.yml, overridden by the copy in the plugin
+ * folder (plugins/UpgradeTree/messages.yml). A key missing from the copy keeps its built-in text.
  */
 public final class Lang {
 
-    public static final String[] BUNDLED = {"tr", "en"};
-    /** Bumped when the built-in files change in a way old copies on servers must not hide. */
-    public static final int VERSION = 4;
+    public static final String FILE = "messages.yml";
+    /** Bumped when the built-in texts change in a way an old copy on a server must not hide. */
+    public static final int VERSION = 1;
 
-    private final String code;
-    /** The server language: content written in other languages falls back to it (see {@link Localized}). */
-    private final String fallback;
     private final Map<String, Object> messages = new LinkedHashMap<>();
 
-    public Lang(JavaPlugin plugin, String language, ConfigurationSection legacy, String fallback) {
-        this.code = language;
-        this.fallback = fallback == null ? language : fallback;
-        merge(bundled(plugin, "tr"));
-        if (!"tr".equals(language)) {
-            merge(bundled(plugin, language));
-        }
-        File file = new File(plugin.getDataFolder(), "lang/" + language + ".yml");
+    public Lang(JavaPlugin plugin) {
+        merge(bundled(plugin));
+        File file = new File(plugin.getDataFolder(), FILE);
         if (file.exists()) {
             merge(YamlConfiguration.loadConfiguration(file));
         }
-        if (legacy != null) {
-            merge(legacy);
-        }
+    }
+
+    /** Messages read from a YAML section only (tests). */
+    public Lang(ConfigurationSection messages) {
+        merge(messages);
     }
 
     /**
-     * Writes the built-in files once. A server copy older than {@link #VERSION} (for example one that
-     * still lists the old Turkish commands) is kept as lang/&lt;l&gt;.yml.v&lt;n&gt;.bak and replaced.
+     * Writes the built-in file once. A copy older than {@link #VERSION} is kept as
+     * messages.yml.v&lt;n&gt;.bak and replaced.
      */
-    public static void saveDefaults(JavaPlugin plugin) {
-        for (String l : BUNDLED) {
-            File file = new File(plugin.getDataFolder(), "lang/" + l + ".yml");
-            if (!file.exists()) {
-                plugin.saveResource("lang/" + l + ".yml", false);
-                continue;
-            }
-            int version = YamlConfiguration.loadConfiguration(file).getInt("lang-version", 1);
-            if (version >= VERSION) {
-                continue;
-            }
-            File backup = new File(file.getParentFile(), l + ".yml.v" + version + ".bak");
-            if (backup.exists()) {
-                backup = new File(file.getParentFile(), l + ".yml.v" + version + "-" + System.currentTimeMillis() + ".bak");
-            }
-            if (file.renameTo(backup)) {
-                plugin.saveResource("lang/" + l + ".yml", true);
-                plugin.getLogger().warning("lang/" + l + ".yml eskiydi, yenisi yazıldı. Eski dosya: lang/" + backup.getName()
-                        + " (old language file replaced, your edits are in the backup)");
-            } else {
-                plugin.getLogger().warning("lang/" + l + ".yml güncellenemedi (could not replace the outdated language file)");
-            }
+    public static void saveDefault(JavaPlugin plugin) {
+        File file = new File(plugin.getDataFolder(), FILE);
+        if (!file.exists()) {
+            plugin.saveResource(FILE, false);
+            return;
+        }
+        int version = YamlConfiguration.loadConfiguration(file).getInt("messages-version", 0);
+        if (version >= VERSION) {
+            return;
+        }
+        File backup = new File(file.getParentFile(), FILE + ".v" + version + ".bak");
+        if (backup.exists()) {
+            backup = new File(file.getParentFile(), FILE + ".v" + version + "-" + System.currentTimeMillis() + ".bak");
+        }
+        if (file.renameTo(backup)) {
+            plugin.saveResource(FILE, true);
+            plugin.getLogger().warning(FILE + " was outdated and has been replaced. Your old texts are in " + backup.getName() + ".");
+        } else {
+            plugin.getLogger().warning(FILE + " is outdated but could not be replaced.");
         }
     }
 
-    private static ConfigurationSection bundled(JavaPlugin plugin, String language) {
-        InputStream in = plugin.getResource("lang/" + language + ".yml");
+    private static ConfigurationSection bundled(JavaPlugin plugin) {
+        InputStream in = plugin.getResource(FILE);
         if (in == null) {
             return null;
         }
@@ -106,17 +96,12 @@ public final class Lang {
         }
     }
 
-    /** Language code, e.g. "tr". */
-    public String code() {
-        return code;
+    /** True if the key has a text. */
+    public boolean has(String key) {
+        return messages.containsKey(key);
     }
 
-    /** Code of the server language (the fallback for texts not written in this language). */
-    public String fallback() {
-        return fallback;
-    }
-
-    /** Raw MiniMessage string for a message key. */
+    /** Raw MiniMessage string for a message key (the key itself when it has no text). */
     public String raw(String key) {
         Object v = messages.get(key);
         if (v instanceof List<?> list) {

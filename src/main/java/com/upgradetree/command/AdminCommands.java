@@ -30,7 +30,7 @@ final class AdminCommands {
     }
 
     private Lang lang(CommandSender sender) {
-        return plugin.lang(sender);
+        return plugin.lang();
     }
 
     Target find(String name) {
@@ -67,7 +67,7 @@ final class AdminCommands {
     }
 
     void check(CommandSender sender) {
-        List<com.upgradetree.config.Localized<String>> issues = new java.util.ArrayList<>(plugin.trees().issues());
+        List<String> issues = new java.util.ArrayList<>(plugin.trees().issues());
         issues.addAll(plugin.chestTypes().issues());
         if (issues.isEmpty()) {
             sender.sendMessage(lang(sender).msg("check-ok", "trees", String.valueOf(plugin.trees().trees().size()),
@@ -75,8 +75,8 @@ final class AdminCommands {
             return;
         }
         sender.sendMessage(lang(sender).msg("check-header", "count", String.valueOf(issues.size())));
-        for (var issue : issues) {
-            sender.sendMessage(lang(sender).plain("check-line", "issue", Text.escape(issue.get(lang(sender)))));
+        for (String issue : issues) {
+            sender.sendMessage(lang(sender).plain("check-line", "issue", Text.escape(issue)));
         }
     }
 
@@ -124,7 +124,7 @@ final class AdminCommands {
             }
         }
         plugin.leaderboard().touch(d);
-        sender.sendMessage(lang(sender).msg("set-done", "player", Text.escape(t.name()), "node", n.name(lang(sender)), "level", String.valueOf(level)));
+        sender.sendMessage(lang(sender).msg("set-done", "player", Text.escape(t.name()), "node", n.name(), "level", String.valueOf(level)));
     }
 
     void points(CommandSender sender, String[] args) {
@@ -257,7 +257,7 @@ final class AdminCommands {
         String mode = CommandAliases.word(args[1]);
         switch (mode) {
             case "preview" -> {
-                File out = new File(plugin.getDataFolder(), "debug/onizleme-" + p.getName() + ".png");
+                File out = new File(plugin.getDataFolder(), "debug/preview-" + p.getName() + ".png");
                 try {
                     if (plugin.menus().snapshot(p, out, new File(plugin.getDataFolder(), "debug/textures"))) {
                         sender.sendMessage(lang(sender).msg("debug-snapshot", "file", Text.escape(out.getPath())));
@@ -265,7 +265,7 @@ final class AdminCommands {
                         sender.sendMessage(lang(sender).msg("debug-no-menu"));
                     }
                 } catch (Exception e) {
-                    sender.sendMessage(Text.mm("<red>" + Text.escape(String.valueOf(e))));
+                    sender.sendMessage(Text.mm("<bad>" + Text.escape(String.valueOf(e))));
                 }
             }
             case "look", "pos" -> {
@@ -283,11 +283,11 @@ final class AdminCommands {
                 if (mode.equals("look")) {
                     plugin.menus().lookAt(p, target);
                 }
-                sender.sendMessage(Text.mm("<gray>NODE_POS " + Text.escape(target) + " " + String.format(Locale.ROOT, "%.4f %.4f %.4f",
+                sender.sendMessage(Text.mm("<body>NODE_POS " + Text.escape(target) + " " + String.format(Locale.ROOT, "%.4f %.4f %.4f",
                         loc.getX(), loc.getY(), loc.getZ())));
             }
-            case "entities" -> sender.sendMessage(Text.mm("<gray>ENTITIES " + plugin.menus().entityCount(p)));
-            case "target" -> sender.sendMessage(Text.mm("<gray>TARGET " + Text.escape(plugin.menus().target(p))
+            case "entities" -> sender.sendMessage(Text.mm("<body>ENTITIES " + plugin.menus().entityCount(p)));
+            case "target" -> sender.sendMessage(Text.mm("<body>TARGET " + Text.escape(plugin.menus().target(p))
                     + String.format(Locale.ROOT, " yaw=%.2f pitch=%.2f", p.getLocation().getYaw(), p.getLocation().getPitch())));
             default -> sender.sendMessage(lang(sender).plain("usage-debug"));
         }

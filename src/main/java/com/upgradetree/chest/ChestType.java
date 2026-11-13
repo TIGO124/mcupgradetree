@@ -1,7 +1,5 @@
 package com.upgradetree.chest;
 
-import com.upgradetree.config.Lang;
-import com.upgradetree.config.Localized;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
@@ -24,27 +22,28 @@ public final class ChestType {
     }
 
     public final String id;
-    public final Localized<String> names;
+    /** Name (MiniMessage). */
+    public final String name;
     public final Material icon;
     public final boolean glint;
     public final double price;
     public final int order;
     public final int color;
-    public final Localized<List<String>> descriptions;
+    public final List<String> description;
     public final Look look;
     public final List<ChestReward> rewards;
     private final double[] chances;
 
-    ChestType(String id, Localized<String> names, Material icon, boolean glint, double price, int order, int color,
-              Localized<List<String>> descriptions, Look look, List<ChestReward> rewards, Map<String, Double> weightOverride) {
+    ChestType(String id, String name, Material icon, boolean glint, double price, int order, int color,
+              List<String> description, Look look, List<ChestReward> rewards, Map<String, Double> weightOverride) {
         this.id = id;
-        this.names = names.isEmpty() ? Localized.of(id) : names;
+        this.name = name == null || name.isEmpty() ? id : name;
         this.icon = icon;
         this.glint = glint;
         this.price = Math.max(0, price);
         this.order = order;
         this.color = color;
-        this.descriptions = descriptions;
+        this.description = description == null ? List.of() : List.copyOf(description);
         this.look = look;
         this.rewards = List.copyOf(rewards);
         this.chances = chancesOf(this.rewards, weightOverride);
@@ -80,19 +79,22 @@ public final class ChestType {
         return out;
     }
 
-    /** Name in the reader's language (MiniMessage). */
-    public String name(Lang lang) {
-        String n = names.get(lang);
-        return n == null ? id : n;
+    /** Name (MiniMessage). */
+    public String name() {
+        return name;
     }
 
-    public Component nameComponent(Lang lang) {
-        return Text.mm(name(lang));
+    public Component nameComponent() {
+        return Text.mm(name);
     }
 
-    public List<String> description(Lang lang) {
-        List<String> d = descriptions.get(lang);
-        return d == null ? List.of() : d;
+    /** Name without formatting (console, placeholders). */
+    public String plainName() {
+        return Text.plain(name);
+    }
+
+    public List<String> description() {
+        return description;
     }
 
     /** Chance (0..1) of every reward, by reward index (a copy). */

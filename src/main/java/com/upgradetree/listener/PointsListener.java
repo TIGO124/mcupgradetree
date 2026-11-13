@@ -50,11 +50,12 @@ public final class PointsListener implements Listener {
         }
         PlayerData d = plugin.data().get(p);
         d.addPoints(amount);
-        p.sendActionBar(plugin.lang(p).plain("points-earned", "amount", Text.num(amount),
-                "currency", Text.escape(plugin.currencyName(plugin.lang(p))), "reason", plugin.lang(p).raw("reason-" + reason)));
+        p.sendActionBar(plugin.lang().plain("points-earned", "amount", Text.num(amount),
+                "currency", Text.escape(plugin.currencyName()), "reason", plugin.lang().raw("reason-" + reason)));
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    /** A death another plugin cancelled (the mob lives on) pays nothing. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onKill(EntityDeathEvent e) {
         if (!pointsMode()) {
             return;
@@ -132,22 +133,36 @@ public final class PointsListener implements Listener {
         });
     }
 
-    /** Gives the daily reward once per calendar day. Returns true if it was given now. */
-    public boolean claimDaily(Player p, boolean tellIfClaimed) {
+    /** True if the daily reward can be claimed today (POINTS currency with a daily reward). */
+    public boolean dailyReady(PlayerData d) {
+        return pointsMode() && plugin.settings().dailyPoints > 0 && !LocalDate.now().toString().equals(d.lastDaily());
+    }
+
+    /**
+     * Gives the daily reward once per calendar day. Returns true if it was given now.
+     * {@code tell}: say why nothing was given (/tigo daily); the automatic claim at join stays quiet.
+     */
+    public boolean claimDaily(Player p, boolean tell) {
         Settings s = plugin.settings();
         if (!pointsMode() || s.dailyPoints <= 0) {
+            if (tell) {
+                p.sendMessage(plugin.lang().msg("daily-off"));
+            }
             return false;
         }
         PlayerData d = plugin.data().get(p);
         String today = LocalDate.now().toString();
         if (today.equals(d.lastDaily())) {
+            if (tell) {
+                p.sendMessage(plugin.lang().msg("daily-already"));
+            }
             return false;
         }
         d.lastDaily(today);
         d.addPoints(s.dailyPoints);
         plugin.data().save(d);
-        p.sendMessage(plugin.lang(p).msg("daily-claimed", "amount", Text.num(s.dailyPoints),
-                "currency", Text.escape(plugin.currencyName(plugin.lang(p)))));
+        p.sendMessage(plugin.lang().msg("daily-claimed", "amount", Text.num(s.dailyPoints),
+                "currency", Text.escape(plugin.currencyName())));
         return true;
     }
 

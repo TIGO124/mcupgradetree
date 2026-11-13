@@ -25,6 +25,8 @@ import java.util.Set;
 final class NodeLayer {
 
     private static final double HOVER_SCALE = 1.1;
+    /** Invisible halo (a background image shows through). */
+    private static final int NO_HALO = 0x00000000;
 
     private final DisplayMenu menu;
     final UpgradeTree tree;
@@ -44,7 +46,6 @@ final class NodeLayer {
         List<Part> halo = List.of();
         List<Part> border = List.of();
         List<Part> fill = List.of();
-        Part shine;
         Part icon;
         Part badge;
         State state;
@@ -188,8 +189,6 @@ final class NodeLayer {
         double inner = HexGrid.inset(r, r * 0.13);
         v.border = pt.hex(g, v.cx, v.cy, r, Layout.Z_BORDER, theme().locked());
         v.fill = pt.hex(g, v.cx, v.cy, inner, Layout.Z_FILL, theme().locked());
-        v.shine = pt.rect(g, Part.rect(v.cx, v.cy + inner * 0.47, Math.sqrt(3) * inner * 0.6, inner * 0.2, Layout.Z_SHINE,
-                theme().locked()));
         boolean badge = n.maxLevel > 1;
         double iconY = badge ? v.cy + r * 0.08 : v.cy;
         v.icon = pt.item(g, Part.item(v.cx, iconY, Math.sqrt(3) * r * 0.56, Layout.Z_ICON), Icons.of(n));
@@ -263,24 +262,30 @@ final class NodeLayer {
 
     // ------------------------------------------------------------------ painting
 
+    /**
+     * Fill: the node base of the style, tinted with the node's own (branch) colour as far as the
+     * style allows. The frame tells the state: line colour, owned colour, finished colour.
+     */
     private int fill(UpgradeNode n, State st) {
         Settings.Theme t = theme();
+        int base = Palette.alpha(t.locked(), 255);
         return switch (st) {
-            case LOCKED -> t.locked();
-            case BLOCKED -> Palette.mix(t.locked(), t.deny(), 0.3);
-            case AVAILABLE -> Palette.mix(n.color, t.background(), 0.6);
-            default -> n.color;
+            case LOCKED -> base;
+            case BLOCKED -> Palette.mix(base, t.deny(), 0.3);
+            case AVAILABLE -> Palette.mix(base, n.color, t.tint() * 0.4);
+            default -> Palette.mix(base, n.color, t.tint());
         };
     }
 
     private int border(UpgradeNode n, State st) {
         Settings.Theme t = theme();
+        int base = Palette.alpha(t.locked(), 255);
         return switch (st) {
-            case LOCKED -> Palette.lighten(t.locked(), 0.16);
-            case BLOCKED -> Palette.mix(t.locked(), t.deny(), 0.55);
-            case AVAILABLE -> Palette.mix(n.color, 0xFFFFFFFF, 0.15);
-            case OWNED -> Palette.lighten(n.color, 0.5);
-            case MAXED -> t.gold();
+            case LOCKED -> Palette.lighten(base, 0.12);
+            case BLOCKED -> Palette.mix(base, t.deny(), 0.55);
+            case AVAILABLE -> Palette.alpha(t.line(), 255);
+            case OWNED -> t.gold();
+            case MAXED -> t.maxed();
         };
     }
 
@@ -300,7 +305,8 @@ final class NodeLayer {
         for (LineView l : lines) {
             boolean parent = d.level(l.from.id) > 0;
             boolean child = d.level(l.to.id) > 0;
-            int c = parent && child ? Palette.lighten(l.to.color, 0.25) : (parent ? theme().line() : theme().lineLocked());
+            int c = parent && child ? Palette.mix(theme().gold(), theme().locked(), 0.3)
+                    : (parent ? theme().line() : theme().lineLocked());
             if (!parent && highlighted.contains(l.from.id) && l.to.id.equals(highlightTarget)) {
                 c = theme().deny();
             }
@@ -313,30 +319,29 @@ final class NodeLayer {
         State st = menu.plugin().service().state(d, menu.subject(), n);
         int lvl = Math.min(d.level(n.id), n.maxLevel);
         int fill = fill(n, st);
-        int border = v.hover ? 0xFFFFFFFF : (highlighted.contains(n.id) ? theme().deny() : border(n, st));
+        int border = v.hover ? theme().hover() : (highlighted.contains(n.id) ? theme().deny() : border(n, st));
         for (Part p : v.fill) {
             p.recolor(fill, duration);
         }
         for (Part p : v.border) {
             p.recolor(border, duration);
         }
-        v.shine.recolor(Palette.lighten(fill, st == State.LOCKED ? 0.06 : 0.22), duration);
-        boolean glow = (st == State.OWNED || st == State.MAXED) && menu.settings().highQuality;
+        // only finished nodes get a ring (opaque: the three rectangles of a hexagon overlap)
+        boolean glow = st == State.MAXED && menu.settings().highQuality;
         if (glow && v.halo.isEmpty()) {
-            v.halo = menu.painter().hex(v.group, v.cx, v.cy, radius * 1.17, Layout.Z_HALO, theme().background());
+            v.halo = menu.painter().hex(v.group, v.cx, v.cy, radius * 1.17, Layout.Z_HALO, NO_HALO);
             v.group.apply(menu.frame(), 0);
         }
-        int haloColor = st == State.MAXED ? Palette.mix(theme().gold(), theme().background(), 0.62)
-                : Palette.mix(n.color, theme().background(), 0.55);
+        int haloColor = Palette.mix(theme().maxed(), Palette.alpha(theme().locked(), 255), 0.6);
         for (Part p : v.halo) {
-            p.recolor(glow ? haloColor : theme().background(), duration);
+            p.recolor(glow ? haloColor : NO_HALO, duration);
         }
         if (v.state != st || v.level != lvl) {
             v.state = st;
             v.level = lvl;
             if (v.badge != null) {
                 Component badge = st == State.MAXED ? menu.lang().plain("badge-max")
-                        : Text.mm((st == State.LOCKED ? "<gray>" : "<white>") + "<b>" + lvl + "/" + n.maxLevel);
+                        : Text.mm((st == State.LOCKED ? "<dim>" : "<hi>") + "<b>" + lvl + "/" + n.maxLevel);
                 Painter.setText(v.badge, badge);
             }
             double iconSize = Math.sqrt(3) * radius * (st == State.LOCKED || st == State.BLOCKED ? 0.46 : 0.56);

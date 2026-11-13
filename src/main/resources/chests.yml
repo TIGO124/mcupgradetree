@@ -1,175 +1,162 @@
 # ============================================================
-#  Chests – CS2 tarzı sandıklar. Menüde "Chests" bölümünde satılır (/tigo chests).
-#  Satın alınan sandık oyuncunun önünde belirir, sağ tıklayınca kapağı açılır ve
-#  eşyalar şeritte kayar; şerit yavaşlayıp kazanılan ödülde durur.
-#  Değişikliklerden sonra: /tigo reload   •   Hata kontrolü: /tigo check
+#  Chests – CS2-style cases, sold in the "Chests" section of the menu (/tigo chests).
+#  A bought chest appears in front of the player. Right click: the lid opens and the items
+#  scroll on a strip that slows down and stops on the prize.
+#  After changes: /tigo reload   ·   Check for mistakes: /tigo check
 # ============================================================
 #
-# SANDIK AYARLARI:
-#   name, icon (menüdeki simge), glint (parlama), color (#RRGGBB, menüdeki çerçeve)
-#   Metinler (name, description, nadirlik adı, ödül name/lore) dile göre yazılabilir: { tr: "...", en: "..." }
-#   price       : Bedel (config.yml currency: XP seviyesi, Vault parası veya puan)
-#   order       : Menüdeki sıra
-#   description : Açıklama satırları
-#   look        : Önde beliren sandığın blokları: body (gövde), trim (bantlar), latch (kilit)
-#   weights     : (isteğe bağlı) bu sandığa özel nadirlik ağırlıkları, ör. { efsanevi: 2 }
-#   rewards     : Ödüller. Her ödülde rarity (nadirlik) ve şunlardan biri:
-#                 item: DIAMOND, amount: 1-99, name: "<aqua>Ad", lore: [...], enchantments: { sharpness: 5 }
-#                 levels: 10   (XP seviyesi verir)
-#                 weight: aynı nadirlikteki ödüller arasındaki pay (varsayılan 1)
+# CHEST SETTINGS (the key, e.g. "iron", is the id used by commands and placeholders):
+#   name, icon (menu icon), glint (enchantment shine), color (#RRGGBB, frame in the menu)
+#   price       : Cost (in the currency of config.yml: XP levels, Vault money or points)
+#   order       : Position in the menu
+#   description : Description lines
+#   look        : Blocks of the chest that appears: body, trim (bands), latch (lock)
+#   weights     : (optional) rarity weights for this chest only, e.g. { legendary: 2 }
+#   rewards     : The prizes. Every prize has a rarity and one of:
+#                 item: DIAMOND, amount: 1-99, name: "<value>Name", lore: [...], enchantments: { sharpness: 5 }
+#                 levels: 10   (gives XP levels)
+#                 weight: share among the prizes of the same rarity (default 1)
 #
-# ŞANS: Önce nadirlik ağırlığına göre bir nadirlik seçilir, sonra o nadirlikteki ödüllerden biri
-#   (CS2 kasaları gibi). Sandıkta olmayan nadirliklerin payı diğerlerine dağılır.
+# ODDS: first a rarity is picked by its weight, then one prize of that rarity (like CS2 cases).
+#   The share of rarities a chest does not contain goes to the others.
 
 enabled: true
-# Şeridin dönme süresi (saniye)
+# How long the strip spins (seconds)
 spin-seconds: 6
-# Açılmayan sandık bu kadar saniye sonra (veya oyuncu 24 bloktan uzaklaşınca) kaybolur
-# ama sandıklarında kalır: menüdeki AÇ butonu ile tekrar çağrılır.
+# An unopened chest disappears after this many seconds (or when its owner walks 24 blocks away)
+# but stays in their chests: the OPEN button of the menu calls it back.
 despawn-seconds: 120
 
-# Nadirlikler (yaygından nadire). announce: true olanlar tüm sunucuya duyurulur.
+# Rarities (most common first). Prizes of a rarity with announce: true are announced to the whole server.
 rarities:
-  yaygin:
-    name: { tr: "<#4B69FF>Yaygın", en: "<#4B69FF>Common" }
-    color: "#4B69FF"
+  common:
+    name: "<#9AA4B2>Common"
+    color: "#9AA4B2"
     weight: 79.92
-  nadir:
-    name: { tr: "<#8847FF>Nadir", en: "<#8847FF>Rare" }
-    color: "#8847FF"
+  rare:
+    name: "<#5F8FC4>Rare"
+    color: "#5F8FC4"
     weight: 15.98
-  destansi:
-    name: { tr: "<#D32CE6>Destansı", en: "<#D32CE6>Epic" }
-    color: "#D32CE6"
+  epic:
+    name: "<#9A6BC4>Epic"
+    color: "#9A6BC4"
     weight: 3.2
-  efsanevi:
-    name: { tr: "<#EB4B4B>Efsanevi", en: "<#EB4B4B>Legendary" }
-    color: "#EB4B4B"
+  legendary:
+    name: "<#D27A33>Legendary"
+    color: "#D27A33"
     weight: 0.64
     announce: true
-  mitik:
-    name: { tr: "<#FFD700>★ Mitik", en: "<#FFD700>★ Mythic" }
-    color: "#FFD700"
+  mythic:
+    name: "<#E0B54A>Mythic"
+    color: "#E0B54A"
     weight: 0.26
     announce: true
 
 chests:
 
-  demir:
-    name: { tr: "<#E5E7EB>Demir Sandık", en: "<#E5E7EB>Iron Chest" }
+  iron:
+    name: "Iron Chest"
     icon: CHEST
-    color: "#9CA3AF"
+    color: "#8E96A3"
     price: 5
     order: 1
     description:
-      tr:
-        - "<gray>Başlangıç için ideal."
-        - "<gray>Demir, yiyecek ve biraz şans."
-      en:
-        - "<gray>Ideal for starting out."
-        - "<gray>Iron, food and a bit of luck."
+      - "<body>Ideal for starting out."
+      - "<body>Iron, food and a bit of luck."
     look:
       body: SPRUCE_PLANKS
       trim: IRON_BLOCK
       latch: IRON_BLOCK
     rewards:
-      - { item: IRON_INGOT, amount: 8, rarity: yaygin }
-      - { item: BREAD, amount: 16, rarity: yaygin }
-      - { item: ARROW, amount: 32, rarity: yaygin }
-      - { item: COAL, amount: 24, rarity: yaygin }
-      - { levels: 3, rarity: yaygin }
-      - { item: GOLD_INGOT, amount: 8, rarity: nadir }
+      - { item: IRON_INGOT, amount: 8, rarity: common }
+      - { item: BREAD, amount: 16, rarity: common }
+      - { item: ARROW, amount: 32, rarity: common }
+      - { item: COAL, amount: 24, rarity: common }
+      - { levels: 3, rarity: common }
+      - { item: GOLD_INGOT, amount: 8, rarity: rare }
       - item: IRON_PICKAXE
-        name: { tr: "<#E5E7EB>Hızlı Demir Kazma", en: "<#E5E7EB>Swift Iron Pickaxe" }
+        name: "Swift Iron Pickaxe"
         enchantments: { efficiency: 3, unbreaking: 2 }
-        rarity: nadir
-      - { levels: 8, rarity: nadir }
-      - { item: DIAMOND, amount: 3, rarity: destansi }
-      - { item: GOLDEN_APPLE, amount: 2, rarity: destansi }
-      - { item: DIAMOND, amount: 8, rarity: efsanevi }
-      - { levels: 25, rarity: efsanevi }
-      - { item: ENCHANTED_GOLDEN_APPLE, amount: 1, rarity: mitik }
-      - { item: NETHERITE_SCRAP, amount: 1, rarity: mitik }
+        rarity: rare
+      - { levels: 8, rarity: rare }
+      - { item: DIAMOND, amount: 3, rarity: epic }
+      - { item: GOLDEN_APPLE, amount: 2, rarity: epic }
+      - { item: DIAMOND, amount: 8, rarity: legendary }
+      - { levels: 25, rarity: legendary }
+      - { item: ENCHANTED_GOLDEN_APPLE, amount: 1, rarity: mythic }
+      - { item: NETHERITE_SCRAP, amount: 1, rarity: mythic }
 
-  elmas:
-    name: { tr: "<#67E8F9>Elmas Sandık", en: "<#67E8F9>Diamond Chest" }
+  diamond:
+    name: "Diamond Chest"
     icon: CHEST
     glint: true
-    color: "#22D3EE"
+    color: "#5E9A94"
     price: 15
     order: 2
     description:
-      tr:
-        - "<gray>Elmas, büyülü aletler"
-        - "<gray>ve totem şansı."
-      en:
-        - "<gray>Diamonds, enchanted tools"
-        - "<gray>and a chance for a totem."
+      - "<body>Diamonds, enchanted tools"
+      - "<body>and a chance for a totem."
     look:
       body: DARK_OAK_PLANKS
       trim: DIAMOND_BLOCK
       latch: GOLD_BLOCK
     rewards:
-      - { item: DIAMOND, amount: 1, rarity: yaygin }
-      - { item: EMERALD, amount: 8, rarity: yaygin }
-      - { item: ENDER_PEARL, amount: 4, rarity: yaygin }
-      - { item: GOLD_INGOT, amount: 12, rarity: yaygin }
-      - { levels: 10, rarity: yaygin }
-      - { item: DIAMOND, amount: 4, rarity: nadir }
-      - { item: GOLDEN_APPLE, amount: 3, rarity: nadir }
+      - { item: DIAMOND, amount: 1, rarity: common }
+      - { item: EMERALD, amount: 8, rarity: common }
+      - { item: ENDER_PEARL, amount: 4, rarity: common }
+      - { item: GOLD_INGOT, amount: 12, rarity: common }
+      - { levels: 10, rarity: common }
+      - { item: DIAMOND, amount: 4, rarity: rare }
+      - { item: GOLDEN_APPLE, amount: 3, rarity: rare }
       - item: DIAMOND_PICKAXE
-        name: { tr: "<#67E8F9>Elmas Madenci", en: "<#67E8F9>Diamond Miner" }
+        name: "Diamond Miner"
         enchantments: { efficiency: 4, unbreaking: 3 }
-        rarity: nadir
-      - { levels: 20, rarity: nadir }
+        rarity: rare
+      - { levels: 20, rarity: rare }
       - item: DIAMOND_SWORD
-        name: { tr: "<#F472B6>Keskin Elmas Kılıç", en: "<#F472B6>Sharp Diamond Sword" }
+        name: "Sharp Diamond Sword"
         enchantments: { sharpness: 5, unbreaking: 3 }
-        rarity: destansi
-      - { item: TOTEM_OF_UNDYING, amount: 1, rarity: destansi }
-      - { levels: 35, rarity: destansi }
-      - { item: NETHERITE_SCRAP, amount: 4, rarity: efsanevi }
-      - { item: DIAMOND_BLOCK, amount: 4, rarity: efsanevi }
-      - { item: NETHERITE_INGOT, amount: 2, rarity: mitik }
-      - { item: ENCHANTED_GOLDEN_APPLE, amount: 2, rarity: mitik }
+        rarity: epic
+      - { item: TOTEM_OF_UNDYING, amount: 1, rarity: epic }
+      - { levels: 35, rarity: epic }
+      - { item: NETHERITE_SCRAP, amount: 4, rarity: legendary }
+      - { item: DIAMOND_BLOCK, amount: 4, rarity: legendary }
+      - { item: NETHERITE_INGOT, amount: 2, rarity: mythic }
+      - { item: ENCHANTED_GOLDEN_APPLE, amount: 2, rarity: mythic }
 
-  netherit:
-    name: { tr: "<#C4B5FD>Netherit Sandık", en: "<#C4B5FD>Netherite Chest" }
+  netherite:
+    name: "Netherite Chest"
     icon: ENDER_CHEST
     glint: true
-    color: "#A78BFA"
+    color: "#8E7FB8"
     price: 35
     order: 3
     description:
-      tr:
-        - "<gray>En değerli ganimetler."
-        - "<gray>Elytra ve Nether Yıldızı burada!"
-      en:
-        - "<gray>The most valuable loot."
-        - "<gray>Elytra and Nether Star inside!"
+      - "<body>The most valuable loot."
+      - "<body>Elytra and Nether Star inside!"
     look:
       body: POLISHED_BLACKSTONE_BRICKS
       trim: NETHERITE_BLOCK
       latch: GOLD_BLOCK
     rewards:
-      - { item: DIAMOND, amount: 5, rarity: yaygin }
-      - { item: ANCIENT_DEBRIS, amount: 2, rarity: yaygin }
-      - { item: EXPERIENCE_BOTTLE, amount: 32, rarity: yaygin }
-      - { levels: 25, rarity: yaygin }
-      - { item: NETHERITE_SCRAP, amount: 4, rarity: nadir }
-      - { item: TOTEM_OF_UNDYING, amount: 1, rarity: nadir }
-      - { levels: 45, rarity: nadir }
-      - { item: NETHERITE_INGOT, amount: 1, rarity: destansi }
+      - { item: DIAMOND, amount: 5, rarity: common }
+      - { item: ANCIENT_DEBRIS, amount: 2, rarity: common }
+      - { item: EXPERIENCE_BOTTLE, amount: 32, rarity: common }
+      - { levels: 25, rarity: common }
+      - { item: NETHERITE_SCRAP, amount: 4, rarity: rare }
+      - { item: TOTEM_OF_UNDYING, amount: 1, rarity: rare }
+      - { levels: 45, rarity: rare }
+      - { item: NETHERITE_INGOT, amount: 1, rarity: epic }
       - item: DIAMOND_PICKAXE
-        name: { tr: "<gradient:#67E8F9:#A78BFA>Derin Kazıcı</gradient>", en: "<gradient:#67E8F9:#A78BFA>Deep Digger</gradient>" }
+        name: "Deep Digger"
         enchantments: { efficiency: 5, fortune: 3, unbreaking: 3, mending: 1 }
-        rarity: destansi
-      - { levels: 70, rarity: destansi }
+        rarity: epic
+      - { levels: 70, rarity: epic }
       - item: NETHERITE_SWORD
-        name: { tr: "<gradient:#A78BFA:#F472B6>Gece Yarısı</gradient>", en: "<gradient:#A78BFA:#F472B6>Midnight</gradient>" }
+        name: "Midnight"
         enchantments: { sharpness: 5, unbreaking: 3, mending: 1 }
-        rarity: efsanevi
-      - { item: ELYTRA, amount: 1, rarity: efsanevi }
-      - { item: NETHER_STAR, amount: 1, rarity: mitik }
-      - { item: NETHERITE_INGOT, amount: 4, rarity: mitik }
-      - { levels: 150, rarity: mitik }
+        rarity: legendary
+      - { item: ELYTRA, amount: 1, rarity: legendary }
+      - { item: NETHER_STAR, amount: 1, rarity: mythic }
+      - { item: NETHERITE_INGOT, amount: 4, rarity: mythic }
+      - { levels: 150, rarity: mythic }

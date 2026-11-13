@@ -161,7 +161,7 @@ public final class EffectManager {
                     inst.removeModifier(e.getKey());
                     inst.addModifier(new AttributeModifier(e.getKey(), e.getValue().amount(), e.getValue().operation(), EquipmentSlotGroup.ANY));
                 } catch (IllegalArgumentException ex) {
-                    plugin.getLogger().warning("Özellik uygulanamadı (" + e.getKey() + "): " + ex.getMessage());
+                    plugin.getLogger().warning("Could not apply the attribute (" + e.getKey() + "): " + ex.getMessage());
                 }
             }
         }
@@ -251,7 +251,7 @@ public final class EffectManager {
                     try {
                         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), s);
                     } catch (Exception ex) {
-                        plugin.getLogger().warning("Komut çalıştırılamadı '" + s + "': " + ex.getMessage());
+                        plugin.getLogger().warning("Could not run the command '" + s + "': " + ex.getMessage());
                     }
                 }
             }

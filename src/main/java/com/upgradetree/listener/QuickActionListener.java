@@ -31,7 +31,7 @@ public final class QuickActionListener implements Listener {
                 return;
             }
             if (!p.hasPermission("upgradetree.use")) {
-                p.sendMessage(plugin.lang(p).msg("no-permission"));
+                p.sendMessage(plugin.lang().msg("no-permission"));
                 return;
             }
             plugin.menus().open(p);

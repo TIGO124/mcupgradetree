@@ -106,13 +106,9 @@ public final class UpgradeService {
         return false;
     }
 
-    /** Unmet requirements in the player's language, e.g. "Sharp Sword", "X or Y (one of)", "Prestige 1". */
+    /** Unmet requirements of {@code p} (permissions), e.g. "Sharp Sword", "X or Y (one of)", "Prestige 1". */
     public List<String> missing(PlayerData d, Player p, UpgradeNode n) {
-        return missing(d, p, n, plugin.lang(p));
-    }
-
-    /** Unmet requirements of {@code p} (permissions) written in {@code lang} (the reader). */
-    public List<String> missing(PlayerData d, Player p, UpgradeNode n, Lang lang) {
+        Lang lang = plugin.lang();
         List<String> out = new ArrayList<>();
         for (String r : n.requires) {
             if (d.level(r) <= 0) {
@@ -146,7 +142,7 @@ public final class UpgradeService {
 
     private String name(String id, Lang lang) {
         UpgradeNode n = trees().node(id);
-        return n == null ? id : n.name(lang);
+        return n == null ? id : n.name();
     }
 
     // ------------------------------------------------------------------ cost & purchase

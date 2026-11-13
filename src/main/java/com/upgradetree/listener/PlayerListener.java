@@ -37,7 +37,6 @@ public final class PlayerListener implements Listener {
             if (p.isOnline()) {
                 plugin.effects().apply(p);
                 plugin.leaderboard().touch(plugin.data().get(p));
-                plugin.leaderboard().refreshViewer(p);
             }
         }, 20L);
     }

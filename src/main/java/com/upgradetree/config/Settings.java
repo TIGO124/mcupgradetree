@@ -21,18 +21,11 @@ import java.util.logging.Logger;
 /** Values read from config.yml (with safe defaults for every key). Messages live in {@link Lang}. */
 public final class Settings {
 
-    /** Currency names written by older versions; they now follow each reader's language. */
-    private static final Set<String> DEFAULT_CURRENCY_NAMES = Set.of("seviye", "level", "levels", "puan", "points", "point",
-            "para", "money");
-    private static final String OLD_ITEM_NAME = "<gradient:#7DD3FC:#C084FC><b>Yükseltme Ağacı</b></gradient> <gray>(Sağ Tık)";
-
     public enum MenuMode { AUTO, DISPLAY, CHEST }
 
-    public final String language;
-
     public final String currencyType;
-    /** Configured currency name; empty = the name from the reader's language file. */
-    private final Localized<String> currencyNames;
+    /** Configured currency name; empty = the name from messages.yml. */
+    private final String currencyName;
     public final String currencySymbol;
 
     public final double startingPoints;
@@ -75,15 +68,35 @@ public final class Settings {
     public final boolean sounds;
     public final boolean particles;
     public final boolean animations;
-    public final boolean stars;
+    /** What is drawn on the panel behind the tree. */
+    public final Background background;
+    /** IMAGE background: the picture in the plugin folder (sent to players in a resource pack). */
+    public final String backgroundImage;
     public final boolean highQuality;
 
+    /** The chosen look; {@link #theme} is its colours with the overrides of config.yml "theme". */
+    public final Style style;
     public final Theme theme;
+
+    public enum Background { IMAGE, PLANKS, STARS, NONE }
+
+    /** The style used when config.yml names none. */
+    public static final Style DEFAULT_STYLE = Style.DEFAULT;
+
+    public final ResourcePackMode packMode;
+    public final int packPort;
+    public final String packHost;
+    public final String packUrl;
+    public final boolean packRequired;
+
+    /** How the background image reaches the players. */
+    public enum ResourcePackMode { SELF_HOST, URL, EXTERNAL, OFF }
 
     public final boolean accessItem;
     public final Material accessItemMaterial;
     public final int accessItemSlot;
-    private final Localized<String> accessItemNames;
+    /** Configured menu item name; empty = the name from messages.yml. */
+    private final String accessItemName;
     public final String entityTag;
 
     public final boolean notify;
@@ -110,23 +123,26 @@ public final class Settings {
 
     public final boolean cleanupMode;
 
-    /** Theme colours of the 3D menu (ARGB). */
+    /**
+     * Colours of the 3D menu (ARGB; header and card may be see-through). {@code locked} is the base of
+     * every node, {@code tint} how much of a node's own colour shows once it is owned (0 = none).
+     * Node frames: {@code line} when it can be bought, {@code gold} when owned, {@code maxed} when finished.
+     */
     public record Theme(int background, int panelBorder, int header, int card, int locked, int line,
-                        int lineLocked, int buy, int deny, int gold) {
+                        int lineLocked, int buy, int deny, int gold, int maxed, int hover, double tint) {
     }
 
     public Settings(FileConfiguration c, Logger logger) {
-        language = c.getString("language", "tr").trim().toLowerCase(Locale.ROOT);
-        Problems.Sink log = Problems.log(logger, language);
+        Problems.Sink log = Problems.log(logger);
 
         String type = c.getString("currency.type", "XP_LEVELS").trim().toUpperCase(Locale.ROOT);
         currencyType = switch (type) {
-            case "VAULT", "MONEY", "PARA", "ECONOMY" -> "VAULT";
-            case "POINTS", "POINT", "PUAN" -> "POINTS";
+            case "VAULT", "MONEY", "ECONOMY" -> "VAULT";
+            case "POINTS", "POINT" -> "POINTS";
             default -> "XP_LEVELS";
         };
-        currencyNames = defaultName(Localized.text(c.get("currency.name"), ""), DEFAULT_CURRENCY_NAMES);
-        currencySymbol = c.getString("currency.symbol", "✦");
+        currencyName = Texts.text(c.get("currency.name"), "").trim();
+        currencySymbol = c.getString("currency.symbol", "").trim();
 
         startingPoints = c.getDouble("points.starting-points", 0);
         pointsPerMob = c.getDouble("points.per-mob-kill", 0.3);
@@ -137,7 +153,7 @@ public final class Settings {
                 try {
                     mobPoints.put(EntityType.valueOf(k.trim().toUpperCase(Locale.ROOT)), mp.getDouble(k));
                 } catch (IllegalArgumentException e) {
-                    log.warn("config.yml: bilinmeyen mob '" + k + "' (points.mob-points)", "config.yml: unknown mob '" + k + "' (points.mob-points)");
+                    log.warn("config.yml: unknown mob '" + k + "' (points.mob-points)");
                 }
             }
         }
@@ -147,8 +163,7 @@ public final class Settings {
             try {
                 ignoredSpawnReasons.add(CreatureSpawnEvent.SpawnReason.valueOf(r.trim().toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException e) {
-                log.warn("config.yml: bilinmeyen doğma sebebi '" + r + "' (points.ignored-spawn-reasons)",
-                        "config.yml: unknown spawn reason '" + r + "' (points.ignored-spawn-reasons)");
+                log.warn("config.yml: unknown spawn reason '" + r + "' (points.ignored-spawn-reasons)");
             }
         }
         playerKillCooldownMs = Math.max(0, c.getLong("points.player-kill-cooldown", 600)) * 1000L;
@@ -192,26 +207,50 @@ public final class Settings {
         sounds = c.getBoolean("menu.sounds", true);
         particles = c.getBoolean("menu.particles", true);
         animations = c.getBoolean("menu.animations", true);
-        stars = c.getBoolean("menu.stars", true);
         highQuality = !"LOW".equalsIgnoreCase(c.getString("menu.quality", "HIGH"));
 
+        style = Style.of(c.getString("menu.style"), DEFAULT_STYLE);
+        Theme s = style.theme;
         theme = new Theme(
-                color(c, "theme.background", 0xFF0A0D1A),
-                color(c, "theme.panel-border", 0xFF262C4A),
-                color(c, "theme.header", 0xFF151A30),
-                color(c, "theme.card", 0xFF121629),
-                color(c, "theme.locked", 0xFF2A3046),
-                color(c, "theme.line", 0xFF8C96B4),
-                color(c, "theme.hidden-line", 0xFF1C2135),
-                color(c, "theme.buy", 0xFF22C55E),
-                color(c, "theme.deny", 0xFFE5484D),
-                color(c, "theme.gold", 0xFFFFD54A));
+                color(c, "theme.background", s.background()),
+                color(c, "theme.panel-border", s.panelBorder()),
+                color(c, "theme.header", s.header()),
+                color(c, "theme.card", s.card()),
+                color(c, "theme.locked", s.locked()),
+                color(c, "theme.line", s.line()),
+                color(c, "theme.hidden-line", s.lineLocked()),
+                color(c, "theme.buy", s.buy()),
+                color(c, "theme.deny", s.deny()),
+                color(c, "theme.gold", s.gold()),
+                color(c, "theme.maxed", s.maxed()),
+                color(c, "theme.hover", s.hover()),
+                clamp(c.getDouble("theme.tint", s.tint()), 0, 1));
+        String bg = c.getString("menu.background", "");
+        background = switch (bg.trim().toUpperCase(Locale.ROOT)) {
+            case "STARS" -> Background.STARS;
+            case "NONE", "PLAIN", "FLAT" -> Background.NONE;
+            case "PLANKS", "WOOD" -> Background.PLANKS;
+            case "IMAGE", "PICTURE" -> Background.IMAGE;
+            // older configs only had "stars": switching them off meant a plain panel
+            default -> c.getBoolean("menu.stars", true) ? Background.IMAGE : Background.NONE;
+        };
+        backgroundImage = c.getString("menu.background-image", "background.jpg").trim();
+        packMode = switch (c.getString("resource-pack.mode", "SELF_HOST").trim().toUpperCase(Locale.ROOT)) {
+            case "URL" -> ResourcePackMode.URL;
+            case "EXTERNAL", "MERGED" -> ResourcePackMode.EXTERNAL;
+            case "OFF", "NONE", "FALSE" -> ResourcePackMode.OFF;
+            default -> ResourcePackMode.SELF_HOST;
+        };
+        packPort = Math.max(1, Math.min(65535, c.getInt("resource-pack.port", 8164)));
+        packHost = c.getString("resource-pack.host", "").trim();
+        packUrl = c.getString("resource-pack.url", "").trim();
+        packRequired = c.getBoolean("resource-pack.required", false);
 
         accessItem = c.getBoolean("access.item.enabled", false);
         Material m = Material.matchMaterial(c.getString("access.item.material", "NETHER_STAR"));
         accessItemMaterial = m == null || !m.isItem() || m.isAir() ? Material.NETHER_STAR : m;
         accessItemSlot = Math.max(0, Math.min(8, c.getInt("access.item.slot", 8)));
-        accessItemNames = defaultName(Localized.text(c.get("access.item.name"), ""), Set.of(OLD_ITEM_NAME.toLowerCase(Locale.ROOT)));
+        accessItemName = Texts.text(c.get("access.item.name"), "").trim();
         entityTag = c.getString("access.entity-tag", "upgradetree_npc");
 
         notify = c.getBoolean("notify.enabled", true);
@@ -241,11 +280,10 @@ public final class Settings {
         cleanupMode = c.getBoolean("cleanup-mode", false);
     }
 
-    /** Currency name for a reader, e.g. "Levels" (the language file's name unless config.yml sets one). */
+    /** Currency name, e.g. "Levels" (the name of messages.yml unless config.yml sets one). */
     public String currencyName(Lang lang) {
-        String n = currencyNames.get(lang);
-        if (n != null) {
-            return n;
+        if (!currencyName.isEmpty()) {
+            return currencyName;
         }
         String key = switch (currencyType) {
             case "POINTS" -> "currency-name-points";
@@ -255,27 +293,14 @@ public final class Settings {
         return lang == null ? currencyType : lang.raw(key);
     }
 
-    /** Name of the menu item for a reader (the language file's name unless config.yml sets one). */
+    /** Name of the menu item (the name of messages.yml unless config.yml sets one). */
     public String accessItemName(Lang lang) {
-        String n = accessItemNames.get(lang);
-        return n != null || lang == null ? n : lang.raw("access-item-name");
+        return !accessItemName.isEmpty() || lang == null ? accessItemName : lang.raw("access-item-name");
     }
 
-    /**
-     * A name left at a built-in default ("" or the old Turkish defaults) becomes empty, so every
-     * reader gets the name of their own language; a custom name (or a per-language map) is kept.
-     */
-    static Localized<String> defaultName(Localized<String> configured, Set<String> defaults) {
-        if (configured.isEmpty()) {
-            return Localized.empty();
-        }
-        if (configured.languages().isEmpty()) {
-            String v = configured.base() == null ? "" : configured.base().trim();
-            if (v.isEmpty() || defaults.contains(v.toLowerCase(Locale.ROOT))) {
-                return Localized.empty();
-            }
-        }
-        return configured;
+    /** True when config.yml sets its own currency name. */
+    public boolean customCurrencyName() {
+        return !currencyName.isEmpty();
     }
 
     public boolean worldDisabled(String world) {

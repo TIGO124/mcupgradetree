@@ -6,6 +6,7 @@ import com.upgradetree.api.event.AbilityUseEvent;
 import com.upgradetree.tree.NodeEffect;
 import com.upgradetree.util.Text;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.SoundCategory;
@@ -27,7 +28,6 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -112,27 +112,40 @@ public final class AbilityManager implements Listener {
         return left <= 0 ? 0 : (int) Math.ceil(left / 1000.0);
     }
 
-    /** Casts the first ability bound to the trigger. Returns true if the player has one. */
-    public boolean cast(Player p, NodeEffect.Trigger trigger) {
-        List<EffectManager.Typed<NodeEffect.Ability>> list = plugin.effects().of(p, NodeEffect.Ability.class);
-        EffectManager.Typed<NodeEffect.Ability> chosen = null;
-        for (EffectManager.Typed<NodeEffect.Ability> t : list) {
+    /** The ability a trigger casts for this player (the first one bound to it), or null. */
+    public EffectManager.Typed<NodeEffect.Ability> bound(Player p, NodeEffect.Trigger trigger) {
+        for (EffectManager.Typed<NodeEffect.Ability> t : plugin.effects().of(p, NodeEffect.Ability.class)) {
             if (t.effect().trigger() == trigger) {
-                chosen = t;
-                break;
+                return t;
             }
         }
+        return null;
+    }
+
+    /** Seconds left on the cooldown of the ability of a trigger (0 = ready, or no ability). */
+    public int cooldownLeft(Player p, NodeEffect.Trigger trigger) {
+        EffectManager.Typed<NodeEffect.Ability> t = bound(p, trigger);
+        return t == null ? 0 : cooldownLeft(p, t.node() == null ? "prestige" : t.node().id);
+    }
+
+    /** Casts the first ability bound to the trigger. Returns true if the player has one. */
+    public boolean cast(Player p, NodeEffect.Trigger trigger) {
+        // a dead player must not heal back to life, a spectator must not hit mobs
+        if (p.isDead() || p.getGameMode() == GameMode.SPECTATOR) {
+            return false;
+        }
+        EffectManager.Typed<NodeEffect.Ability> chosen = bound(p, trigger);
         if (chosen == null) {
             return false;
         }
         NodeEffect.Ability ability = chosen.effect();
         String id = chosen.node() == null ? "prestige" : chosen.node().id;
-        String name = plugin.lang(p).raw("ability-" + ability.type().name());
+        String name = plugin.lang().raw("ability-" + ability.type().name());
         long now = System.currentTimeMillis();
         Map<String, Long> cd = cooldowns.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
         Long ready = cd.get(id);
         if (ready != null && ready > now) {
-            p.sendActionBar(plugin.lang(p).plain("ability-cooldown", "ability", Text.escape(name),
+            p.sendActionBar(plugin.lang().plain("ability-cooldown", "ability", Text.escape(name),
                     "seconds", String.valueOf((int) Math.ceil((ready - now) / 1000.0))));
             return true;
         }
@@ -143,7 +156,7 @@ public final class AbilityManager implements Listener {
         }
         perform(p, ability.type(), ability.powerAt(chosen.level()));
         cd.put(id, now + (long) (ability.cooldownAt(chosen.level()) * 1000));
-        p.sendActionBar(plugin.lang(p).plain("ability-used", "ability", Text.escape(name)));
+        p.sendActionBar(plugin.lang().plain("ability-used", "ability", Text.escape(name)));
         return true;
     }
 

@@ -12,7 +12,7 @@ public final class PapiHook {
         try {
             return new PapiExpansion(plugin).register();
         } catch (Throwable t) {
-            plugin.getLogger().warning("PlaceholderAPI bağlantısı kurulamadı: " + t);
+            plugin.getLogger().warning("Could not hook into PlaceholderAPI: " + t);
             return false;
         }
     }

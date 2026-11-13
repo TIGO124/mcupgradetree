@@ -61,12 +61,12 @@ public final class AdminPanel implements InventoryHolder {
 
     public static void open(UpgradeTreePlugin plugin, Player viewer) {
         if (!viewer.isOp()) {
-            viewer.sendMessage(plugin.lang(viewer).msg("admin-only-op"));
+            viewer.sendMessage(plugin.lang().msg("admin-only-op"));
             return;
         }
         plugin.menus().close(viewer, true);
         AdminPanel panel = new AdminPanel(plugin, viewer);
-        panel.inventory = Bukkit.createInventory(panel, 54, plugin.lang(viewer).plain("admin-title"));
+        panel.inventory = Bukkit.createInventory(panel, 54, plugin.lang().plain("admin-title"));
         panel.render();
         viewer.openInventory(panel.inventory);
     }
@@ -77,7 +77,7 @@ public final class AdminPanel implements InventoryHolder {
     }
 
     private Lang lang() {
-        return plugin.lang(viewer);
+        return plugin.lang();
     }
 
     void render() {
@@ -108,7 +108,7 @@ public final class AdminPanel implements InventoryHolder {
             }
             Player p = players.get(idx);
             PlayerData d = plugin.data().get(p);
-            inventory.setItem(FIRST_HEAD + i, GuiItems.head(p.getUniqueId(), Text.mm("<white><b>" + Text.escape(p.getName())),
+            inventory.setItem(FIRST_HEAD + i, GuiItems.head(p.getUniqueId(), Text.mm("<hi><b>" + Text.escape(p.getName())),
                     playerLore(d)));
             heads.put(FIRST_HEAD + i, p.getUniqueId());
         }
@@ -182,7 +182,7 @@ public final class AdminPanel implements InventoryHolder {
                         "nodes", String.valueOf(plugin.trees().nodes().size()))
                         : lang().msg("check-header", "count", String.valueOf(issues.size())));
                 for (var issue : issues) {
-                    viewer.sendMessage(lang().plain("check-line", "issue", Text.escape(issue.get(lang()))));
+                    viewer.sendMessage(lang().plain("check-line", "issue", Text.escape(issue)));
                 }
             }
             case RELOAD -> {
@@ -196,9 +196,9 @@ public final class AdminPanel implements InventoryHolder {
             case CURRENCY -> {
                 String next = next(CURRENCIES, s.currencyType);
                 Object name = plugin.getConfig().get("currency.name");
-                if (name == null || List.of("seviye", "puan", "para", "level", "levels", "points", "money", "")
+                if (name == null || List.of("level", "levels", "points", "money", "")
                         .contains(String.valueOf(name).trim().toLowerCase(java.util.Locale.ROOT))) {
-                    // empty: every player sees the name of the new currency in their own language
+                    // empty: the name of the new currency comes from messages.yml
                     plugin.getConfig().set("currency.name", "");
                 }
                 change("currency.type", next, "admin-currency");

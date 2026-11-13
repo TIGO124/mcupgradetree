@@ -1,7 +1,8 @@
 package com.upgradetree.chest;
 
-import com.upgradetree.config.Localized;
+import com.upgradetree.config.LegacyIds;
 import com.upgradetree.config.Problems;
+import com.upgradetree.config.Texts;
 import com.upgradetree.util.Palette;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -22,7 +23,7 @@ import java.util.logging.Logger;
 public final class ChestRegistry {
 
     public static final String FILE = "chests.yml";
-    private static final int DEFAULT_COLOR = 0xFF7DD3FC;
+    private static final int DEFAULT_COLOR = 0xFF8A97A8;
 
     public final boolean enabled;
     /** How long the roulette spins (ticks). */
@@ -32,10 +33,10 @@ public final class ChestRegistry {
     private final Map<String, Rarity> rarities;
     private final List<ChestType> chests;
     private final Map<String, ChestType> byId = new LinkedHashMap<>();
-    private final List<Localized<String>> issues;
+    private final List<String> issues;
 
     private ChestRegistry(boolean enabled, int spinTicks, int despawnTicks, Map<String, Rarity> rarities,
-                          List<ChestType> chests, List<Localized<String>> issues) {
+                          List<ChestType> chests, List<String> issues) {
         this.enabled = enabled;
         this.spinTicks = spinTicks;
         this.despawnTicks = despawnTicks;
@@ -53,18 +54,15 @@ public final class ChestRegistry {
         return new ChestRegistry(false, 120, 2400, Map.of(), List.of(), List.of());
     }
 
-    /**
-     * Reads plugins/UpgradeTree/chests.yml (the server must be running: materials are checked).
-     * {@code language}: the server language, used for the console.
-     */
-    public static ChestRegistry load(File dataFolder, Logger log, String language) {
+    /** Reads plugins/UpgradeTree/chests.yml (the server must be running: materials are checked). */
+    public static ChestRegistry load(File dataFolder, Logger log) {
         File f = new File(dataFolder, FILE);
         YamlConfiguration y = new YamlConfiguration();
-        Problems.Sink sink = Problems.log(log, language);
+        Problems.Sink sink = Problems.log(log);
         try {
             y.load(f);
         } catch (Exception ex) {
-            sink.warn(FILE + " okunamadı, sandıklar kapalı: " + ex.getMessage(), FILE + " could not be read, chests are off: " + ex.getMessage());
+            sink.warn(FILE + " could not be read, chests are off: " + ex.getMessage());
             return empty();
         }
         return parse(y, sink, m -> m.isItem() && !m.isAir(), Material::isBlock);
@@ -72,10 +70,10 @@ public final class ChestRegistry {
 
     /** Parses a chests file. The predicates check materials (tests pass "always true"). */
     public static ChestRegistry parse(ConfigurationSection y, Problems.Sink sink, Predicate<Material> isItem, Predicate<Material> isBlock) {
-        List<Localized<String>> issues = new ArrayList<>();
-        Problems.Sink warn = (tr, en) -> {
-            issues.add(Problems.of(tr, en));
-            sink.warn(tr, en);
+        List<String> issues = new ArrayList<>();
+        Problems.Sink warn = problem -> {
+            issues.add(problem);
+            sink.warn(problem);
         };
         boolean enabled = y.getBoolean("enabled", true);
         int spin = (int) Math.round(clamp(y.getDouble("spin-seconds", 6), 2, 20) * 20);
@@ -92,12 +90,12 @@ public final class ChestRegistry {
                 }
                 String key = id.toLowerCase(Locale.ROOT);
                 int color = Palette.parse(s.getString("color"), 0xFFB0C3D9);
-                rarities.put(key, new Rarity(key, Localized.text(s.get("name"), id), color, Math.max(0, s.getDouble("weight", 1)),
+                rarities.put(key, new Rarity(key, Texts.text(s.get("name"), id), color, Math.max(0, s.getDouble("weight", 1)),
                         s.getBoolean("announce", false), rank++));
             }
         }
         if (rarities.isEmpty()) {
-            rarities.put("common", new Rarity("common", Localized.of("<#B0C3D9>Common"), 0xFFB0C3D9, 1, false, 0));
+            rarities.put("common", new Rarity("common", "<#B0C3D9>Common", 0xFFB0C3D9, 1, false, 0));
         }
 
         List<ChestType> chests = new ArrayList<>();
@@ -112,13 +110,12 @@ public final class ChestRegistry {
                 order++;
                 String ctx = FILE + " chests." + id;
                 if (!id.matches("[A-Za-z0-9_-]{1,32}")) {
-                    warn.warn(ctx + ": sandık adı sadece harf, rakam, _ ve - içerebilir, atlandı.",
-                            ctx + ": a chest id may only contain letters, digits, _ and -, skipped.");
+                    warn.warn(ctx + ": a chest id may only contain letters, digits, _ and -, skipped.");
                     continue;
                 }
                 List<ChestReward> rewards = rewards(ctx, s.getMapList("rewards"), rarities, isItem, warn);
                 if (rewards.isEmpty()) {
-                    warn.warn(ctx + ": hiç ödül yok, atlandı.", ctx + ": no rewards, skipped.");
+                    warn.warn(ctx + ": no rewards, skipped.");
                     continue;
                 }
                 Map<String, Double> weights = new LinkedHashMap<>();
@@ -132,12 +129,12 @@ public final class ChestRegistry {
                         material(s.getString("look.body"), Material.SPRUCE_PLANKS, isBlock, ctx + " look.body", warn),
                         material(s.getString("look.trim"), Material.DARK_OAK_PLANKS, isBlock, ctx + " look.trim", warn),
                         material(s.getString("look.latch"), Material.IRON_BLOCK, isBlock, ctx + " look.latch", warn));
-                ChestType c = new ChestType(id, Localized.text(s.get("name"), id),
+                ChestType c = new ChestType(id, Texts.text(s.get("name"), id),
                         material(s.getString("icon"), Material.CHEST, isItem, ctx + " icon", warn),
                         s.getBoolean("glint", false), s.getDouble("price", 0), s.getInt("order", order),
-                        Palette.parse(s.getString("color"), DEFAULT_COLOR), Localized.lines(s.get("description")), look, rewards, weights);
+                        Palette.parse(s.getString("color"), DEFAULT_COLOR), Texts.lines(s.get("description")), look, rewards, weights);
                 if (!c.openable()) {
-                    warn.warn(ctx + ": hiçbir ödülün şansı yok (ağırlıklar 0), atlandı.", ctx + ": no reward can drop (all weights are 0), skipped.");
+                    warn.warn(ctx + ": no reward can drop (all weights are 0), skipped.");
                     continue;
                 }
                 chests.add(c);
@@ -156,25 +153,24 @@ public final class ChestRegistry {
             String rid = str(m.get("rarity")).toLowerCase(Locale.ROOT);
             Rarity rarity = rarities.get(rid);
             if (rarity == null) {
-                warn.warn(where + ": bilinmeyen nadirlik '" + rid + "', " + fallback.id() + " kullanıldı.",
-                        where + ": unknown rarity '" + rid + "', using " + fallback.id() + ".");
+                warn.warn(where + ": unknown rarity '" + rid + "', using " + fallback.id() + ".");
                 rarity = fallback;
             }
             double weight = num(m.get("weight"), 1);
             if (m.get("levels") != null) {
                 int levels = (int) Math.round(num(m.get("levels"), 0));
                 if (levels <= 0) {
-                    warn.warn(where + ": levels 1 veya daha büyük olmalı, atlandı.", where + ": levels must be 1 or more, skipped.");
+                    warn.warn(where + ": levels must be 1 or more, skipped.");
                     continue;
                 }
                 out.add(new ChestReward(out.size(), ChestReward.Type.LEVELS, rarity, Material.EXPERIENCE_BOTTLE, 1,
-                        Localized.empty(), Map.of(), Localized.of(List.of()), levels, weight));
+                        null, Map.of(), List.of(), levels, weight));
                 continue;
             }
             String raw = str(m.get("item"));
             Material mat = Material.matchMaterial(raw);
             if (mat == null || !isItem.test(mat)) {
-                warn.warn(where + ": bilinmeyen eşya '" + raw + "', atlandı.", where + ": unknown item '" + raw + "', skipped.");
+                warn.warn(where + ": unknown item '" + raw + "', skipped.");
                 continue;
             }
             Map<String, Integer> ench = new LinkedHashMap<>();
@@ -186,11 +182,11 @@ public final class ChestRegistry {
             int amount = (int) Math.round(num(m.get("amount"), 1));
             if (amount < 1 || amount > 99) {
                 int fixed = Math.max(1, Math.min(99, amount));
-                warn.warn(where + ": amount 1-99 arası olmalı, " + fixed + " kullanıldı.", where + ": amount must be 1-99, using " + fixed + ".");
+                warn.warn(where + ": amount must be 1-99, using " + fixed + ".");
                 amount = Math.max(1, Math.min(99, amount));
             }
             out.add(new ChestReward(out.size(), ChestReward.Type.ITEM, rarity, mat, amount,
-                    Localized.text(m.get("name"), null), ench, Localized.lines(m.get("lore")), 0, weight));
+                    Texts.text(m.get("name"), null), ench, Texts.lines(m.get("lore")), 0, weight));
         }
         return out;
     }
@@ -201,8 +197,7 @@ public final class ChestRegistry {
         }
         Material m = Material.matchMaterial(raw.trim());
         if (m == null || !ok.test(m)) {
-            warn.warn(ctx + ": bilinmeyen malzeme '" + raw + "', " + def.name() + " kullanıldı.",
-                    ctx + ": unknown material '" + raw + "', using " + def.name() + ".");
+            warn.warn(ctx + ": unknown material '" + raw + "', using " + def.name() + ".");
             return def;
         }
         return m;
@@ -249,7 +244,13 @@ public final class ChestRegistry {
                 return x;
             }
         }
-        return null;
+        String other = LegacyIds.chest(id); // an id from before 2.3
+        return other == null ? null : byId.get(other);
+    }
+
+    /** True if a chest with exactly this id is loaded (old ids do not count). */
+    public boolean has(String id) {
+        return byId.containsKey(id);
     }
 
     public Collection<Rarity> rarities() {
@@ -265,8 +266,8 @@ public final class ChestRegistry {
         return max;
     }
 
-    /** Problems found while loading, in Turkish and English (see {@link Problems}). */
-    public List<Localized<String>> issues() {
+    /** Problems found while loading. */
+    public List<String> issues() {
         return issues;
     }
 }

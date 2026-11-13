@@ -25,18 +25,18 @@ final class ChestCommands {
             return;
         }
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(plugin.lang(sender).msg("players-only"));
+            sender.sendMessage(plugin.lang().msg("players-only"));
             return;
         }
         if (!p.hasPermission(UpgradeCommand.USE)) {
-            p.sendMessage(plugin.lang(p).msg("no-permission"));
+            p.sendMessage(plugin.lang().msg("no-permission"));
             return;
         }
         plugin.menus().openChests(p);
     }
 
     private void give(CommandSender sender, String[] args) {
-        Lang lang = plugin.lang(sender);
+        Lang lang = plugin.lang();
         if (!sender.hasPermission(UpgradeCommand.ADMIN)) {
             sender.sendMessage(lang.msg("no-permission"));
             return;
@@ -70,10 +70,10 @@ final class ChestCommands {
         PlayerData d = admin.data(t);
         plugin.chests().give(d, c, amount);
         sender.sendMessage(lang.msg("chest-given", "player", Text.escape(t.name()), "amount", String.valueOf(amount),
-                "chest", c.name(lang)));
+                "chest", c.name()));
         if (t.online() != null && t.online() != sender) {
-            Lang theirs = plugin.lang(t.online());
-            t.online().sendMessage(theirs.msg("chest-received", "amount", String.valueOf(amount), "chest", c.name(theirs)));
+            Lang theirs = plugin.lang();
+            t.online().sendMessage(theirs.msg("chest-received", "amount", String.valueOf(amount), "chest", c.name()));
         }
     }
 }

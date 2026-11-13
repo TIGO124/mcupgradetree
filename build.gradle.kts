@@ -1,13 +1,13 @@
-// Derleme: ./gradlew build   (Windows: gradlew.bat build)
-// Çıktı:   build/libs/UpgradeTree-<sürüm>.jar
-// Test sunucusu: ./gradlew runServer  (Paper 26.3'ü indirir ve eklentiyle başlatır)
+// Build: ./gradlew build   (Windows: gradlew.bat build)
+// Output: build/libs/UpgradeTree-<version>.jar
+// Test server: ./gradlew runServer  (downloads Paper 26.3 and starts it with the plugin)
 plugins {
     java
     id("xyz.jpenilla.run-paper") version "3.1.0"
 }
 
 group = "com.upgradetree"
-version = "2.2.0"
+version = "2.3.0"
 
 val paperVersion = "26.3.build.242-stable"
 
@@ -43,6 +43,8 @@ tasks {
         filesMatching("paper-plugin.yml") {
             expand(props)
         }
+        // folders that development tools leave next to the sources (they contain local paths) stay out of the jar
+        exclude("**/.claude-flow/**")
     }
     jar {
         archiveFileName.set("UpgradeTree-${project.version}.jar")

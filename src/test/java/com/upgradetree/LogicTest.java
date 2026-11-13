@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LogicTest {
@@ -45,52 +46,52 @@ class LogicTest {
     void playerDataSurvivesASaveRoundTrip() throws Exception {
         UUID id = UUID.randomUUID();
         PlayerData d = new PlayerData(id, "Tigo");
-        d.setLevel("keskinlik", 3);
-        d.addSpent("keskinlik", 9);
+        d.setLevel("sharp_sword", 3);
+        d.addSpent("sharp_sword", 9);
         d.points(12.5);
         d.prestige(2);
         d.lastDaily("2026-11-06");
         d.menuMode("CHEST");
-        d.language("en");
-        d.addChests("elmas", 2);
+        d.addChests("diamond", 2);
         PlayerData.Snapshot back = DataCodec.decode(id, "?", DataCodec.encode(d.snapshot()));
-        assertEquals(Map.of("elmas", 2), back.chests());
-        assertEquals(2, PlayerData.of(back).chests("elmas"));
+        assertEquals(Map.of("diamond", 2), back.chests());
+        assertEquals(2, PlayerData.of(back).chests("diamond"));
         assertEquals("Tigo", back.name());
-        assertEquals(Map.of("keskinlik", 3), back.levels());
-        assertEquals(9.0, back.spent().get("keskinlik"));
+        assertEquals(Map.of("sharp_sword", 3), back.levels());
+        assertEquals(9.0, back.spent().get("sharp_sword"));
         assertEquals(12.5, back.points());
         assertEquals(2, back.prestige());
         assertEquals("2026-11-06", back.lastDaily());
         assertEquals("CHEST", back.menuMode());
-        assertEquals("en", back.language());
         assertEquals(3, back.totalLevels());
+        assertFalse(DataCodec.encode(back).contains("language"));
     }
 
+    /** Data of older versions may still name a language: it is ignored and dropped on the next save. */
     @Test
-    void oldDataWithoutLanguageFollowsTheServer() throws Exception {
+    void anOldLanguageEntryIsIgnored() throws Exception {
         UUID id = UUID.randomUUID();
-        PlayerData.Snapshot back = DataCodec.decode(id, "x", "name: x\npoints: 1\n");
-        assertEquals("", back.language());
-        assertEquals("", PlayerData.of(back).language());
+        PlayerData.Snapshot back = DataCodec.decode(id, "x", "name: x\npoints: 1\nlanguage: xx\nlevels:\n  origin: 1\n");
+        assertEquals(Map.of("origin", 1), back.levels());
+        assertFalse(DataCodec.encode(back).contains("language"));
     }
 
     @Test
     void unopenedChestsAreCountedAndNeverNegative() {
         PlayerData d = new PlayerData(UUID.randomUUID(), "x");
         assertTrue(d.chests().isEmpty());
-        d.addChests("demir", 2);
-        d.addChests("netherit", 1);
+        d.addChests("iron", 2);
+        d.addChests("netherite", 1);
         assertEquals(3, d.totalChests());
-        assertTrue(d.takeChest("demir"));
-        assertTrue(d.takeChest("demir"));
-        assertEquals(false, d.takeChest("demir"));
-        assertEquals(Map.of("netherit", 1), d.chests());
-        d.addChests("netherit", -5);
+        assertTrue(d.takeChest("iron"));
+        assertTrue(d.takeChest("iron"));
+        assertEquals(false, d.takeChest("iron"));
+        assertEquals(Map.of("netherite", 1), d.chests());
+        d.addChests("netherite", -5);
         assertEquals(0, d.totalChests());
         // old data files have no chests section
         assertEquals(Map.of(), PlayerData.of(new PlayerData.Snapshot(UUID.randomUUID(), "y", Map.of(), Map.of(), 0, 0, 0,
-                "", "", "", null)).chests());
+                "", "", null)).chests());
     }
 
     @Test
@@ -125,7 +126,7 @@ class LogicTest {
         assertEquals("1:00:00", Text.duration(3_600_000));
         assertEquals("<reset><red>Hi", Text.legacyToMini("&cHi"));
         assertEquals("<reset><#FF8800>x", Text.legacyToMini("&#FF8800x"));
-        List<String> lines = Text.wrap("<gray>bir iki üç dört beş altı yedi sekiz", 60);
+        List<String> lines = Text.wrap("<gray>one two three four five six seven eight", 60);
         assertTrue(lines.size() > 1, lines.toString());
         for (String line : lines) {
             assertTrue(Text.width(Text.plain(line), false) <= 64, line);

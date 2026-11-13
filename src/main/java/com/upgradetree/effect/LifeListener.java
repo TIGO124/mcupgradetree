@@ -76,7 +76,12 @@ public final class LifeListener implements Listener {
         e.setAmount(amount + add);
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    /**
+     * Runs first: grave and death-chest plugins read the drop list at a later priority. Deciding
+     * here means they see "keeps inventory" and an empty list, instead of storing the items in a
+     * grave that the player would then get on top of the kept inventory.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent e) {
         Player p = e.getPlayer();
         if (e.getKeepInventory()) {

@@ -51,7 +51,7 @@ public final class ChestShopMenu implements InventoryHolder {
 
     public static void open(UpgradeTreePlugin plugin, Player p) {
         ChestShopMenu m = new ChestShopMenu(plugin, p);
-        m.inventory = Bukkit.createInventory(m, 54, plugin.lang(p).plain("chests-gui-title"));
+        m.inventory = Bukkit.createInventory(m, 54, plugin.lang().plain("chests-gui-title"));
         m.render();
         p.openInventory(m.inventory);
         p.playSound(p.getLocation(), "minecraft:block.chest.open", SoundCategory.MASTER, 0.5f, 1.2f);
@@ -67,7 +67,7 @@ public final class ChestShopMenu implements InventoryHolder {
     }
 
     private Lang lang() {
-        return plugin.lang(player);
+        return plugin.lang();
     }
 
     void render() {
@@ -85,9 +85,9 @@ public final class ChestShopMenu implements InventoryHolder {
         }
         Currency c = plugin.currency();
         inventory.setItem(INFO, GuiItems.item(Material.SUNFLOWER, lang().plain("chests-tab"), List.of(
-                lang().plain("menu-currency", "symbol", Text.escape(plugin.settings().currencySymbol),
+                lang().plain("menu-currency", "symbol", Text.symbol(plugin.settings().currencySymbol),
                         "amount", Text.escape(c.available() ? c.formatShort(c.balance(player)) : "-"),
-                        "currency", Text.escape(plugin.currencyName(lang()))),
+                        "currency", Text.escape(plugin.currencyName())),
                 lang().plain("chests-progress", "count", String.valueOf(plugin.data().get(player).totalChests())))));
         inventory.setItem(BACK, GuiItems.item(Material.ARROW, lang().plain("admin-back"), List.of()));
         inventory.setItem(CLOSE, GuiItems.item(Material.BARRIER, lang().plain("gui-close"), List.of()));
@@ -98,18 +98,18 @@ public final class ChestShopMenu implements InventoryHolder {
         Currency cur = plugin.currency();
         int owned = d.chests(c.id);
         List<Component> lore = new ArrayList<>();
-        for (String line : c.description(lang())) {
+        for (String line : c.description()) {
             lore.add(Text.mm(line));
         }
         lore.add(c.price <= 0 ? lang().plain("info-free")
-                : lang().plain(plugin.chests().affordable(player, c) ? "info-cost" : "info-cost-poor", "cost", Text.escape(plugin.money(lang(), c.price))));
+                : lang().plain(plugin.chests().affordable(player, c) ? "info-cost" : "info-cost-poor", "cost", Text.escape(plugin.money(c.price))));
         lore.add(lang().plain("chest-owned", "count", String.valueOf(owned)));
         lore.add(Component.empty());
-        lore.add(lang().plain("chests-contents", "chest", c.name(lang())));
+        lore.add(lang().plain("chests-contents", "chest", c.name()));
         List<ChestReward> rewards = c.sortedRewards();
         for (int i = 0; i < rewards.size() && i < MAX_LINES; i++) {
             ChestReward r = rewards.get(i);
-            lore.add(Text.mm(r.rarity.tag() + "■</color> <white>" + r.label(lang()) + "</white> <dark_gray>"
+            lore.add(Text.mm(r.rarity.tag() + "■</color> <hi>" + r.label(lang()) + "</hi> <dim>"
                     + lang().format("chest-percent", "chance", Text.num(c.chance(r) * 100))));
         }
         if (rewards.size() > MAX_LINES) {
@@ -121,7 +121,7 @@ public final class ChestShopMenu implements InventoryHolder {
         if (owned > 0) {
             lore.add(lang().plain("chests-gui-open", "count", String.valueOf(owned)));
         }
-        ItemStack it = GuiItems.named(Icons.of(c.icon), Text.mm("<b>" + c.name(lang())), lore);
+        ItemStack it = GuiItems.named(Icons.of(c.icon), Text.mm("<b>" + c.name()), lore);
         it.setAmount(Math.max(1, Math.min(64, owned)));
         return GuiItems.glow(it, c.glint || confirm);
     }
@@ -166,18 +166,18 @@ public final class ChestShopMenu implements InventoryHolder {
             case SUCCESS -> {
                 sound("minecraft:entity.player.levelup", 1.4f);
                 if (plugin.chests().busy(player)) {
-                    player.sendMessage(lang().msg("chest-bought-stash", "chest", c.name(lang())));
+                    player.sendMessage(lang().msg("chest-bought-stash", "chest", c.name()));
                     render();
                 } else {
-                    player.sendMessage(lang().msg("chest-bought", "chest", c.name(lang())));
+                    player.sendMessage(lang().msg("chest-bought", "chest", c.name()));
                     open(c);
                 }
             }
             case NOT_ENOUGH -> {
                 sound("minecraft:block.note_block.bass", 0.7f);
-                player.sendActionBar(lang().plain("purchase-not-enough", "currency", Text.escape(plugin.currencyName(lang())),
-                        "cost", Text.escape(plugin.money(lang(), c.price)),
-                        "balance", Text.escape(plugin.money(lang(), cur.available() ? cur.balance(player) : 0))));
+                player.sendActionBar(lang().plain("purchase-not-enough", "currency", Text.escape(plugin.currencyName()),
+                        "cost", Text.escape(plugin.money(c.price)),
+                        "balance", Text.escape(plugin.money(cur.available() ? cur.balance(player) : 0))));
                 render();
             }
             case UNAVAILABLE -> player.sendActionBar(lang().plain("currency-unavailable"));
@@ -189,7 +189,7 @@ public final class ChestShopMenu implements InventoryHolder {
     private void open(ChestType c) {
         if (plugin.data().get(player).chests(c.id) <= 0) {
             sound("minecraft:block.note_block.bass", 0.7f);
-            player.sendActionBar(lang().plain("chest-none", "chest", c.name(lang())));
+            player.sendActionBar(lang().plain("chest-none", "chest", c.name()));
             return;
         }
         if (plugin.chests().busy(player)) {

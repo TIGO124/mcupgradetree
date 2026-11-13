@@ -20,7 +20,7 @@ public final class YamlStorage implements Storage {
         this.folder = folder;
         this.log = log;
         if (!folder.exists() && !folder.mkdirs()) {
-            log.warning("players klasörü oluşturulamadı: " + folder);
+            log.warning("Could not create the players folder: " + folder);
         }
     }
 
@@ -64,7 +64,7 @@ public final class YamlStorage implements Storage {
                     out.add(s);
                 }
             } catch (Exception e) {
-                log.fine("Atlandı: " + f.getName() + " (" + e.getMessage() + ")");
+                log.fine("Skipped: " + f.getName() + " (" + e.getMessage() + ")");
             }
         }
         return out;

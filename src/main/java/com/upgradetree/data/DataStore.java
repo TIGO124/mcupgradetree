@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.DoubleSupplier;
+import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,6 +28,8 @@ public final class DataStore {
     private final Storage storage;
     private final Logger log;
     private final DoubleSupplier startingPoints;
+    /** Applied to every loaded snapshot (ids of older versions); returns its argument when nothing changes. */
+    private volatile UnaryOperator<PlayerData.Snapshot> upgrader = UnaryOperator.identity();
     private static final long PRELOAD_GRACE_MS = 60_000L;
 
     private final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
@@ -47,6 +50,11 @@ public final class DataStore {
         return storage;
     }
 
+    /** Sets the step that brings loaded data up to date (see {@link com.upgradetree.config.LegacyIds}). */
+    public void upgrader(UnaryOperator<PlayerData.Snapshot> upgrader) {
+        this.upgrader = upgrader == null ? UnaryOperator.identity() : upgrader;
+    }
+
     /** Data of an online player (loaded on demand and cached). */
     public PlayerData get(Player p) {
         PlayerData d = cache.computeIfAbsent(p.getUniqueId(), id -> loadNow(id, p.getName()));
@@ -61,7 +69,7 @@ public final class DataStore {
         }
     }
 
-    /** Cached data or null, never loads (cheap lookups such as the player's language). */
+    /** Cached data or null, never loads (cheap lookups). */
     public PlayerData cachedOrNull(UUID uuid) {
         return cache.get(uuid);
     }
@@ -89,7 +97,7 @@ public final class DataStore {
             try {
                 s = storage.load(uuid, name);
             } catch (Exception e) {
-                log.log(Level.WARNING, "Oyuncu verisi okunamadı: " + uuid, e);
+                log.log(Level.WARNING, "Could not read player data: " + uuid, e);
             }
         }
         if (s == null) {
@@ -98,9 +106,35 @@ public final class DataStore {
             d.clearDirty();
             return d;
         }
-        PlayerData d = PlayerData.of(s);
-        d.clearDirty();
+        PlayerData.Snapshot up = upgrade(s);
+        PlayerData d = PlayerData.of(up);
+        if (up == s) {
+            d.clearDirty();
+        } else {
+            d.markDirty(); // saved with the new ids by the next autosave
+        }
         return d;
+    }
+
+    private PlayerData.Snapshot upgrade(PlayerData.Snapshot s) {
+        try {
+            PlayerData.Snapshot up = upgrader.apply(s);
+            return up == null ? s : up;
+        } catch (RuntimeException e) {
+            log.log(Level.WARNING, "Could not update the data of " + s.uuid(), e);
+            return s;
+        }
+    }
+
+    /** Runs the upgrader on cached data again (after a reload changed the trees or chests). */
+    public void upgradeCached() {
+        for (PlayerData d : cache.values()) {
+            PlayerData.Snapshot s = d.snapshot();
+            PlayerData.Snapshot up = upgrade(s);
+            if (up != s) {
+                d.replaceIds(up);
+            }
+        }
     }
 
     /** Queues a save right away (purchases, admin changes). */
@@ -120,7 +154,7 @@ public final class DataStore {
             storage.save(s);
             pending.remove(s.uuid(), s);
         } catch (Exception e) {
-            log.log(Level.WARNING, "Oyuncu verisi kaydedilemedi: " + s.uuid() + " (" + s.name() + ")", e);
+            log.log(Level.WARNING, "Could not save player data: " + s.uuid() + " (" + s.name() + ")", e);
             PlayerData cached = cache.get(s.uuid());
             if (cached != null) {
                 cached.markDirty();
@@ -170,10 +204,10 @@ public final class DataStore {
         Map<UUID, PlayerData.Snapshot> all = new LinkedHashMap<>();
         try {
             for (PlayerData.Snapshot s : storage.loadAll()) {
-                all.put(s.uuid(), s);
+                all.put(s.uuid(), upgrade(s));
             }
         } catch (Exception e) {
-            log.log(Level.WARNING, "Oyuncu verileri listelenemedi", e);
+            log.log(Level.WARNING, "Could not list the player data", e);
         }
         all.putAll(pending);
         for (PlayerData d : cache.values()) {
@@ -195,7 +229,7 @@ public final class DataStore {
         writer.shutdown();
         try {
             if (!writer.awaitTermination(15, TimeUnit.SECONDS)) {
-                log.warning("Bazı oyuncu verileri zamanında kaydedilemedi.");
+                log.warning("Some player data could not be saved in time.");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

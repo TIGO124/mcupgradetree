@@ -56,7 +56,7 @@ public final class RouletteMenu implements InventoryHolder {
 
     public static RouletteMenu open(UpgradeTreePlugin plugin, Player p, ChestType c, ChestReward prize, Strip strip) {
         RouletteMenu m = new RouletteMenu(plugin, p, c, prize, strip);
-        m.inventory = Bukkit.createInventory(m, 27, plugin.lang(p).plain("roulette-title", "chest", c.name(plugin.lang(p))));
+        m.inventory = Bukkit.createInventory(m, 27, plugin.lang().plain("roulette-title", "chest", c.name()));
         m.render(Strip.under(strip.position(0)));
         p.openInventory(m.inventory);
         m.sound("minecraft:block.chest.open", 0.9f, 0.9f);
@@ -69,7 +69,7 @@ public final class RouletteMenu implements InventoryHolder {
     }
 
     private Lang lang() {
-        return plugin.lang(player);
+        return plugin.lang();
     }
 
     public void tick() {
@@ -106,7 +106,7 @@ public final class RouletteMenu implements InventoryHolder {
         int r = strip.reward(center);
         Material glass = r < 0 ? Material.GRAY_STAINED_GLASS_PANE : glass(chest.rewards.get(r).rarity.color());
         ItemStack pane = GuiItems.named(new ItemStack(glass), Component.empty(), List.of());
-        ItemStack marker = GuiItems.named(new ItemStack(Material.YELLOW_STAINED_GLASS_PANE), Text.mm("<yellow><b>▼"), List.of());
+        ItemStack marker = GuiItems.named(new ItemStack(Material.YELLOW_STAINED_GLASS_PANE), Text.mm("<value><b>▼"), List.of());
         for (int i = 0; i < 9; i++) {
             inventory.setItem(i, i == MARKER_TOP ? marker : pane);
             inventory.setItem(18 + i, i == MARKER_BOTTOM - 18 ? marker : pane);
@@ -115,7 +115,7 @@ public final class RouletteMenu implements InventoryHolder {
 
     private ItemStack icon(ChestReward r) {
         return icons.computeIfAbsent(r.index, i -> GuiItems.named(r.icon(), Text.mm("<b>" + r.coloredLabel(lang())),
-                List.of(Text.mm(r.rarity.name(lang())))).clone());
+                List.of(Text.mm(r.rarity.name()))).clone());
     }
 
     private void reveal() {

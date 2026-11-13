@@ -1,7 +1,7 @@
 package com.upgradetree.tree;
 
-import com.upgradetree.config.Localized;
-import com.upgradetree.config.Problems;
+import com.upgradetree.config.LegacyIds;
+import com.upgradetree.config.Texts;
 import com.upgradetree.util.Palette;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -29,15 +29,13 @@ public final class TreeLoader {
     public static final String FOLDER = "trees";
 
     private final Logger log;
-    private final String language;
-    private final List<Localized<String>> problems = new ArrayList<>();
+    private final List<String> problems = new ArrayList<>();
 
-    private TreeLoader(Logger log, String language) {
+    private TreeLoader(Logger log) {
         this.log = log;
-        this.language = language;
     }
 
-    /** Moves an old single tree.yml into trees/ana.yml. Returns true if something was moved. */
+    /** Moves the single tree.yml of 1.x into trees/main.yml. Returns true if something was moved. */
     public static boolean migrateLegacy(File dataFolder, Logger log) {
         File folder = new File(dataFolder, FOLDER);
         File old = new File(dataFolder, "tree.yml");
@@ -46,34 +44,29 @@ public final class TreeLoader {
         }
         try {
             Files.createDirectories(folder.toPath());
-            Files.copy(old.toPath(), new File(folder, "ana.yml").toPath(), StandardCopyOption.REPLACE_EXISTING);
-            Files.move(old.toPath(), new File(dataFolder, "tree.yml.eski").toPath(), StandardCopyOption.REPLACE_EXISTING);
-            log.info("Eski tree.yml, trees/ana.yml olarak taşındı (yedek: tree.yml.eski).");
+            Files.copy(old.toPath(), new File(folder, "main.yml").toPath(), StandardCopyOption.REPLACE_EXISTING);
+            Files.move(old.toPath(), new File(dataFolder, "tree.yml.bak").toPath(), StandardCopyOption.REPLACE_EXISTING);
+            log.info("The old tree.yml was moved to trees/main.yml (backup: tree.yml.bak).");
             return true;
         } catch (IOException e) {
-            log.warning("tree.yml taşınamadı: " + e.getMessage());
+            log.warning("tree.yml could not be moved: " + e.getMessage());
             return false;
         }
     }
 
-    /** {@code language}: the server language, used for the console. */
-    public static TreeRegistry load(File dataFolder, Logger log, String language) {
-        return new TreeLoader(log, language).loadAll(new File(dataFolder, FOLDER));
+    public static TreeRegistry load(File dataFolder, Logger log) {
+        return new TreeLoader(log).loadAll(new File(dataFolder, FOLDER));
     }
 
-    private void warn(String tr, String en) {
-        warn(Problems.of(tr, en));
-    }
-
-    private void warn(Localized<String> problem) {
+    private void warn(String problem) {
         problems.add(problem);
-        log.warning(Problems.console(problem, language));
+        log.warning(problem);
     }
 
     private TreeRegistry loadAll(File folder) {
         File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
         if (files == null || files.length == 0) {
-            warn("trees klasöründe ağaç dosyası yok.", "The trees folder has no tree file.");
+            warn("The trees folder has no tree file.");
             return new TreeRegistry(List.of(), problems, Set.of());
         }
         Arrays.sort(files);
@@ -87,14 +80,14 @@ public final class TreeLoader {
             try {
                 y.load(f);
             } catch (Exception ex) {
-                warn("trees/" + f.getName() + " okunamadı: " + ex.getMessage(), "trees/" + f.getName() + " could not be read: " + ex.getMessage());
+                warn("trees/" + f.getName() + " could not be read: " + ex.getMessage());
                 continue;
             }
             configs.put(treeId, y);
             List<UpgradeNode.Builder> list = new ArrayList<>();
             ConfigurationSection ns = y.getConfigurationSection("nodes");
             if (ns == null) {
-                warn("trees/" + f.getName() + ": 'nodes' bölümü yok.", "trees/" + f.getName() + ": no 'nodes' section.");
+                warn("trees/" + f.getName() + ": no 'nodes' section.");
             } else {
                 for (String id : ns.getKeys(false)) {
                     ConfigurationSection s = ns.getConfigurationSection(id);
@@ -102,8 +95,7 @@ public final class TreeLoader {
                         continue;
                     }
                     if (all.containsKey(id) || containsIgnoreCase(all.keySet(), id)) {
-                        warn("trees/" + f.getName() + ": '" + id + "' başka bir ağaçta da var, atlandı (düğüm adları tekil olmalı).",
-                                "trees/" + f.getName() + ": '" + id + "' is also in another tree, skipped (upgrade ids must be unique).");
+                        warn("trees/" + f.getName() + ": '" + id + "' is also in another tree, skipped (upgrade ids must be unique).");
                         continue;
                     }
                     try {
@@ -111,8 +103,7 @@ public final class TreeLoader {
                         list.add(b);
                         all.put(id, b);
                     } catch (Exception ex) {
-                        warn("trees/" + f.getName() + ": '" + id + "' okunamadı: " + ex.getMessage(),
-                                "trees/" + f.getName() + ": '" + id + "' could not be read: " + ex.getMessage());
+                        warn("trees/" + f.getName() + ": '" + id + "' could not be read: " + ex.getMessage());
                     }
                 }
             }
@@ -145,8 +136,8 @@ public final class TreeLoader {
                     new LinkedHashSet<>(b.requiresLevel.keySet()), b.exclusiveWith));
         }
         TreeValidator.Report report = TreeValidator.validate(specs);
-        for (Localized<String> issue : report.issues()) {
-            warn(Problems.of("Ağaç kontrolü: " + issue.get("tr", "tr"), "Tree check: " + issue.get("en", "en")));
+        for (String issue : report.issues()) {
+            warn("Tree check: " + issue);
         }
 
         List<UpgradeTree> trees = new ArrayList<>();
@@ -158,8 +149,8 @@ public final class TreeLoader {
             for (UpgradeNode.Builder b : e.getValue()) {
                 nodes.put(b.id, b.build());
             }
-            Localized<String> title = Localized.text(y.get("title"), null);
-            Localized<String> tab = Localized.text(y.get("tab.name"), capitalize(treeId));
+            String title = Texts.text(y.get("title"), null);
+            String tab = Texts.text(y.get("tab.name"), capitalize(treeId));
             Material tabIcon = material(y.getString("tab.icon", "BOOK"), Material.BOOK, "trees/" + treeId + ".yml tab.icon");
             int order = y.getInt("tab.order", ++index * 10);
             trees.add(new UpgradeTree(treeId, title, tab, tabIcon, order, y.getString("tab.permission", ""), nodes));
@@ -173,10 +164,14 @@ public final class TreeLoader {
         for (String r : refs) {
             String real = all.containsKey(r) ? r : lowerIds.get(r.toLowerCase(Locale.ROOT));
             if (real == null) {
-                warn("'" + owner.id + "' bilinmeyen '" + r + "' düğümünü gösteriyor, yok sayıldı.",
-                        "'" + owner.id + "' refers to the unknown upgrade '" + r + "', ignored.");
+                // an upgrade of a kept older tree file, or an old id in an older file
+                String other = LegacyIds.node(r);
+                real = other == null ? null : lowerIds.get(other.toLowerCase(Locale.ROOT));
+            }
+            if (real == null) {
+                warn("'" + owner.id + "' refers to the unknown upgrade '" + r + "', ignored.");
             } else if (real.equals(owner.id)) {
-                warn("'" + owner.id + "' kendini gösteremez.", "'" + owner.id + "' cannot require itself.");
+                warn("'" + owner.id + "' cannot require itself.");
             } else if (!out.contains(real)) {
                 out.add(real);
             }
@@ -193,7 +188,7 @@ public final class TreeLoader {
             key = base + "_" + i++;
         }
         b.key = key;
-        b.name = Localized.text(s.get("name"), id);
+        b.name = Texts.text(s.get("name"), id);
         String ctx = "trees/" + treeId + ".yml '" + id + "'";
         b.icon = material(s.getString("icon", "PAPER"), Material.PAPER, ctx + " icon");
         b.iconModel = s.getString("icon-model");
@@ -218,8 +213,8 @@ public final class TreeLoader {
         b.minPrestige = s.getInt("min-prestige", 0);
         b.alwaysVisible = s.getBoolean("always-visible", false);
         b.color = Palette.parse(s.getString("color"), UpgradeTree.DEFAULT_COLOR);
-        b.description = Localized.lines(s.get("description"));
-        b.bonus = Localized.text(s.get("bonus"), "");
+        b.description = Texts.lines(s.get("description"));
+        b.bonus = Texts.text(s.get("bonus"), "");
         b.bonusMultiplier = s.getDouble("bonus-multiplier", 1);
         b.bonusPerLevel = s.contains("bonus-per-level") ? s.getDouble("bonus-per-level") : null;
         b.effects = EffectParser.parseAll(ctx, s.getMapList("effects"), this::warn);
@@ -229,7 +224,7 @@ public final class TreeLoader {
     private Material material(String name, Material def, String ctx) {
         Material m = Material.matchMaterial(name == null ? "" : name.trim());
         if (m == null || !m.isItem() || m.isAir()) {
-            warn(ctx + ": geçersiz eşya '" + name + "', " + def + " kullanıldı.", ctx + ": invalid item '" + name + "', using " + def + ".");
+            warn(ctx + ": invalid item '" + name + "', using " + def + ".");
             return def;
         }
         return m;
@@ -261,8 +256,9 @@ public final class TreeLoader {
 
     public static String sanitize(String id) {
         StringBuilder sb = new StringBuilder();
-        String lower = id.toLowerCase(Locale.ROOT)
-                .replace('ı', 'i').replace('ğ', 'g').replace('ü', 'u').replace('ş', 's').replace('ö', 'o').replace('ç', 'c');
+        // letters with accents lose them ("é" → "e"), anything else unusual becomes "_"
+        String lower = java.text.Normalizer.normalize(id.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replace('\u0131', 'i');
         for (char c : lower.toCharArray()) {
             if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '/') {
                 sb.append(c);

@@ -8,6 +8,8 @@ import com.upgradetree.util.Icons;
 import com.upgradetree.util.Palette;
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +18,6 @@ import static com.upgradetree.menu.Layout.*;
 
 /** Top bar: tabs (or the title), currency, reset and prestige buttons, close button. */
 final class Header {
-
-    private static final int ACCENT = 0xFF7DD3FC;
 
     private final DisplayMenu menu;
     private final List<Tab> tabs = new ArrayList<>();
@@ -35,8 +35,8 @@ final class Header {
     private Component currencyCache;
     private String active = "";
 
-    /** A header tab: a tree, or the Chests section ({@link ChestLayer#TAB}). */
-    private record Tab(String id, Group group, List<Part> fill, double cx, double w) {
+    /** A header tab: a tree, or the Chests section ({@link ChestLayer#TAB}); {@code line} marks the active one. */
+    private record Tab(String id, Group group, List<Part> fill, Part line, double cx, double w) {
     }
 
     Header(DisplayMenu menu) {
@@ -60,11 +60,11 @@ final class Header {
             double w = Math.min(TAB_MAX_W, (avail - (count - 1) * TAB_GAP) / count);
             double x = TABS_X0 + w / 2.0;
             for (UpgradeTree t : trees) {
-                addTab(t.id, Icons.of(t.tabIcon), t.tabName(lang), x, w, startScale);
+                addTab(t.id, Icons.of(t.tabIcon), t.tabRaw(), x, w, startScale);
                 x += w + TAB_GAP;
             }
             if (chests) {
-                addTab(ChestLayer.TAB, Icons.of(org.bukkit.Material.CHEST), lang.plain("chests-tab"), x, w, startScale);
+                addTab(ChestLayer.TAB, Icons.of(Material.CHEST), lang.raw("chests-tab"), x, w, startScale);
             }
         } else {
             Component title = current == null ? lang.plain("tree-title-default") : current.title(lang);
@@ -72,8 +72,9 @@ final class Header {
         }
 
         pt.roundRect(group, PILL_X, HEADER_CY, PILL_W, PILL_H, 0.02, Z_BOX_FILL, Palette.darken(theme().header(), 0.4), 3);
+        pt.item(group, Part.item(PILL_X - PILL_W / 2.0 + 0.036, HEADER_CY, PILL_ICON, Z_ICON), Icons.of(currencyIcon()));
         currencyCache = currencyText();
-        currency = pt.text(group, Part.text(PILL_X, HEADER_CY, 0.028, 1, false, Z_TEXT), currencyCache, 2000);
+        currency = pt.text(group, Part.text(PILL_X + 0.018, HEADER_CY, 0.028, 1, false, Z_TEXT), currencyCache, 2000);
 
         if (menu.settings().respecEnabled) {
             respec = pt.group(RESPEC_X, HEADER_CY);
@@ -94,20 +95,66 @@ final class Header {
         close.scale = startScale;
         pt.roundRect(close, CLOSE_X, HEADER_CY - 0.003, CLOSE_SIZE + 0.014, CLOSE_SIZE + 0.02, 0.016, Z_BOX_FILL, theme().panelBorder(), 3);
         closeFill = pt.roundRect(close, CLOSE_X, HEADER_CY, CLOSE_SIZE, CLOSE_SIZE, 0.012, Z_BORDER, theme().deny(), 3);
-        pt.text(close, Part.text(CLOSE_X, HEADER_CY, 0.034, 1, false, Z_TEXT), Text.mm("<white><b>X"), 200);
+        pt.text(close, Part.text(CLOSE_X, HEADER_CY, 0.034, 1, false, Z_TEXT), Text.mm("<hi><b>X"), 200);
 
         setActive(current == null ? "" : current.id);
     }
 
-    private void addTab(String id, org.bukkit.inventory.ItemStack icon, Component name, double x, double w, double startScale) {
+    /** Icon of the currency in the pill (a name tag in the admin mode). */
+    private Material currencyIcon() {
+        if (menu.admin()) {
+            return Material.NAME_TAG;
+        }
+        return switch (menu.settings().currencyType) {
+            case "VAULT" -> Material.GOLD_INGOT;
+            case "POINTS" -> Material.AMETHYST_SHARD;
+            default -> Material.EXPERIENCE_BOTTLE;
+        };
+    }
+
+    /** Icon and name side by side, centred together in the tab; a long name gets a smaller font. */
+    private void addTab(String id, ItemStack icon, String name, double x, double w, double startScale) {
         Painter pt = menu.painter();
         Group g = pt.group(x, HEADER_CY);
         g.scale = startScale;
         List<Part> fill = pt.roundRect(g, x, HEADER_CY, w, TAB_H, 0.018, Z_BOX_FILL, theme().header(), 3);
-        double iconX = x - w / 2.0 + 0.032;
-        pt.item(g, Part.item(iconX, HEADER_CY, 0.034, Z_ICON), icon);
-        pt.text(g, Part.text(x + 0.016, HEADER_CY, 0.026, 1, false, Z_TEXT), name, 2000);
-        tabs.add(new Tab(id, g, fill, x, w));
+        Part line = pt.rect(g, Part.rect(x, HEADER_CY - TAB_H / 2.0 + TAB_LINE_H / 2.0 + 0.003, w - 0.07, TAB_LINE_H, Z_BORDER, 0));
+        double gap = 0.012;
+        double room = w - TAB_ICON - gap - 0.03;
+        double perUnit = Painter.width(name, 1.0);
+        double size = perUnit <= 0 ? TAB_TEXT : Math.min(TAB_TEXT, room / perUnit);
+        double textW = perUnit * size;
+        double left = x - (TAB_ICON + gap + textW) / 2.0;
+        pt.item(g, Part.item(left + TAB_ICON / 2.0, HEADER_CY, TAB_ICON, Z_ICON), icon);
+        pt.text(g, Part.text(left + TAB_ICON + gap + textW / 2.0, HEADER_CY, size, 1, false, Z_TEXT), Text.mm(name), 2000);
+        tabs.add(new Tab(id, g, fill, line, x, w));
+    }
+
+    /** See-through header (glass styles): idle tabs are invisible; opaque styles get darker slabs. */
+    private boolean glass() {
+        return Palette.translucent(theme().header());
+    }
+
+    private int tabColor(boolean active, boolean hover) {
+        Settings.Theme t = theme();
+        if (active) {
+            // light styles (white frames) would make the slab too bright for the white label
+            return glass() ? Palette.alpha(Palette.atMost(Palette.mix(Palette.alpha(t.panelBorder(), 255), t.gold(), 0.2), 0.42), 0xC0)
+                    : Palette.atMost(Palette.mix(t.header(), t.gold(), 0.16), 0.42);
+        }
+        if (hover) {
+            return glass() ? Palette.alpha(t.panelBorder(), 0x80) : Palette.lighten(t.header(), 0.06);
+        }
+        return glass() ? 0x00000000 : Palette.darken(t.header(), 0.25);
+    }
+
+    private void paintTab(Tab t, boolean hover, int duration) {
+        boolean on = t.id().equals(active);
+        int c = tabColor(on, hover);
+        for (Part p : t.fill()) {
+            p.recolor(c, duration);
+        }
+        t.line().recolor(on ? Palette.alpha(theme().gold(), 255) : 0, duration);
     }
 
     List<Group> groups() {
@@ -137,11 +184,7 @@ final class Header {
     void setActive(String tabId) {
         active = tabId;
         for (Tab t : tabs) {
-            boolean on = t.id().equals(tabId);
-            int c = on ? Palette.mix(theme().header(), ACCENT, 0.32) : Palette.darken(theme().header(), 0.35);
-            for (Part p : t.fill()) {
-                p.recolor(c, 4);
-            }
+            paintTab(t, false, 4);
         }
     }
 
@@ -184,8 +227,9 @@ final class Header {
             default -> {
                 for (Tab t : tabs) {
                     if (target.equals("tab:" + t.id())) {
-                        t.group().scale = on ? 1.06 : 1.0;
+                        t.group().scale = on ? 1.05 : 1.0;
                         t.group().apply(menu.frame(), 3);
+                        paintTab(t, on, 3);
                     }
                 }
             }
@@ -230,8 +274,8 @@ final class Header {
         Currency c = menu.plugin().currency();
         Settings s = menu.settings();
         String amount = c.available() ? c.formatShort(c.balance(menu.player())) : "-";
-        return menu.lang().plain("menu-currency", "symbol", Text.escape(s.currencySymbol),
-                "amount", Text.escape(amount), "currency", Text.escape(menu.plugin().currencyName(menu.lang())));
+        return menu.lang().plain("menu-currency", "symbol", Text.symbol(s.currencySymbol),
+                "amount", Text.escape(amount), "currency", Text.escape(menu.plugin().currencyName()));
     }
 
     String active() {

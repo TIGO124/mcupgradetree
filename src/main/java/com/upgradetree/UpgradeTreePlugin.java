@@ -4,9 +4,10 @@ import com.upgradetree.api.UpgradeTreeAPI;
 import com.upgradetree.chest.ChestManager;
 import com.upgradetree.chest.ChestRegistry;
 import com.upgradetree.command.UpgradeCommand;
-import com.upgradetree.config.DefaultFiles;
+import com.upgradetree.config.ConfigMigration;
 import com.upgradetree.config.Lang;
-import com.upgradetree.config.Languages;
+import com.upgradetree.config.LegacyFiles;
+import com.upgradetree.config.LegacyIds;
 import com.upgradetree.config.Settings;
 import com.upgradetree.currency.Currency;
 import com.upgradetree.currency.PointsCurrency;
@@ -24,6 +25,7 @@ import com.upgradetree.effect.GatherListener;
 import com.upgradetree.effect.LifeListener;
 import com.upgradetree.effect.PlacedBlocks;
 import com.upgradetree.gui.ChestListener;
+import com.upgradetree.gui.GuiItems;
 import com.upgradetree.hook.BedrockHook;
 import com.upgradetree.hook.PapiHook;
 import com.upgradetree.listener.AccessListener;
@@ -34,6 +36,7 @@ import com.upgradetree.listener.PointsListener;
 import com.upgradetree.listener.QuickActionListener;
 import com.upgradetree.menu.MenuListener;
 import com.upgradetree.menu.MenuManager;
+import com.upgradetree.pack.PackManager;
 import com.upgradetree.service.Leaderboard;
 import com.upgradetree.service.ProgressService;
 import com.upgradetree.service.UpgradeService;
@@ -47,7 +50,6 @@ import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import io.papermc.paper.registry.keys.tags.DialogTagKeys;
 import org.bukkit.Material;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -65,10 +67,10 @@ import java.util.logging.Level;
  */
 public final class UpgradeTreePlugin extends JavaPlugin {
 
-    public static final String[] DEFAULT_TREES = {"ana", "yetenekler", "toplayici"};
+    public static final String[] DEFAULT_TREES = {"main", "abilities", "gatherer"};
 
     private Settings settings;
-    private Languages languages;
+    private Lang lang;
     private TreeRegistry trees = TreeRegistry.empty();
     private Set<Material> trackedBlocks = EnumSet.noneOf(Material.class);
     private DataStore data;
@@ -85,11 +87,12 @@ public final class UpgradeTreePlugin extends JavaPlugin {
     private ChestRegistry chestTypes = ChestRegistry.empty();
     private ChestManager chests;
     private AccessListener access;
+    private PackManager pack;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        Lang.saveDefaults(this);
+        Lang.saveDefault(this);
         if (!TreeLoader.migrateLegacy(getDataFolder(), getLogger()) && !new File(getDataFolder(), TreeLoader.FOLDER).exists()) {
             for (String t : DEFAULT_TREES) {
                 saveResource(TreeLoader.FOLDER + "/" + t + ".yml", false);
@@ -98,13 +101,12 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         if (!new File(getDataFolder(), ChestRegistry.FILE).exists()) {
             saveResource(ChestRegistry.FILE, false);
         }
-        // untouched Turkish-only defaults of older versions get the texts of every language
-        for (String t : DEFAULT_TREES) {
-            DefaultFiles.upgrade(this, TreeLoader.FOLDER + "/" + t + ".yml");
-        }
-        DefaultFiles.upgrade(this, ChestRegistry.FILE);
+        // built-in files of versions before 2.3 that were never edited become the current ones
+        LegacyFiles.upgrade(this);
         loadSettings();
         data = new DataStore(createStorage(), getLogger(), () -> settings == null ? 0 : settings.startingPoints);
+        // levels and chests saved under the ids of older versions move to the current ids
+        data.upgrader(s -> LegacyIds.upgrade(s, id -> trees.has(id), id -> chestTypes.has(id)));
         currency = createCurrency(settings);
         loadTrees();
         loadChests();
@@ -120,6 +122,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         PlacedBlocks placed = new PlacedBlocks(this);
         points = new PointsListener(this, placed);
         chests = new ChestManager(this);
+        pack = new PackManager(this);
         Notifier notifier = new Notifier(this);
 
         PluginManager pm = getServer().getPluginManager();
@@ -137,6 +140,8 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         pm.registerEvents(access, this);
         pm.registerEvents(new QuickActionListener(this), this);
         pm.registerEvents(chests, this);
+        pm.registerEvents(pack, this);
+        pack.reload();
 
         UpgradeCommand executor = new UpgradeCommand(this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
@@ -185,6 +190,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         if (leaderboard != null) {
             leaderboard.shutdown();
         }
+        if (pack != null) {
+            pack.shutdown();
+        }
         if (data != null) {
             data.shutdown();
         }
@@ -192,8 +200,13 @@ public final class UpgradeTreePlugin extends JavaPlugin {
 
     private void loadSettings() {
         reloadConfig();
+        if (ConfigMigration.apply(getConfig())) {
+            saveConfig(); // old default colours of the previous look were replaced
+        }
         settings = new Settings(getConfig(), getLogger());
-        languages = new Languages(this, settings.language, getConfig());
+        Text.palette(settings.style.palette);
+        GuiItems.glass(settings.style.glass);
+        lang = new Lang(this);
     }
 
     /** Tells whether the Quick Actions key (registered by the bootstrapper) is ready. */
@@ -217,7 +230,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
 
     private void loadTrees() {
         try {
-            trees = TreeLoader.load(getDataFolder(), getLogger(), lang().code());
+            trees = TreeLoader.load(getDataFolder(), getLogger());
         } catch (Exception ex) {
             getLogger().log(Level.SEVERE, log("log-trees-failed"), ex);
             trees = TreeRegistry.empty();
@@ -237,7 +250,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
 
     private void loadChests() {
         try {
-            chestTypes = ChestRegistry.load(getDataFolder(), getLogger(), lang().code());
+            chestTypes = ChestRegistry.load(getDataFolder(), getLogger());
         } catch (Exception ex) {
             getLogger().log(Level.SEVERE, log("log-chests-failed"), ex);
             chestTypes = ChestRegistry.empty();
@@ -254,13 +267,15 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         }
         loadSettings();
         currency = createCurrency(settings);
+        pack.reload();
         TreeRegistry before = trees;
         loadTrees();
         loadChests();
         boolean ok = !trees.trees().isEmpty() || before.trees().isEmpty();
+        data.upgradeCached();
         for (Player p : getServer().getOnlinePlayers()) {
             effects.apply(p);
-            languageChanged(p);
+            refreshHandouts(p);
         }
         leaderboard.updateHologram();
         return ok;
@@ -312,9 +327,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         };
     }
 
-    /** A console line in the server language (lang file "log-..." keys, tags removed). */
+    /** A console line (messages.yml "log-..." keys, tags removed). */
     private String log(String key, String... kv) {
-        return languages == null ? key : Text.plain(lang().format(key, kv));
+        return lang == null ? key : Text.plain(lang.format(key, kv));
     }
 
     public String namespace() {
@@ -325,35 +340,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         return settings;
     }
 
-    /** Server language (console, broadcasts, hologram). */
+    /** Every message of the plugin (messages.yml). */
     public Lang lang() {
-        return languages.server();
-    }
-
-    /** The language of whoever reads the message: a player's own choice, else the server language. */
-    public Lang lang(CommandSender viewer) {
-        if (viewer instanceof Player p && data != null) {
-            PlayerData d = data.cachedOrNull(p.getUniqueId());
-            if (d != null) {
-                return languages.get(d.language());
-            }
-        }
-        return languages.server();
-    }
-
-    public Languages languages() {
-        return languages;
-    }
-
-    /** /tigo serverlanguage: writes config.yml "language" and reloads everything. */
-    public boolean setServerLanguage(String code) {
-        if (!languages.has(code)) {
-            return false;
-        }
-        reloadConfig(); // keep edits made to config.yml on disk since the last reload
-        getConfig().set("language", code);
-        saveConfig();
-        return reloadAll();
+        return lang;
     }
 
     public TreeRegistry trees() {
@@ -373,13 +362,13 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         return currency;
     }
 
-    /** An amount with the currency name in the reader's language ("5 Levels", "5 Seviye", "$5"). */
-    public String money(Lang lang, double amount) {
-        return currency.format(amount, settings.currencyName(lang));
+    /** An amount with the currency name ("5 Levels", "$5"). */
+    public String money(double amount) {
+        return currency.format(amount, currencyName());
     }
 
-    /** The currency name in the reader's language. */
-    public String currencyName(Lang lang) {
+    /** The currency name ("Levels", "Points", "Money" or the name set in config.yml). */
+    public String currencyName() {
         return settings.currencyName(lang);
     }
 
@@ -428,16 +417,15 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         return chests;
     }
 
-    /**
-     * A player's language changed (own choice or the server language): texts that were handed out
-     * once (menu item, leaderboard hologram) follow it. Open menus are closed by the caller.
-     */
-    public void languageChanged(Player p) {
+    /** The resource pack with the menu background picture. */
+    public PackManager pack() {
+        return pack;
+    }
+
+    /** After a reload: texts that were handed out once (menu item, leaderboard hologram) are refreshed. */
+    public void refreshHandouts(Player p) {
         if (access != null) {
             access.giveItem(p);
-        }
-        if (leaderboard != null) {
-            leaderboard.refreshViewer(p);
         }
     }
 }

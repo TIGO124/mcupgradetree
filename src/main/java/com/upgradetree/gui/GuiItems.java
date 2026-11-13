@@ -41,8 +41,15 @@ public final class GuiItems {
         return it;
     }
 
+    /** Glass of the empty slots (follows the menu style). */
+    private static volatile Material glass = Material.GRAY_STAINED_GLASS_PANE;
+
+    public static void glass(Material m) {
+        glass = m;
+    }
+
     public static ItemStack filler() {
-        return named(new ItemStack(Material.BLACK_STAINED_GLASS_PANE), Component.empty(), List.of());
+        return named(new ItemStack(glass), Component.empty(), List.of());
     }
 
     /** Player head with the skin of an online player (plain head for offline ones). */

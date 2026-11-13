@@ -1,85 +1,85 @@
-# Toplayıcılık: kazı, odun, tarım. Damar kazma ve ağaç kesme eğilerek (Shift) çalışır.
-# Ayrıntılı açıklama: trees/ana.yml başındaki yorumlar.
+# Gathering: mining, wood and farming. Vein mining and tree felling work while sneaking.
+# Every setting is explained at the top of trees/main.yml.
 
-title: "<gradient:#FCD34D:#86EFAC><b>TOPLAYICI</b></gradient>"
+title: "<b>GATHERER</b>"
 tab:
-  name: "<white>Toplayıcı"
+  name: "<hi>Gatherer"
   icon: GOLDEN_PICKAXE
   order: 3
 
 nodes:
 
-  toplayici:
-    name: "<gradient:#FCD34D:#FBBF24>Toplayıcı</gradient>"
+  gatherer:
+    name: "Gatherer"
     icon: GOLDEN_PICKAXE
     x: 0
     y: 0
     max-level: 3
     cost: 3
     cost-increase: 2
-    requires: [madenci]
+    requires: [miner]
     always-visible: true
-    color: "#D97706"
+    color: "#A0702A"
     description:
-      - "<gray>Kazmaların daha"
-      - "<gray>verimli çalışır."
-    bonus: "+{value} verimlilik"
+      - "<body>Your pickaxes work"
+      - "<body>more efficiently."
+    bonus: "+{value} efficiency"
     effects:
       - type: ATTRIBUTE
         attribute: mining_efficiency
         amount: 1
 
-  damar:
-    name: "<#FCD34D>Damar Avcısı"
+  vein_hunter:
+    name: "Vein Hunter"
     icon: DIAMOND_PICKAXE
     x: 1
     y: 0
     max-level: 4
     cost: 5
     cost-increase: 3
-    requires: [toplayici]
-    color: "#F59E0B"
+    requires: [gatherer]
+    color: "#B98433"
     description:
-      - "<white>Eğilerek</white> <gray>bir cevher kır,"
-      - "<gray>bitişik damar da kırılsın."
-    bonus: "+{value} blok"
+      - "<hi>Sneak</hi> <body>and break an ore,"
+      - "<body>the whole vein breaks too."
+    bonus: "+{value} blocks"
     effects:
       - type: VEIN_MINER
         amount: 4
 
-  eritici:
-    name: "<#FCD34D>Erimiş Kazma"
+  molten_pickaxe:
+    name: "Molten Pickaxe"
     icon: BLAST_FURNACE
     x: 2
     y: 0
     max-level: 4
     cost: 5
     cost-increase: 2
-    requires: [damar]
-    color: "#F59E0B"
+    requires: [vein_hunter]
+    color: "#B98433"
     description:
-      - "<gray>Cevherler kırılırken"
-      - "<gray>eriyip külçe olur."
-    bonus: "%{value} şans"
+      - "<body>Ores melt into ingots"
+      - "<body>as you break them."
+    bonus: "{value}% chance"
     bonus-multiplier: 100
     effects:
       - type: AUTO_SMELT
         amount: 0.25
 
-  hiz_tutkusu:
-    name: "<#FCD34D>Hız Tutkusu"
+  need_for_speed:
+    name: "Need for Speed"
     icon: GOLDEN_SHOVEL
     x: 0.5
     y: -1
     max-level: 2
     cost: 8
     cost-increase: 8
-    requires: [toplayici]
-    color: "#F59E0B"
+    requires: [gatherer]
+    color: "#B98433"
     description:
-      - "<gray>Kalıcı <yellow>Acele I</yellow> ve"
-      - "<gray>daha hızlı kazma."
-    bonus: "+%{value} kazma hızı"
+      - "<body>Permanent <value>Haste I</value> and"
+      - "<body>faster mining."
+    bonus: "+{value}% mining speed"
     bonus-multiplier: 100
     effects:
       - type: ATTRIBUTE
@@ -90,98 +90,98 @@ nodes:
         effect: haste
         amplifier: 0
 
-  olta:
-    name: "<#93C5FD>Şanslı Olta"
+  lucky_rod:
+    name: "Lucky Rod"
     icon: FISHING_ROD
     x: -0.5
     y: -1
     max-level: 3
     cost: 3
     cost-increase: 2
-    requires: [toplayici]
-    color: "#0EA5E9"
+    requires: [gatherer]
+    color: "#4F829A"
     description:
-      - "<gray>Balık tutarken daha"
-      - "<gray>iyi ganimet çıkar."
-    bonus: "+{value} şans"
+      - "<body>Better loot"
+      - "<body>when fishing."
+    bonus: "+{value} luck"
     bonus-per-level: 0.5
     effects:
       - type: ATTRIBUTE
         attribute: luck
         amount: 0.5
 
-  oduncu:
-    name: "<#A3E635>Oduncu"
+  lumberjack:
+    name: "Lumberjack"
     icon: IRON_AXE
     x: -1
     y: 0
     max-level: 4
     cost: 4
     cost-increase: 2
-    requires: [toplayici]
-    color: "#65A30D"
+    requires: [gatherer]
+    color: "#66802B"
     description:
-      - "<white>Eğilerek</white> <gray>bir kütük kır,"
-      - "<gray>bütün ağaç düşsün."
-    bonus: "+{value} kütük"
+      - "<hi>Sneak</hi> <body>and break a log,"
+      - "<body>the whole tree falls."
+    bonus: "+{value} logs"
     effects:
       - type: TREE_FELLER
         amount: 16
 
-  orman:
-    name: "<#A3E635>Orman Bekçisi"
+  forest_keeper:
+    name: "Forest Keeper"
     icon: OAK_SAPLING
     x: -2
     y: 0
     max-level: 3
     cost: 4
     cost-increase: 2
-    requires: [oduncu]
-    color: "#65A30D"
+    requires: [lumberjack]
+    color: "#66802B"
     description:
-      - "<gray>Kütüklerden iki kat"
-      - "<gray>odun düşme şansı."
-    bonus: "%{value} şans"
+      - "<body>A chance for double"
+      - "<body>wood from logs."
+    bonus: "{value}% chance"
     bonus-multiplier: 100
     effects:
       - type: DOUBLE_DROP
         amount: 0.1
         blocks: ["#logs"]
 
-  bereket:
-    name: "<#86EFAC>Bereket"
+  bounty:
+    name: "Bounty"
     icon: WHEAT
     x: 0.5
     y: 1
     max-level: 4
     cost: 3
     cost-increase: 2
-    requires: [toplayici]
-    color: "#16A34A"
+    requires: [gatherer]
+    color: "#557232"
     description:
-      - "<gray>Olgun ekinlerden iki"
-      - "<gray>kat ürün şansı."
-    bonus: "%{value} şans"
+      - "<body>A chance for double"
+      - "<body>crops from ripe plants."
+    bonus: "{value}% chance"
     bonus-multiplier: 100
     effects:
       - type: DOUBLE_DROP
         amount: 0.08
         blocks: [WHEAT, CARROTS, POTATOES, BEETROOTS, NETHER_WART, COCOA]
 
-  bahcivan:
-    name: "<#86EFAC>Yeşil Parmak"
+  green_thumb:
+    name: "Green Thumb"
     icon: MELON_SLICE
     x: -0.5
     y: 1
     max-level: 3
     cost: 3
     cost-increase: 2
-    requires: [toplayici]
-    color: "#16A34A"
+    requires: [gatherer]
+    color: "#557232"
     description:
-      - "<gray>Kavun, balkabağı ve"
-      - "<gray>kamıştan iki kat ürün."
-    bonus: "%{value} şans"
+      - "<body>Double drops from melons,"
+      - "<body>pumpkins and sugar cane."
+    bonus: "{value}% chance"
     bonus-multiplier: 100
     effects:
       - type: DOUBLE_DROP

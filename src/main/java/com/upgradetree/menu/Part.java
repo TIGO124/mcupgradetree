@@ -20,7 +20,7 @@ import org.joml.Vector3f;
  */
 final class Part {
 
-    enum Kind { RECT, TEXT, ITEM }
+    enum Kind { RECT, TEXT, ITEM, IMAGE }
 
     final Kind kind;
     Display entity;
@@ -97,6 +97,17 @@ final class Part {
         return p;
     }
 
+    /** A flat picture (resource pack model) covering w x h units. */
+    static Part image(double cx, double cy, double w, double h, double z) {
+        Part p = new Part(Kind.IMAGE);
+        p.cx = cx;
+        p.cy = cy;
+        p.w = w;
+        p.h = h;
+        p.z = z;
+        return p;
+    }
+
     static Part item(double cx, double cy, double size, double z) {
         Part p = new Part(Kind.ITEM);
         p.cx = cx;
@@ -156,6 +167,12 @@ final class Part {
                 float tx = (float) (x - 0.0125 * sc);
                 return new Transformation(new Vector3f(tx, (float) ty, depth), new Quaternionf(),
                         new Vector3f((float) sc, (float) sc, (float) sc), new Quaternionf());
+            }
+            case IMAGE: {
+                // the model is a 1 x 1 square centred on the origin; the half turn undoes the item display's own
+                return new Transformation(new Vector3f((float) x, (float) y, depth),
+                        new Quaternionf().rotationY((float) Math.PI),
+                        new Vector3f((float) Math.max(w * s * l, 1e-4), (float) Math.max(h * s * l, 1e-4), 1f), new Quaternionf());
             }
             default: {
                 double sz = Math.max(size * s * l, 1e-4);
