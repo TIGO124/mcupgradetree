@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +42,11 @@ public final class PackManager implements Listener {
 
     private final UpgradeTreePlugin plugin;
     private final Set<UUID> loaded = ConcurrentHashMap.newKeySet();
+    /** Players the pack was sent to, and the last answer of their client. */
+    private final Set<UUID> sent = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, PlayerResourcePackStatusEvent.Status> statuses = new ConcurrentHashMap<>();
+    /** "uuid:reason" of the hints a player already got this session. */
+    private final Set<String> hinted = ConcurrentHashMap.newKeySet();
     private volatile PackBuilder.Pack pack;
     private UUID packId;
     private String source = "";
@@ -84,6 +90,9 @@ public final class PackManager implements Listener {
         }
         if (beforeId != null && !beforeId.equals(packId)) {
             loaded.clear();
+            sent.clear();
+            statuses.clear();
+            hinted.clear();
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.removeResourcePacks(beforeId);
             }
@@ -175,6 +184,36 @@ public final class PackManager implements Listener {
         return settings().packMode == Settings.ResourcePackMode.EXTERNAL || loaded.contains(p.getUniqueId());
     }
 
+    /**
+     * Tells a player once per session why their menu shows the plain background instead of the
+     * picture (the pack is still loading, was turned off in their server list, failed to download,
+     * or is not available on this server).
+     */
+    public void hint(Player p) {
+        String key = reason(p);
+        if (key != null && hinted.add(p.getUniqueId() + ":" + key)) {
+            p.sendMessage(plugin.lang().msg(key));
+        }
+    }
+
+    private String reason(Player p) {
+        if (imageReady(p) || plugin.bedrock().isBedrock(p)) {
+            return null;
+        }
+        if (pack == null || !sent.contains(p.getUniqueId())) {
+            return "pack-hint-unavailable";
+        }
+        PlayerResourcePackStatusEvent.Status st = statuses.get(p.getUniqueId());
+        if (st == null) {
+            return "pack-hint-loading";
+        }
+        return switch (st) {
+            case DECLINED, DISCARDED -> "pack-hint-declined";
+            case FAILED_DOWNLOAD, INVALID_URL, FAILED_RELOAD -> "pack-hint-failed";
+            default -> "pack-hint-loading";
+        };
+    }
+
     /** Treats a player as having the pack (previews, tests). */
     public void markLoaded(UUID player) {
         loaded.add(player);
@@ -213,6 +252,7 @@ public final class PackManager implements Listener {
                 .replace(false)
                 .prompt(plugin.lang().plain("pack-prompt"))
                 .build());
+        sent.add(p.getUniqueId());
     }
 
     /** Where this player downloads the pack. */
@@ -269,7 +309,11 @@ public final class PackManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        loaded.remove(e.getPlayer().getUniqueId());
+        UUID id = e.getPlayer().getUniqueId();
+        loaded.remove(id);
+        sent.remove(id);
+        statuses.remove(id);
+        hinted.removeIf(h -> h.startsWith(id + ":"));
     }
 
     @EventHandler
@@ -278,8 +322,19 @@ public final class PackManager implements Listener {
             return;
         }
         UUID id = e.getPlayer().getUniqueId();
+        statuses.put(id, e.getStatus());
         switch (e.getStatus()) {
-            case SUCCESSFULLY_LOADED -> loaded.add(id);
+            case SUCCESSFULLY_LOADED -> {
+                loaded.add(id);
+                // a menu opened while the pack was loading still has the plain background: draw it again
+                Player p = e.getPlayer();
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (p.isOnline() && plugin.menus().displayOpen(p)) {
+                        plugin.menus().close(p, true);
+                        plugin.menus().open(p);
+                    }
+                });
+            }
             case FAILED_DOWNLOAD, INVALID_URL, FAILED_RELOAD -> {
                 loaded.remove(id);
                 if (!warnedDownload) {

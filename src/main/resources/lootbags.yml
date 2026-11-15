@@ -1,0 +1,216 @@
+# ============================================================
+#  Loot bags – every mob killed by a player has a chance to drop a loot bag.
+#  Hostile mobs (monsters) drop them hostile-multiplier times as often as the others.
+#  Right click a bag to open it: 5-10 different items, better ones in rarer bags.
+#  After changes: /tigo reload   ·   Check for mistakes: /tigo check
+#  Admins: /tigo lootbag give <player> <rarity> [amount]
+# ============================================================
+#
+# RARITY SETTINGS (the key, e.g. "rare", is the id used by commands):
+#   name     : Name of the bag item (MiniMessage)
+#   color    : #RRGGBB, colour of the sparkles when the bag drops and opens
+#   chance   : Percent chance per non-hostile mob (animals, villagers, golems...) killed by a player.
+#              Hostile mobs: chance × hostile-multiplier. The same for every mob of a kind.
+#   model    : Look of the bag, any item model (no resource pack needed), e.g. minecraft:purple_bundle
+#   glint    : Enchantment shine on the bag
+#   glow     : A dropped bag glows (outline through walls)
+#   announce : The whole server is told when someone finds this bag (and its opening gets a title)
+#   items    : (optional) how many different items this bag holds, e.g. 6-10 (default: "items" below)
+#   loot     : What can be inside. Every entry is one of:
+#              item: DIAMOND, amount: 2-5 (or 3), name: "<value>Name", lore: [...], enchantments: { sharpness: 5 }
+#              levels: 3-6   (gives XP levels)
+#              weight: how often the entry is picked compared to the others (default 1)
+#              A bag never holds the same entry twice.
+
+enabled: true
+# Hostile mobs drop bags this many times as often as other mobs
+hostile-multiplier: 2.0
+# How many different items a bag holds
+items: 5-10
+# Show the name of a dropped bag above it
+show-name: true
+# Mobs spawned these ways never drop bags (farm protection). Baby animals never drop bags either,
+# and no mob does in the restrictions.disabled-worlds of config.yml.
+ignored-spawn-reasons:
+  - SPAWNER
+  - SPAWNER_EGG
+  - DISPENSE_EGG
+  - SLIME_SPLIT
+  - BUILD_IRONGOLEM
+  - BUILD_SNOWMAN
+
+# Rarities, most common first. All together: about 2.5% per animal, 4.9% per monster.
+rarities:
+
+  common:
+    name: "<#B4BCC8>Common Loot Bag"
+    color: "#B4BCC8"
+    chance: 1.5
+    model: minecraft:light_gray_bundle
+    loot:
+      - { item: BREAD, amount: 3-8 }
+      - { item: COOKED_BEEF, amount: 2-6 }
+      - { item: BAKED_POTATO, amount: 3-8 }
+      - { item: APPLE, amount: 2-5 }
+      - { item: COAL, amount: 4-12 }
+      - { item: TORCH, amount: 8-24 }
+      - { item: ARROW, amount: 8-24 }
+      - { item: OAK_LOG, amount: 4-12 }
+      - { item: COBBLESTONE, amount: 16-32 }
+      - { item: STRING, amount: 2-6 }
+      - { item: LEATHER, amount: 2-5 }
+      - { item: FEATHER, amount: 3-8 }
+      - { item: BONE_MEAL, amount: 4-10 }
+      - { item: IRON_NUGGET, amount: 4-12 }
+
+  uncommon:
+    name: "<#5BD35B>Uncommon Loot Bag"
+    color: "#5BD35B"
+    chance: 0.6
+    model: minecraft:lime_bundle
+    loot:
+      - { item: IRON_INGOT, amount: 2-6 }
+      - { item: COPPER_INGOT, amount: 6-16 }
+      - { item: GOLD_NUGGET, amount: 6-18 }
+      - { item: COOKED_PORKCHOP, amount: 4-8 }
+      - { item: GOLDEN_CARROT, amount: 2-6 }
+      - { item: REDSTONE, amount: 6-16 }
+      - { item: LAPIS_LAZULI, amount: 4-12 }
+      - { item: GUNPOWDER, amount: 2-6 }
+      - { item: SLIME_BALL, amount: 2-5 }
+      - { item: EXPERIENCE_BOTTLE, amount: 2-5 }
+      - { item: BOOK, amount: 2-5 }
+      - { item: LEAD, amount: 1-2 }
+      - { item: IRON_PICKAXE, weight: 0.6 }
+      - { item: IRON_SWORD, weight: 0.6 }
+
+  rare:
+    name: "<#4FA3FF>Rare Loot Bag"
+    color: "#4FA3FF"
+    chance: 0.25
+    model: minecraft:light_blue_bundle
+    loot:
+      - { item: IRON_INGOT, amount: 6-14 }
+      - { item: GOLD_INGOT, amount: 4-10 }
+      - { item: DIAMOND, amount: 1-2, weight: 0.6 }
+      - { item: EMERALD, amount: 3-8 }
+      - { item: ENDER_PEARL, amount: 2-4 }
+      - { item: EXPERIENCE_BOTTLE, amount: 4-10 }
+      - { item: GOLDEN_APPLE, weight: 0.6 }
+      - { item: OBSIDIAN, amount: 4-8 }
+      - { item: BLAZE_ROD, amount: 1-3 }
+      - { item: QUARTZ, amount: 8-16 }
+      - { item: AMETHYST_SHARD, amount: 4-10 }
+      - { item: NAME_TAG, weight: 0.7 }
+      - { item: SADDLE, weight: 0.7 }
+      - { item: BOW, enchantments: { power: 2 }, weight: 0.6 }
+      - { levels: 3-6 }
+
+  epic:
+    name: "<#B062FF>Epic Loot Bag"
+    color: "#B062FF"
+    chance: 0.08
+    model: minecraft:purple_bundle
+    loot:
+      - { item: DIAMOND, amount: 2-5 }
+      - { item: GOLD_BLOCK, amount: 1-2 }
+      - { item: EMERALD, amount: 8-16 }
+      - { item: GOLDEN_APPLE, amount: 1-3 }
+      - { item: ENDER_PEARL, amount: 4-8 }
+      - { item: EXPERIENCE_BOTTLE, amount: 8-16 }
+      - { item: IRON_BLOCK, amount: 2-4 }
+      - { item: BLAZE_ROD, amount: 3-6 }
+      - { item: GHAST_TEAR, amount: 1-3 }
+      - { item: ENDER_EYE, amount: 2-4 }
+      - { item: NAUTILUS_SHELL, amount: 1-2 }
+      - { item: NETHERITE_SCRAP, weight: 0.4 }
+      - { item: ENCHANTED_BOOK, enchantments: { unbreaking: 3 }, weight: 0.5 }
+      - { item: DIAMOND_SWORD, enchantments: { sharpness: 3, unbreaking: 2 }, weight: 0.6 }
+      - { item: DIAMOND_PICKAXE, enchantments: { efficiency: 3, unbreaking: 2 }, weight: 0.6 }
+      - { levels: 6-10 }
+
+  legendary:
+    name: "<#FFA41C>Legendary Loot Bag"
+    color: "#FFA41C"
+    chance: 0.025
+    model: minecraft:orange_bundle
+    glint: true
+    glow: true
+    announce: true
+    loot:
+      - { item: DIAMOND, amount: 6-12 }
+      - { item: DIAMOND_BLOCK, weight: 0.6 }
+      - { item: NETHERITE_SCRAP, amount: 1-3 }
+      - { item: ANCIENT_DEBRIS, amount: 2-4 }
+      - { item: GOLDEN_APPLE, amount: 3-6 }
+      - { item: EMERALD_BLOCK, amount: 2-4 }
+      - { item: EXPERIENCE_BOTTLE, amount: 16-32 }
+      - { item: TOTEM_OF_UNDYING, weight: 0.7 }
+      - { item: SHULKER_SHELL, amount: 2, weight: 0.7 }
+      - { item: TRIDENT, weight: 0.4 }
+      - { item: HEART_OF_THE_SEA, weight: 0.4 }
+      - { item: WITHER_SKELETON_SKULL, weight: 0.5 }
+      - { item: ENCHANTED_BOOK, enchantments: { mending: 1 }, weight: 0.6 }
+      - { item: DIAMOND_CHESTPLATE, enchantments: { protection: 4, unbreaking: 3 }, weight: 0.6 }
+      - { item: DIAMOND_SWORD, enchantments: { sharpness: 5, unbreaking: 3, looting: 2 }, weight: 0.6 }
+      - { levels: 10-15 }
+
+  mythic:
+    name: "<#FF4F6B><b>Mythic Loot Bag"
+    color: "#FF4F6B"
+    chance: 0.006
+    model: minecraft:red_bundle
+    glint: true
+    glow: true
+    announce: true
+    loot:
+      - { item: NETHERITE_INGOT, amount: 1-2 }
+      - { item: ENCHANTED_GOLDEN_APPLE }
+      - { item: TOTEM_OF_UNDYING, amount: 1-2 }
+      - { item: DIAMOND_BLOCK, amount: 2-4 }
+      - { item: ANCIENT_DEBRIS, amount: 4-8 }
+      - { item: NETHERITE_UPGRADE_SMITHING_TEMPLATE, amount: 1-2 }
+      - { item: SHULKER_SHELL, amount: 4-6 }
+      - { item: EXPERIENCE_BOTTLE, amount: 32-64 }
+      - { item: ELYTRA, weight: 0.4 }
+      - { item: NETHER_STAR, weight: 0.3 }
+      - { item: ENCHANTED_BOOK, enchantments: { mending: 1 }, weight: 0.8 }
+      - { item: TRIDENT, enchantments: { loyalty: 3, impaling: 3 }, weight: 0.6 }
+      - item: DIAMOND_PICKAXE
+        name: "<#FF4F6B>Mythic Pickaxe"
+        enchantments: { efficiency: 5, unbreaking: 3, fortune: 3, mending: 1 }
+        weight: 0.6
+      - item: DIAMOND_SWORD
+        name: "<#FF4F6B>Mythic Blade"
+        enchantments: { sharpness: 5, unbreaking: 3, looting: 3, mending: 1 }
+        weight: 0.6
+      - { levels: 15-25 }
+
+  secret:
+    name: "<b><gradient:#FF5CF0:#6E5CFF:#5CE1FF>Secret Loot Bag</gradient>"
+    color: "#9D6BFF"
+    chance: 0.0012
+    model: minecraft:black_bundle
+    glint: true
+    glow: true
+    announce: true
+    loot:
+      - { item: NETHERITE_INGOT, amount: 3-5 }
+      - { item: ENCHANTED_GOLDEN_APPLE, amount: 2-4 }
+      - { item: TOTEM_OF_UNDYING, amount: 2-3 }
+      - { item: ELYTRA }
+      - { item: NETHER_STAR, amount: 1-2 }
+      - { item: BEACON }
+      - { item: HEAVY_CORE }
+      - { item: DRAGON_HEAD }
+      - { item: DIAMOND_BLOCK, amount: 6-12 }
+      - { item: SHULKER_BOX, amount: 1-2 }
+      - { item: EXPERIENCE_BOTTLE, amount: 64 }
+      - { item: ENCHANTED_BOOK, enchantments: { mending: 1 } }
+      - item: NETHERITE_SWORD
+        name: "<gradient:#FF5CF0:#5CE1FF>Secret Blade"
+        enchantments: { sharpness: 5, unbreaking: 3, looting: 3, fire_aspect: 2, mending: 1 }
+      - item: NETHERITE_CHESTPLATE
+        name: "<gradient:#FF5CF0:#5CE1FF>Secret Plate"
+        enchantments: { protection: 4, unbreaking: 3, mending: 1 }
+      - { levels: 30 }

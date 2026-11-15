@@ -148,7 +148,7 @@ final class InfoCard {
     }
 
     /** Details of a chest in the Chests section, with the buy (and open) buttons. */
-    void showChest(ChestType c, boolean confirmPending) {
+    void showChest(ChestType c) {
         if (name == null || c == null) {
             return;
         }
@@ -174,8 +174,8 @@ final class InfoCard {
         boolean afford = menu.plugin().chests().affordable(menu.player(), c);
         Painter.setText(cost, c.price <= 0 ? lang.plain("info-free")
                 : lang.plain(afford ? "info-cost" : "info-cost-poor", "cost", Text.escape(menu.plugin().money(c.price))));
-        Component buyLabel = lang.plain(!afford ? "button-poor" : confirmPending ? "button-confirm" : "button-buy");
-        int buyColor = !afford ? theme.deny() : confirmPending ? Palette.mix(theme.buy(), theme.gold(), 0.5) : theme.buy();
+        Component buyLabel = lang.plain(afford ? "button-buy" : "button-poor");
+        int buyColor = afford ? theme.buy() : theme.deny();
         if (owned > 0 && chestOpen != null) {
             buy.hide(menu);
             // a warm "loot" colour, dark enough for the white label on every style

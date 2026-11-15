@@ -90,6 +90,22 @@ class ConfigMigrationTest {
         assertSame(Style.WOOD, Style.of(null, Style.WOOD));
     }
 
+    /** Menu layers must be opaque: the client sorts see-through text backgrounds and could draw the world through a card. */
+    @Test
+    void menuColoursAreOpaque() {
+        for (Style s : Style.values()) {
+            Settings.Theme t = s.theme.opaque();
+            for (int c : new int[]{t.background(), t.panelBorder(), t.header(), t.card(), t.locked(), t.line(), t.lineLocked(),
+                    t.buy(), t.deny(), t.gold(), t.maxed(), t.hover()}) {
+                assertEquals(0xFF, c >>> 24, s.name());
+            }
+            assertEquals(s.theme.gold(), t.gold(), s + ": an opaque colour stays as it is");
+        }
+        Settings.Theme glass = new Settings.Theme(0xFF000000, 0x80FFFFFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5).opaque();
+        assertEquals(0xFF808080, glass.panelBorder(), "half see-through white over black is grey");
+        assertEquals(0xFF000000, glass.header(), "fully see-through is the background");
+    }
+
     /** Every bundled message, tree and chest text only uses colour names the plugin knows. */
     @Test
     void bundledTextsUseKnownColours() throws Exception {

@@ -199,6 +199,33 @@ public final class DataStore {
         return new ArrayList<>(cache.values());
     }
 
+    /**
+     * Waits until every queued save is written (the writer handles them in order). Blocking: call
+     * off the main thread. False when a save failed or it took longer than the timeout.
+     */
+    public boolean flush(long timeoutMs) {
+        long end = System.currentTimeMillis() + timeoutMs;
+        try {
+            // a few rounds: saves queued while waiting are written too, a failed save stays pending
+            for (int round = 0; round < 3; round++) {
+                long left = end - System.currentTimeMillis();
+                if (left <= 0) {
+                    return false;
+                }
+                writer.submit(() -> { }).get(left, TimeUnit.MILLISECONDS);
+                if (pending.isEmpty()) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (RejectedExecutionException | java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+            return false;
+        }
+    }
+
     /** Every stored player merged with unsaved changes. Blocking: call off the main thread. */
     public List<PlayerData.Snapshot> loadAll() {
         Map<UUID, PlayerData.Snapshot> all = new LinkedHashMap<>();

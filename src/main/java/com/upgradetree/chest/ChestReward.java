@@ -9,6 +9,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 
 import java.util.List;
 import java.util.Locale;
@@ -53,25 +54,37 @@ public final class ChestReward {
     /** The stack given to the player (items only). */
     public ItemStack create() {
         ItemStack it = new ItemStack(material, Math.min(amount, 99));
-        String name = customName;
-        List<String> lines = lore;
+        decorate(it, customName, lore, enchantments);
+        return it;
+    }
+
+    /**
+     * Gives a prize stack its optional MiniMessage name, lore lines and enchantments (keys such as
+     * "sharpness"; unknown ones are left out). An enchanted book stores them, so they work in an anvil.
+     */
+    public static void decorate(ItemStack it, String name, List<String> lore, Map<String, Integer> enchantments) {
         it.editMeta(m -> {
             if (name != null) {
                 m.customName(Text.mm(name).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
             }
-            if (lines != null && !lines.isEmpty()) {
-                m.lore(lines.stream().map(l -> Text.mm(l).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE)).toList());
+            if (lore != null && !lore.isEmpty()) {
+                m.lore(lore.stream().map(l -> Text.mm(l).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE)).toList());
             }
             var registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT);
             for (Map.Entry<String, Integer> e : enchantments.entrySet()) {
                 NamespacedKey key = NamespacedKey.fromString(e.getKey().toLowerCase(Locale.ROOT));
                 Enchantment ench = key == null ? null : registry.get(key);
-                if (ench != null) {
-                    m.addEnchant(ench, Math.max(1, e.getValue()), true);
+                if (ench == null) {
+                    continue;
+                }
+                int level = Math.max(1, e.getValue());
+                if (m instanceof EnchantmentStorageMeta book) {
+                    book.addStoredEnchant(ench, level, true);
+                } else {
+                    m.addEnchant(ench, level, true);
                 }
             }
         });
-        return it;
     }
 
     /** Icon shown on the roulette and in the menus (levels use an experience bottle). */

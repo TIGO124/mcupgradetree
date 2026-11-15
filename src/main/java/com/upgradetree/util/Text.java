@@ -123,6 +123,18 @@ public final class Text {
         return mm(apply(s, placeholders));
     }
 
+    /** Parses a MiniMessage string with extra tags (e.g. component placeholders). Never throws. */
+    public static Component mm(String s, TagResolver extra) {
+        if (s == null || s.isEmpty()) {
+            return Component.empty();
+        }
+        try {
+            return MM.deserialize(legacyToMini(s), extra);
+        } catch (Exception e) {
+            return Component.text(s);
+        }
+    }
+
     /** Replaces {key} placeholders. Arguments are key, value, key, value... */
     public static String apply(String s, String... kv) {
         if (s == null) {

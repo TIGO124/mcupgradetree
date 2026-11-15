@@ -16,7 +16,7 @@ final class UpgradeTabCompleter {
     private static final List<String> PLAYER_SUBS = List.of("help", "info", "open", "chests", "respec", "prestige", "top",
             "menu", "daily");
     private static final List<String> ADMIN_SUBS = List.of("reload", "check", "reset", "set", "points", "cleanup", "npc",
-            "debug", "admin");
+            "debug", "admin", "lootbag", "update");
 
     private final UpgradeTreePlugin plugin;
 
@@ -80,9 +80,14 @@ final class UpgradeTabCompleter {
                         filter(onlineNames(), last, out);
                     }
                 }
-                case "chests" -> {
+                case "chests", "lootbag" -> {
                     if (isAdmin) {
                         filter(List.of("give"), last, out);
+                    }
+                }
+                case "update" -> {
+                    if (isAdmin) {
+                        filter(List.of("restart"), last, out);
                     }
                 }
                 default -> {
@@ -98,7 +103,7 @@ final class UpgradeTabCompleter {
             switch (sub) {
                 case "set" -> filter(nodeIds(), last, out);
                 case "points", "debug" -> filter(onlineNames(), last, out);
-                case "prestige", "chests" -> {
+                case "prestige", "chests", "lootbag" -> {
                     if (opt.equals("set") || opt.equals("give")) {
                         filter(onlineNames(), last, out);
                     }
@@ -106,13 +111,19 @@ final class UpgradeTabCompleter {
                 default -> {
                 }
             }
-        } else if (args.length == 5 && sub.equals("chests") && opt.equals("give")) {
+        } else if (args.length == 5 && (sub.equals("chests") || sub.equals("lootbag")) && opt.equals("give")) {
             filter(List.of("1", "5", "10"), last, out);
         } else if (args.length == 4) {
             if (sub.equals("chests") && opt.equals("give")) {
                 List<String> ids = new ArrayList<>();
                 for (var c : plugin.chestTypes().chests()) {
                     ids.add(c.id);
+                }
+                filter(ids, last, out);
+            } else if (sub.equals("lootbag") && opt.equals("give")) {
+                List<String> ids = new ArrayList<>();
+                for (var t : plugin.lootBagTypes().types()) {
+                    ids.add(t.id);
                 }
                 filter(ids, last, out);
             } else if (sub.equals("set")) {

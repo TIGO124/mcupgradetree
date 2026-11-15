@@ -28,5 +28,5 @@ permissions:
     description: Can use /tigo (upgrade tree, chests, menu type, daily reward).
     default: true
   upgradetree.admin:
-    description: Admin commands of /tigo (reload, check, reset, set, points, prestige set, chests give, cleanup, npc, top place, debug).
+    description: Admin commands of /tigo (reload, check, reset, set, points, prestige set, chests give, lootbag give, update, cleanup, npc, top place, debug).
     default: op

@@ -2,6 +2,7 @@ package com.upgradetree.command;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CommandAliasesTest {
@@ -30,5 +31,13 @@ class CommandAliasesTest {
         assertEquals("panel", CommandAliases.word("3D"));
         assertEquals("all", CommandAliases.word("*"));
         assertEquals("steve", CommandAliases.word("Steve"));
+    }
+
+    /** /chest ... runs as /tigo chests ... */
+    @Test
+    void rootShortcutBecomesTheSubCommand() {
+        assertArrayEquals(new String[] {"chests"}, CommandAliases.under("chests", new String[0]));
+        assertArrayEquals(new String[] {"chests", "give", "Steve", "iron", "5"},
+                CommandAliases.under("chests", new String[] {"give", "Steve", "iron", "5"}));
     }
 }

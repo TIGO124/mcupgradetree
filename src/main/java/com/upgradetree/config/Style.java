@@ -9,7 +9,8 @@ import java.util.Map;
  * Ready-made looks of the menu (config.yml "menu.style"). A style sets the menu colours
  * ({@link Settings.Theme}; single colours can still be overridden under "theme") and the colours
  * behind the message colour names ({@code <hi>}, {@code <body>}, {@code <accent>}...).
- * Header and card colours are see-through so a background image shows behind them.
+ * Header and card colours may be see-through: they are mixed into the panel background
+ * ({@link Settings.Theme#opaque()}), so every layer of the menu ends up opaque.
  */
 public enum Style {
 

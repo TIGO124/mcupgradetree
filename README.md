@@ -1,4 +1,4 @@
-# UpgradeTree 2.3 — Hexagon Upgrade Tree for Minecraft 26.3
+# UpgradeTree 2.4 — Hexagon Upgrade Tree for Minecraft 26.3
 
 A hexagon upgrade tree. Instead of a chest menu, a 3D panel opens in front of the player and only they can see it:
 hexagon upgrades laid out like a honeycomb over a background picture (a blue nebula by default). Buying an upgrade
@@ -6,9 +6,23 @@ reveals the ones that follow it (progressive reveal). The look comes from ready-
 
 ## Installation
 1. Server: Paper 26.3 (or a Paper fork such as Purpur or Leaf), Java 25.
-2. Put `UpgradeTree-2.3.0.jar` into the server's `plugins` folder and restart.
+2. Put `UpgradeTree-2.4.0.jar` into the server's `plugins` folder and restart. Later versions come with `/tigo update`.
 3. Settings: `plugins/UpgradeTree/config.yml`, trees: `trees/*.yml` (every file is a tab), chests: `chests.yml`,
-   messages: `messages.yml`.
+   loot bags: `lootbags.yml`, messages: `messages.yml`.
+
+### Updating with /tigo update
+`/tigo update` (admins) downloads the newest release from GitHub (`update.repository` in `config.yml`, a private
+repository also needs `update.token`) and puts it into `plugins/update`. The server switches to it on its next start:
+a running plugin cannot be swapped safely. `/tigo update restart` restarts the server 10 seconds later (without a
+restart script in `spigot.yml` the server only stops, start it again by hand). Nothing is lost:
+- Player data is written first, then `plugins/UpgradeTree/backups/<old version>-<time>/` gets the old jar and `data.zip`
+  with every file of the plugin folder. Unzipping it and putting the old jar back restores the old version.
+- The download is checked before it is used (size, SHA-256 of the release, plugin name, a newer version, the Minecraft
+  version it needs). When a step fails nothing changes.
+- On its first start the new version keeps every file you edited; `config.yml` gets its new settings with every value
+  kept (the old file is saved as `config.yml.*.bak`).
+
+A release is published by pushing a tag such as `v2.4.0`: the GitHub workflow builds the jar and attaches it.
 
 ### Updating from 2.2 or older
 Everything is converted on the first start, nothing has to be done by hand:
@@ -42,6 +56,8 @@ Everything is converted on the first start, nothing has to be done by hand:
 - **Chests (CS2-style cases):** chests are bought in the Chests section of the menu. A bought chest appears in front of
   the player; a right click shakes it, opens the lid and spins a strip of items over it that slows down and stops on
   the prize. Prizes are Minecraft items or XP levels with CS2-like rarity colours and odds.
+- **Loot bags:** every mob killed by a player can drop a loot bag; hostile mobs twice as often as the others. Seven
+  rarities from Common to Secret, a right click opens a bag into 5-10 different items, better ones in rarer bags.
 - **Advanced requirements:** `requires`, `requires-any` (one is enough), `requires-level` (a certain level),
   `exclusive-with` (class choice), `permission`, `min-prestige`.
 - **Effects:** attributes (health, damage, armor, speed, reach, size...), permanent potions, XP boost, double drops
@@ -67,7 +83,8 @@ Everything is converted on the first start, nothing has to be done by hand:
   "Edit in the 3D tree" opens the player's tree on the hexagon panel: every upgrade is visible and a click changes its level.
 
 ## Usage
-- `/tigo` opens and closes the menu. Every command is `/tigo <command>`.
+- `/tigo` opens and closes the menu, `/chest` (or `/chests`) opens the Chests section. Every other command is
+  `/tigo <command>`.
 - **Key binding:** Options › Controls › **Quick Actions** opens a small window whose **Open the tree** button opens the
   tree. Every player can pick the key. `access.quick-action: false` turns it off (needs a restart).
 - Aim at a hexagon with the crosshair and **left click** to buy. The panel stays put, you can walk around it. Costs of
@@ -78,7 +95,7 @@ Everything is converted on the first start, nothing has to be done by hand:
 | Command | Description |
 |---|---|
 | `/tigo info [player]` | Shows the upgrades and the command list |
-| `/tigo chests` | Opens the Chests section (buy and open chests) |
+| `/chest` | Opens the Chests section (buy and open chests), the same as `/tigo chests` |
 | `/tigo respec [confirm]` | Resets your own tree with a refund |
 | `/tigo prestige [confirm]` | Prestiges |
 | `/tigo top [prestige\|levels]` | Leaderboard |
@@ -88,8 +105,9 @@ Everything is converted on the first start, nothing has to be done by hand:
 Operators get the `/tigo admin [player]` panel. Admin commands (`upgradetree.admin`): `reload`, `check` (tree mistakes:
 cycles, unreachable upgrades, overlapping hexagons), `reset <player>`, `set <player> <upgrade> <level>`,
 `points <give|take|set> <player> <amount>`, `prestige set <player> <level>`, `cleanup <player|all>`, `npc`,
-`top place|remove`, `open <player>`, `chests give <player> <chest> [amount]` (unopened chests, offline players too),
-`debug <preview|look|pos|entities|target> <player> [upgrade]`.
+`top place|remove`, `open <player>`, `chests give <player> <chest> [amount]` (also `/chest give ...`; unopened chests,
+offline players too), `lootbag give <player> <rarity> [amount]` (loot bag items, online players),
+`update [restart]` (installs the newest version, see above), `debug <preview|look|pos|entities|target> <player> [upgrade]`.
 
 Permissions: `upgradetree.use` (everyone) and `upgradetree.admin` (operators).
 
@@ -127,7 +145,8 @@ Note: PlaceholderAPI 2.12.2 does not start on Paper 26.3 (version parsing error)
 supports 26.x is needed.
 
 ## Chests
-- **Buying:** `/tigo chests` (or the **Chests** tab of the menu). Look at a chest card and press **BUY**. The cost is
+- **Buying:** `/chest` (or the **Chests** tab of the menu). Look at a chest card and press **BUY**: one click buys it,
+  there is no confirmation. The cost is
   taken in the currency of `config.yml` (XP levels, Vault or points). The grid below shows what the chest contains, in
   rarity colours; the card on the right lists the odds of every rarity, and aiming at a prize shows its own chance.
 - **Opening:** the menu closes and the chest appears in front of you (only you see it). **Right click**: the chest shakes,
@@ -154,6 +173,36 @@ chests:
         name: "Sharp Diamond Sword"
         enchantments: { sharpness: 5, unbreaking: 3 }
         rarity: epic
+```
+
+## Loot bags
+- **Dropping:** a mob killed by a player has a chance to drop a loot bag. The chance is the same for every mob of a kind:
+  each rarity has its `chance` (percent per animal, villager, golem... killed) and hostile mobs (monsters) have it times
+  `hostile-multiplier` (2). The built-in odds add up to about 2.5% per animal and 4.9% per monster.
+- **Rarities:** Common, Uncommon, Rare, Epic, Legendary, Mythic and Secret. Each bag looks like a bundle of its colour
+  (no resource pack needed). Legendary and rarer bags shine and glow on the ground, and the whole server hears about them.
+- **Opening:** hold the bag and **right click**. It holds 5-10 different items (`items`), picked by weight from the loot
+  list of its rarity: food and basics in Common, then iron, gold, diamonds, enchanted gear, netherite, totems, elytra and
+  more the rarer the bag. The items are listed in chat (hover for their enchantments); what does not fit is dropped at
+  your feet. Right clicking a chest or door opens it as usual; sneak to open a bag there.
+- **Farm protection:** mobs from spawners, spawn eggs, slime splits and built golems never drop bags
+  (`ignored-spawn-reasons`), baby animals neither, and no mob does in `restrictions.disabled-worlds`.
+- **File:** `lootbags.yml` — every rarity has `name`, `color`, `chance`, `model` (any item model), `glint`, `glow`,
+  `announce`, an optional `items` range and its `loot` (`item` + `amount` like `2-6` + optional `name`, `lore`,
+  `enchantments`, `weight`; or `levels: 3-6`). Admins: `/tigo lootbag give <player> <rarity> [amount]`.
+
+```yaml
+rarities:
+  rare:
+    name: "<#4FA3FF>Rare Loot Bag"
+    color: "#4FA3FF"
+    chance: 0.25
+    model: minecraft:light_blue_bundle
+    loot:
+      - { item: DIAMOND, amount: 1-2, weight: 0.6 }
+      - { item: ENDER_PEARL, amount: 2-4 }
+      - { item: BOW, enchantments: { power: 2 } }
+      - { levels: 3-6 }
 ```
 
 ## Tree files
@@ -193,7 +242,7 @@ Events (`com.upgradetree.api.event`): `UpgradePurchaseEvent` (can be cancelled, 
 
 ## Building and testing
 ```bash
-./gradlew build        # jar: build/libs/UpgradeTree-2.3.0.jar (runs the unit tests too)
+./gradlew build        # jar: build/libs/UpgradeTree-2.4.0.jar (runs the unit tests too)
 ./gradlew runServer    # downloads Paper 26.3 and starts a local test server with the plugin
 ```
 GitHub Actions builds every push. A `v*` tag puts the jar on the Releases page.

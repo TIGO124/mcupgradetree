@@ -69,6 +69,7 @@ final class AdminCommands {
     void check(CommandSender sender) {
         List<String> issues = new java.util.ArrayList<>(plugin.trees().issues());
         issues.addAll(plugin.chestTypes().issues());
+        issues.addAll(plugin.lootBagTypes().issues());
         if (issues.isEmpty()) {
             sender.sendMessage(lang(sender).msg("check-ok", "trees", String.valueOf(plugin.trees().trees().size()),
                     "nodes", String.valueOf(plugin.trees().nodes().size())));

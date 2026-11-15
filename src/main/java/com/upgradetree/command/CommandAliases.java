@@ -14,7 +14,8 @@ public final class CommandAliases {
             "?", "help",
             "reset", "respec",
             "leaderboard", "top",
-            "chest", "chests");
+            "chest", "chests",
+            "lootbags", "lootbag");
 
     /** Later arguments: option words. Player names never collide with these in practice. */
     private static final Map<String, String> WORDS = Map.of(
@@ -38,5 +39,16 @@ public final class CommandAliases {
     public static String word(String raw) {
         String s = raw.toLowerCase(Locale.ROOT);
         return WORDS.getOrDefault(s, s);
+    }
+
+    /**
+     * Arguments of a root shortcut as the arguments of its /tigo sub command:
+     * "/chest give Steve iron" → {"chests", "give", "Steve", "iron"}.
+     */
+    public static String[] under(String sub, String[] args) {
+        String[] out = new String[args.length + 1];
+        out[0] = sub;
+        System.arraycopy(args, 0, out, 1, args.length);
+        return out;
     }
 }

@@ -19,25 +19,30 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * /tigo – the only root command: opens the menu; every feature is a sub command
- * (/tigo info, /tigo chests, /tigo reload ...).
+ * /tigo – the root command: opens the menu; every feature is a sub command
+ * (/tigo info, /tigo chests, /tigo reload ...). The Chests have a root command of their own
+ * as well: /chest is the same as /tigo chests (see {@link #chestCommand()}).
  */
 public final class UpgradeCommand implements BasicCommand {
 
     public static final String LABEL = "tigo";
     public static final List<String> ALIASES = List.of();
+    public static final String CHEST_LABEL = "chest";
+    public static final List<String> CHEST_ALIASES = List.of("chests");
     static final String ADMIN = "upgradetree.admin";
     static final String USE = "upgradetree.use";
 
     private final UpgradeTreePlugin plugin;
     private final AdminCommands admin;
     private final ChestCommands chests;
+    private final LootBagCommands lootBags;
     private final UpgradeTabCompleter tab;
 
     public UpgradeCommand(UpgradeTreePlugin plugin) {
         this.plugin = plugin;
         this.admin = new AdminCommands(plugin);
         this.chests = new ChestCommands(plugin, admin);
+        this.lootBags = new LootBagCommands(plugin);
         this.tab = new UpgradeTabCompleter(plugin);
     }
 
@@ -54,6 +59,21 @@ public final class UpgradeCommand implements BasicCommand {
     @Override
     public Collection<String> suggest(CommandSourceStack stack, String[] args) {
         return tab.complete(sender(stack), args.length == 0 ? new String[] {""} : args);
+    }
+
+    /** /chest [give &lt;player&gt; &lt;chest&gt; [amount]]: /tigo chests without the /tigo, same checks and completion. */
+    public BasicCommand chestCommand() {
+        return new BasicCommand() {
+            @Override
+            public void execute(CommandSourceStack stack, String[] args) {
+                chests.run(sender(stack), CommandAliases.under("chests", args));
+            }
+
+            @Override
+            public Collection<String> suggest(CommandSourceStack stack, String[] args) {
+                return tab.complete(sender(stack), CommandAliases.under("chests", args.length == 0 ? new String[] {""} : args));
+            }
+        };
     }
 
     private Lang lang(CommandSender sender) {
@@ -123,6 +143,12 @@ public final class UpgradeCommand implements BasicCommand {
             }
             case "admin" -> adminPanel(sender, args);
             case "chests" -> chests.run(sender, args);
+            case "lootbag" -> lootBags.run(sender, args);
+            case "update" -> {
+                if (isAdmin(sender)) {
+                    plugin.updater().update(sender, args.length >= 2 && CommandAliases.word(args[1]).equals("restart"));
+                }
+            }
             default -> help(sender);
         }
     }

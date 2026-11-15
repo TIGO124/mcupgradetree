@@ -34,6 +34,8 @@ import com.upgradetree.listener.Notifier;
 import com.upgradetree.listener.PlayerListener;
 import com.upgradetree.listener.PointsListener;
 import com.upgradetree.listener.QuickActionListener;
+import com.upgradetree.lootbag.LootBagManager;
+import com.upgradetree.lootbag.LootBagRegistry;
 import com.upgradetree.menu.MenuListener;
 import com.upgradetree.menu.MenuManager;
 import com.upgradetree.pack.PackManager;
@@ -44,6 +46,7 @@ import com.upgradetree.tree.NodeEffect;
 import com.upgradetree.tree.TreeLoader;
 import com.upgradetree.tree.TreeRegistry;
 import com.upgradetree.tree.UpgradeNode;
+import com.upgradetree.update.Updater;
 import com.upgradetree.util.Text;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import io.papermc.paper.registry.RegistryAccess;
@@ -86,8 +89,11 @@ public final class UpgradeTreePlugin extends JavaPlugin {
     private PointsListener points;
     private ChestRegistry chestTypes = ChestRegistry.empty();
     private ChestManager chests;
+    private LootBagRegistry lootBagTypes = LootBagRegistry.empty();
+    private LootBagManager lootBags;
     private AccessListener access;
     private PackManager pack;
+    private Updater updater;
 
     @Override
     public void onEnable() {
@@ -101,6 +107,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         if (!new File(getDataFolder(), ChestRegistry.FILE).exists()) {
             saveResource(ChestRegistry.FILE, false);
         }
+        if (!new File(getDataFolder(), LootBagRegistry.FILE).exists()) {
+            saveResource(LootBagRegistry.FILE, false);
+        }
         // built-in files of versions before 2.3 that were never edited become the current ones
         LegacyFiles.upgrade(this);
         loadSettings();
@@ -110,6 +119,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         currency = createCurrency(settings);
         loadTrees();
         loadChests();
+        loadLootBags();
 
         service = new UpgradeService(this);
         progress = new ProgressService(this);
@@ -122,7 +132,9 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         PlacedBlocks placed = new PlacedBlocks(this);
         points = new PointsListener(this, placed);
         chests = new ChestManager(this);
+        lootBags = new LootBagManager(this);
         pack = new PackManager(this);
+        updater = new Updater(this);
         Notifier notifier = new Notifier(this);
 
         PluginManager pm = getServer().getPluginManager();
@@ -140,12 +152,17 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         pm.registerEvents(access, this);
         pm.registerEvents(new QuickActionListener(this), this);
         pm.registerEvents(chests, this);
+        pm.registerEvents(lootBags, this);
         pm.registerEvents(pack, this);
         pack.reload();
 
         UpgradeCommand executor = new UpgradeCommand(this);
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
-                UpgradeCommand.LABEL, "UpgradeTree: upgrade tree and chests (/tigo help)", UpgradeCommand.ALIASES, executor));
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            event.registrar().register(UpgradeCommand.LABEL, "UpgradeTree: upgrade tree and chests (/tigo help)",
+                    UpgradeCommand.ALIASES, executor);
+            event.registrar().register(UpgradeCommand.CHEST_LABEL, "UpgradeTree: buy and open chests",
+                    UpgradeCommand.CHEST_ALIASES, executor.chestCommand());
+        });
         logQuickAction();
 
         var scheduler = getServer().getScheduler();
@@ -172,7 +189,8 @@ public final class UpgradeTreePlugin extends JavaPlugin {
             effects.apply(p);
         }
         getLogger().info(log("log-ready", "trees", String.valueOf(trees.trees().size()), "nodes", String.valueOf(trees.nodes().size()),
-                "chests", String.valueOf(chestTypes.chests().size()), "currency", settings.currencyType,
+                "chests", String.valueOf(chestTypes.chests().size()),
+                "lootbags", String.valueOf(lootBagTypes.active() ? lootBagTypes.types().size() : 0), "currency", settings.currencyType,
                 "storage", data.storage().describe()));
         if (settings.cleanupMode) {
             getLogger().warning(log("log-cleanup"));
@@ -257,6 +275,15 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         }
     }
 
+    private void loadLootBags() {
+        try {
+            lootBagTypes = LootBagRegistry.load(getDataFolder(), getLogger());
+        } catch (Exception ex) {
+            getLogger().log(Level.SEVERE, log("log-lootbags-failed"), ex);
+            lootBagTypes = LootBagRegistry.empty();
+        }
+    }
+
     /** /tigo reload */
     public boolean reloadAll() {
         if (menus != null) {
@@ -271,6 +298,7 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         TreeRegistry before = trees;
         loadTrees();
         loadChests();
+        loadLootBags();
         boolean ok = !trees.trees().isEmpty() || before.trees().isEmpty();
         data.upgradeCached();
         for (Player p : getServer().getOnlinePlayers()) {
@@ -417,9 +445,29 @@ public final class UpgradeTreePlugin extends JavaPlugin {
         return chests;
     }
 
+    /** Loot bag rarities and their contents (lootbags.yml). */
+    public LootBagRegistry lootBagTypes() {
+        return lootBagTypes;
+    }
+
+    /** Loot bags dropped by mobs and opened by players. */
+    public LootBagManager lootBags() {
+        return lootBags;
+    }
+
     /** The resource pack with the menu background picture. */
     public PackManager pack() {
         return pack;
+    }
+
+    /** /tigo update: installs the newest release on the next restart. */
+    public Updater updater() {
+        return updater;
+    }
+
+    /** The jar this plugin was loaded from. */
+    public File jarFile() {
+        return getFile();
     }
 
     /** After a reload: texts that were handed out once (menu item, leaderboard hologram) are refreshed. */

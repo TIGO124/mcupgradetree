@@ -2,6 +2,8 @@ package com.upgradetree.config;
 
 import com.upgradetree.util.Text;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -121,6 +123,20 @@ public final class Lang {
     /** A chat message with prefix. */
     public Component msg(String key, String... kv) {
         return Text.mm(raw("prefix") + Text.apply(raw(key), kv));
+    }
+
+    /**
+     * A chat message with prefix whose {name} placeholders of {@code parts} are whole components
+     * (item names with their hover tooltip...); the other placeholders are text as usual.
+     */
+    public Component msg(String key, Map<String, Component> parts, String... kv) {
+        String s = raw("prefix") + Text.apply(raw(key), kv);
+        TagResolver.Builder tags = TagResolver.builder();
+        for (Map.Entry<String, Component> e : parts.entrySet()) {
+            s = s.replace("{" + e.getKey() + "}", "<" + e.getKey() + ">");
+            tags.resolver(Placeholder.component(e.getKey(), e.getValue()));
+        }
+        return Text.mm(s, tags.build());
     }
 
     /** A message without prefix (action bar, menu labels). */

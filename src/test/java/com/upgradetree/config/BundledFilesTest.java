@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The files the plugin writes on a new server: English only, one text per key. */
 class BundledFilesTest {
 
-    static final String[] FILES = {"/config.yml", "/messages.yml", "/chests.yml", "/trees/main.yml",
+    static final String[] FILES = {"/config.yml", "/messages.yml", "/chests.yml", "/lootbags.yml", "/trees/main.yml",
             "/trees/abilities.yml", "/trees/gatherer.yml"};
     /** Letters of other alphabets that must not show up in the bundled English texts. */
     private static final Pattern FOREIGN = Pattern.compile("[\u00e7\u011f\u0131\u00f6\u015f\u00fc\u00c7\u011e\u0130\u00d6\u015e\u00dc\u00e4\u00df\u00e9\u00e8\u00ea\u00e0\u00e1\u00ed\u00f3\u00fa\u00f1]");

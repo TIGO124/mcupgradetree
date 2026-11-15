@@ -49,6 +49,8 @@ public final class DisplayMenu {
     private final boolean startOnChests;
 
     private Group chrome;
+    /** True when the panel shows the background picture (the viewer has the resource pack). */
+    private boolean image;
     private Part progress;
     private List<Part> progressTrack;
     private Part progressFill;
@@ -177,6 +179,9 @@ public final class DisplayMenu {
         sound("minecraft:ui.toast.in", 0.8f, 1.3f);
         sound("minecraft:block.amethyst_block.chime", 0.6f, 1.5f);
         player.sendActionBar(lang().plain("opened-hint"));
+        if (settings.background == Settings.Background.IMAGE && !image) {
+            plugin.pack().hint(player);
+        }
     }
 
     private void build() {
@@ -185,7 +190,7 @@ public final class DisplayMenu {
         chrome = painter.group(PANEL_CX, PANEL_CY);
         chrome.scale = startScale;
         // the picture needs the plugin's resource pack; without it the panel gets the plain colour
-        boolean image = settings.background == Settings.Background.IMAGE && plugin.pack().imageReady(player);
+        image = settings.background == Settings.Background.IMAGE && plugin.pack().imageReady(player);
         if (image) {
             painter.roundRect(chrome, PANEL_CX, PANEL_CY, PANEL_W + 2 * PANEL_STROKE, PANEL_H + 2 * PANEL_STROKE, 0.012,
                     Z_PANEL_STROKE, t.panelBorder(), 1);
@@ -335,7 +340,6 @@ public final class DisplayMenu {
             confirmNode = null;
             refreshInfo();
         }
-        chests.tick();
         if (tick % 10 == 0) {
             updateStatus();
             refreshInfo();

@@ -203,9 +203,6 @@ public final class LegacyFiles {
         } catch (IOException | InvalidConfigurationException e) {
             return; // Bukkit reports a broken config itself
         }
-        if (old.contains("config-version")) {
-            return;
-        }
         YamlConfiguration fresh = new YamlConfiguration();
         try (InputStream in = plugin.getResource("config.yml")) {
             if (in == null) {
@@ -213,6 +210,9 @@ public final class LegacyFiles {
             }
             fresh.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         } catch (IOException | InvalidConfigurationException e) {
+            return;
+        }
+        if (!outdated(old, fresh)) {
             return;
         }
         merge(old, fresh);
@@ -224,6 +224,15 @@ public final class LegacyFiles {
         } catch (IOException e) {
             plugin.getLogger().warning("config.yml could not be updated: " + e.getMessage());
         }
+    }
+
+    /**
+     * True for a config.yml of an older layout: without config-version (2.2 and older) or with a
+     * lower one than the built-in file (an update brought new settings). It gets the current file
+     * with every value kept.
+     */
+    static boolean outdated(ConfigurationSection old, ConfigurationSection fresh) {
+        return old.getInt("config-version", 0) < fresh.getInt("config-version", 1);
     }
 
     /**

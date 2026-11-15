@@ -41,8 +41,6 @@ public final class ChestShopMenu implements InventoryHolder {
     private final Player player;
     private final Map<Integer, String> slots = new HashMap<>();
     private Inventory inventory;
-    private String confirmId;
-    private long confirmUntil;
 
     private ChestShopMenu(UpgradeTreePlugin plugin, Player player) {
         this.plugin = plugin;
@@ -116,14 +114,13 @@ public final class ChestShopMenu implements InventoryHolder {
             lore.add(lang().plain("chests-more", "count", String.valueOf(rewards.size() - MAX_LINES)));
         }
         lore.add(Component.empty());
-        boolean confirm = c.id.equals(confirmId) && System.currentTimeMillis() < confirmUntil;
-        lore.add(lang().plain(confirm ? "chests-gui-confirm" : "chests-gui-buy"));
+        lore.add(lang().plain("chests-gui-buy"));
         if (owned > 0) {
             lore.add(lang().plain("chests-gui-open", "count", String.valueOf(owned)));
         }
         ItemStack it = GuiItems.named(Icons.of(c.icon), Text.mm("<b>" + c.name()), lore);
         it.setAmount(Math.max(1, Math.min(64, owned)));
-        return GuiItems.glow(it, c.glint || confirm);
+        return GuiItems.glow(it, c.glint);
     }
 
     void click(int slot, ClickType type) {
@@ -149,18 +146,8 @@ public final class ChestShopMenu implements InventoryHolder {
         }
     }
 
+    /** Left click: buys the chest at once, there is no second click to confirm. */
     private void buy(ChestType c) {
-        long now = System.currentTimeMillis();
-        double confirmCost = plugin.settings().confirmCost;
-        if (confirmCost > 0 && c.price >= confirmCost && plugin.chests().affordable(player, c)
-                && !(c.id.equals(confirmId) && now < confirmUntil)) {
-            confirmId = c.id;
-            confirmUntil = now + 3000;
-            sound("minecraft:block.note_block.pling", 1.2f);
-            render();
-            return;
-        }
-        confirmId = null;
         Currency cur = plugin.currency();
         switch (plugin.chests().buy(player, c)) {
             case SUCCESS -> {

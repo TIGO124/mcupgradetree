@@ -6,8 +6,8 @@ import com.upgradetree.chest.ChestType;
 import java.util.List;
 
 /**
- * State of the Chests tab of one 3D menu: whether it is shown, the selected chest, a pending
- * purchase confirmation, and routing of its hover targets and clicks.
+ * State of the Chests tab of one 3D menu: whether it is shown, the selected chest, and routing of
+ * its hover targets and clicks.
  */
 final class ChestSection {
 
@@ -17,13 +17,11 @@ final class ChestSection {
     ChestLayer layer;
     private boolean active;
     private ChestType selected;
-    String confirmId;
-    int confirmUntil;
 
     ChestSection(DisplayMenu menu, boolean enabled) {
         this.m = menu;
         this.enabled = enabled;
-        this.actions = new ChestActions(menu, this);
+        this.actions = new ChestActions(menu);
     }
 
     /** True when the header has the Chests tab (never in the admin mode). */
@@ -61,7 +59,6 @@ final class ChestSection {
             return;
         }
         active = false;
-        confirmId = null;
         if (layer != null) {
             layer.remove();
             layer = null;
@@ -122,7 +119,6 @@ final class ChestSection {
                 ChestType c = m.plugin().chestTypes().chest(target.substring(6));
                 if (c != null) {
                     selected = c;
-                    confirmId = null;
                     m.sound("minecraft:ui.button.click", 0.4f, 1.6f);
                     if (layer != null) {
                         layer.refresh();
@@ -132,13 +128,6 @@ final class ChestSection {
             }
         }
         return true;
-    }
-
-    void tick() {
-        if (confirmId != null && m.tick > confirmUntil) {
-            confirmId = null;
-            m.refreshInfo();
-        }
     }
 
     void updateStatus(Part progress) {
@@ -170,6 +159,6 @@ final class ChestSection {
             }
         }
         layer.showContents(chest);
-        m.info.showChest(chest, chest != null && chest.id.equals(confirmId));
+        m.info.showChest(chest);
     }
 }

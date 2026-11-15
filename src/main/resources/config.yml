@@ -1,12 +1,12 @@
 # ============================================================
 #  UpgradeTree - Roblox-style hexagon upgrade tree
 #  Trees (upgrades, costs, effects) live in the trees/ folder; every file is a tab of the menu.
-#  Chests: chests.yml   ·   Messages: messages.yml   ·   After changes: /tigo reload
+#  Chests: chests.yml   ·   Loot bags: lootbags.yml   ·   Messages: messages.yml   ·   After changes: /tigo reload
 # ============================================================
 
 # Written by the plugin, do not change. An older config.yml is rewritten with these comments
 # (your values are kept, the old file is saved as config.yml.bak).
-config-version: 1
+config-version: 2
 
 currency:
   # XP_LEVELS -> pay with experience levels (no other plugin needed)
@@ -94,7 +94,7 @@ menu:
   progressive-reveal: true
   # Does clicking an upgrade buy it? false: the click selects it, the BUY button buys it
   click-to-buy: true
-  # Purchases costing this much or more need a second click to confirm (0 = off)
+  # Upgrades costing this much or more need a second click to confirm (0 = off). Chests are bought with one click.
   confirm-cost: 10
   close-on-damage: true
   # false: the panel stays where it opened and the player walks freely (clicks go to the menu while looking at it)
@@ -143,7 +143,8 @@ resource-pack:
   # true: players who decline the pack cannot join
   required: false
 
-# Override single colours of the style (#RRGGBB, #AARRGGBB for see-through). Missing ones come from the style.
+# Override single colours of the style (#RRGGBB; #AARRGGBB mixes the colour into the panel background).
+# Missing ones come from the style.
 # Keys: background, panel-border, header, card, locked, line, hidden-line, buy, deny, gold (frame of an owned
 # upgrade), maxed (finished), hover, tint (how much of an upgrade's own colour shows, 0-1)
 theme: {}
@@ -201,6 +202,14 @@ effects:
                       "#lapis_ores", "#diamond_ores", "#emerald_ores", NETHER_GOLD_ORE, NETHER_QUARTZ_ORE, ANCIENT_DEBRIS]
   # Most logs cut at once by tree felling
   tree-feller-max: 96
+
+update:
+  # /tigo update installs the newest release of this GitHub repository (owner/name). The new version
+  # starts with the next server restart (/tigo update restart restarts right away). Nothing is lost:
+  # player data is saved and plugins/UpgradeTree/backups gets a copy of this folder and the old jar.
+  repository: TIGO124/mcupgradetree
+  # Only for a private repository: a GitHub token that can read it (fine-grained, Contents: Read-only)
+  token: ""
 
 # Before removing the plugin set this to true and /tigo reload: every bonus of the plugin is removed
 # from players as they join (/tigo cleanup all for players who are online).

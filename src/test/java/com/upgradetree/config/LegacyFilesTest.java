@@ -75,7 +75,7 @@ class LegacyFilesTest {
 
         assertFalse(fresh.contains("language"));
         assertFalse(fresh.contains("messages"));
-        assertEquals(1, fresh.getInt("config-version"), "the version of the new file stays");
+        assertEquals(2, fresh.getInt("config-version"), "the version of the new file stays");
         assertEquals("POINTS", fresh.getString("currency.type"));
         assertEquals("", fresh.getString("currency.name"), "an old built-in name becomes the messages.yml name");
         assertEquals("", fresh.getString("currency.symbol"));
@@ -93,5 +93,40 @@ class LegacyFilesTest {
         assertTrue(fresh.getComments("menu.distance").stream().anyMatch(c -> c.contains("Distance")), "new comments");
         assertTrue(fresh.getComments("theme").size() > 0, "a replaced section keeps its comments");
         assertEquals(List.of(), fresh.getComments("language"));
+    }
+
+    /** After an update the config.yml of the version before gets the new settings, its values stay. */
+    @Test
+    void aConfigOfAnOlderVersionGetsTheNewSettings() throws Exception {
+        YamlConfiguration bundled = BundledFilesTest.yaml("/config.yml");
+        YamlConfiguration old = new YamlConfiguration();
+        old.loadFromString("""
+                config-version: 1
+                currency:
+                  type: VAULT
+                menu:
+                  style: WOOD
+                  distance: 1.9
+                theme:
+                  card: "#112233"
+                restrictions:
+                  disabled-worlds: [arena]
+                """);
+        assertTrue(LegacyFiles.outdated(old, bundled));
+        assertTrue(LegacyFiles.outdated(new YamlConfiguration(), bundled), "2.2 and older have no version");
+        assertFalse(LegacyFiles.outdated(bundled, bundled));
+        YamlConfiguration newer = new YamlConfiguration();
+        newer.set("config-version", bundled.getInt("config-version") + 1);
+        assertFalse(LegacyFiles.outdated(newer, bundled), "a file of a newer version is left alone");
+
+        LegacyFiles.merge(old, bundled);
+        assertEquals(2, bundled.getInt("config-version"));
+        assertEquals("VAULT", bundled.getString("currency.type"));
+        assertEquals("WOOD", bundled.getString("menu.style"));
+        assertEquals(1.9, bundled.getDouble("menu.distance"));
+        assertEquals("#112233", bundled.getString("theme.card"));
+        assertEquals(List.of("arena"), bundled.getStringList("restrictions.disabled-worlds"));
+        assertEquals("TIGO124/mcupgradetree", bundled.getString("update.repository"), "the new section is there");
+        assertTrue(bundled.getComments("update").size() > 0);
     }
 }

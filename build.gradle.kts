@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.upgradetree"
-version = "2.3.0"
+version = "2.4.0"
 
 val paperVersion = "26.3.build.242-stable"
 

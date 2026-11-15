@@ -226,7 +226,7 @@ public final class ChestManager implements Listener {
     }
 
     /** Splits an amount into stack sizes of at most {@code max} (40 with max 16 → 16, 16, 8). */
-    static List<Integer> stacks(int amount, int max) {
+    public static List<Integer> stacks(int amount, int max) {
         int size = Math.max(1, max);
         List<Integer> out = new ArrayList<>();
         for (int left = amount; left > 0; left -= size) {

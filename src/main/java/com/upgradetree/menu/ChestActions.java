@@ -12,34 +12,20 @@ import com.upgradetree.util.Text;
 final class ChestActions {
 
     private final DisplayMenu m;
-    private final ChestSection s;
 
-    ChestActions(DisplayMenu menu, ChestSection section) {
+    ChestActions(DisplayMenu menu) {
         this.m = menu;
-        this.s = section;
     }
 
     private ChestManager chests() {
         return m.plugin().chests();
     }
 
-    /** BUY button: confirms expensive chests with a second click like upgrades do. */
+    /** BUY button: buys the chest at once, there is no second click to confirm. */
     void buy(ChestType c, String button) {
         if (c == null) {
             return;
         }
-        boolean wantsConfirm = m.settings().confirmCost > 0 && c.price >= m.settings().confirmCost
-                && chests().affordable(m.player(), c);
-        if (wantsConfirm && !(c.id.equals(s.confirmId) && m.tick <= s.confirmUntil)) {
-            s.confirmId = c.id;
-            s.confirmUntil = m.tick + 60;
-            m.sound("minecraft:block.note_block.pling", 0.6f, 1.2f);
-            m.player().sendActionBar(m.lang().plain("chest-confirm", "chest", c.name(),
-                    "cost", Text.escape(m.plugin().money(c.price))));
-            m.refreshInfo();
-            return;
-        }
-        s.confirmId = null;
         Currency cur = m.plugin().currency();
         switch (chests().buy(m.player(), c)) {
             case SUCCESS -> {

@@ -74,7 +74,7 @@ public final class Settings {
     public final String backgroundImage;
     public final boolean highQuality;
 
-    /** The chosen look; {@link #theme} is its colours with the overrides of config.yml "theme". */
+    /** The chosen look; {@link #theme} is its colours with the overrides of config.yml "theme", made opaque. */
     public final Style style;
     public final Theme theme;
 
@@ -123,6 +123,10 @@ public final class Settings {
 
     public final boolean cleanupMode;
 
+    /** GitHub repository (owner/name) whose releases /tigo update installs, and a token for a private one. */
+    public final String updateRepository;
+    public final String updateToken;
+
     /**
      * Colours of the 3D menu (ARGB; header and card may be see-through). {@code locked} is the base of
      * every node, {@code tint} how much of a node's own colour shows once it is owned (0 = none).
@@ -130,6 +134,23 @@ public final class Settings {
      */
     public record Theme(int background, int panelBorder, int header, int card, int locked, int line,
                         int lineLocked, int buy, int deny, int gold, int maxed, int hover, double tint) {
+
+        /**
+         * The same look with only opaque colours: a see-through colour is mixed into the panel
+         * background by its alpha. The client draws see-through text-display backgrounds sorted by
+         * distance, so a large card could be drawn before the panel behind it and let the world show
+         * through; opaque layers never depend on that order.
+         */
+        public Theme opaque() {
+            int bg = Palette.alpha(background, 255);
+            return new Theme(bg, over(bg, panelBorder), over(bg, header), over(bg, card), over(bg, locked), over(bg, line),
+                    over(bg, lineLocked), over(bg, buy), over(bg, deny), over(bg, gold), over(bg, maxed), over(bg, hover), tint);
+        }
+
+        private static int over(int bg, int argb) {
+            int a = argb >>> 24;
+            return a >= 255 ? argb : Palette.mix(bg, Palette.alpha(argb, 255), a / 255.0);
+        }
     }
 
     public Settings(FileConfiguration c, Logger logger) {
@@ -224,7 +245,7 @@ public final class Settings {
                 color(c, "theme.gold", s.gold()),
                 color(c, "theme.maxed", s.maxed()),
                 color(c, "theme.hover", s.hover()),
-                clamp(c.getDouble("theme.tint", s.tint()), 0, 1));
+                clamp(c.getDouble("theme.tint", s.tint()), 0, 1)).opaque();
         String bg = c.getString("menu.background", "");
         background = switch (bg.trim().toUpperCase(Locale.ROOT)) {
             case "STARS" -> Background.STARS;
@@ -278,6 +299,8 @@ public final class Settings {
         treeFellerMax = Math.max(1, Math.min(512, c.getInt("effects.tree-feller-max", 96)));
 
         cleanupMode = c.getBoolean("cleanup-mode", false);
+        updateRepository = c.getString("update.repository", "TIGO124/mcupgradetree").trim();
+        updateToken = c.getString("update.token", "").trim();
     }
 
     /** Currency name, e.g. "Levels" (the name of messages.yml unless config.yml sets one). */
