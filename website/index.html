@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UpgradeTree</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="UpgradeTree is a Paper plugin for Minecraft 26.3: a hexagon upgrade tree on a floating 3D panel, abilities, CS2-style chests, loot bags and prestige.">
+<meta name="theme-color" content="#0b1018">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=Pixelify+Sans:wght@400..700&family=VT323&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/sections.css">
+<link rel="stylesheet" href="css/panel.css">
+</head>
+<body>
+<a class="skip" href="#tree">Skip to the live tree</a>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 28 32" aria-hidden="true"><polygon points="14,1 27,8.5 27,23.5 14,31 1,23.5 1,8.5" fill="#e3c27a"/><polygon points="14,4.5 24,10.3 24,21.7 14,27.5 4,21.7 4,10.3" fill="#2f5f5b"/><path d="M14 8.5 15.7 14.3 21.5 16 15.7 17.7 14 23.5 12.3 17.7 6.5 16 12.3 14.3Z" fill="#eef3fa"/></svg>
+      UpgradeTree
+    </a>
+    <nav class="nav" id="nav" aria-label="Sections">
+      <a href="#tree">Live tree</a>
+      <a href="#features">Features</a>
+      <a href="#abilities">Abilities</a>
+      <a href="#chests">Chests</a>
+      <a href="#loot">Loot bags</a>
+      <a href="#commands">Commands</a>
+      <a href="#setup">Setup</a>
+    </nav>
+    <a class="btn btn-grass btn-sm" href="https://github.com/TIGO124/mcupgradetree/releases/latest">Download</a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav">Menu</button>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="sky" aria-hidden="true"><i class="moon"></i><i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i></div>
+  <div class="wrap hero-in">
+    <p class="eyebrow">Paper plugin · Minecraft 26.3</p>
+    <h1 class="logo"><span class="w w-stone">UPGRADE</span> <span class="w w-leaf">TREE</span><span class="splash" aria-hidden="true">Now with loot bags!</span></h1>
+    <p class="lede">A honeycomb of upgrades floats in front of the player, and only they can see it. Buy a hexagon and the ones after it appear. No chest menus.</p>
+    <div class="cta">
+      <a class="btn btn-grass" href="https://github.com/TIGO124/mcupgradetree/releases/latest">Download 2.4.0</a>
+      <a class="btn" href="#setup">Setup guide</a>
+    </div>
+    <ul class="chips" aria-label="Works with">
+      <li>Paper 26.3 · Purpur · Leaf</li>
+      <li>Java 25</li>
+      <li>Bedrock via Geyser</li>
+      <li>Vault</li>
+      <li>PlaceholderAPI</li>
+    </ul>
+    <p class="hero-chat">In game: <code>/tigo</code> opens the tree, <code>/chest</code> opens the chests.</p>
+  </div>
+
+  <div class="wrap demo" id="tree">
+    <div class="demo-head">
+      <h2>Try the panel</h2>
+      <p>These are the plugin's built-in trees with their real costs. Hover a hexagon to read it and click it to buy. A few upgrades are already bought, and you have 30 levels to spend.</p>
+    </div>
+    <div class="panel" id="panel" data-style="NIGHT" data-bg="IMAGE">
+      <div class="p-bg" aria-hidden="true"></div>
+      <div class="p-head">
+        <div class="p-tabs" role="tablist" aria-label="Trees">
+          <button class="p-tab is-on" type="button" role="tab" aria-selected="true" data-tab="main"><img class="px" data-item="NETHER_STAR" alt="">Main Tree</button>
+          <button class="p-tab" type="button" role="tab" aria-selected="false" data-tab="abilities"><img class="px" data-item="BLAZE_POWDER" alt="">Abilities</button>
+          <button class="p-tab" type="button" role="tab" aria-selected="false" data-tab="gatherer"><img class="px" data-item="GOLDEN_PICKAXE" alt="">Gatherer</button>
+          <a class="p-tab" href="#chests"><img class="px" data-item="CHEST" alt="">Chests</a>
+        </div>
+        <div class="p-tools">
+          <button class="p-btn" type="button" id="p-reset">Reset</button>
+          <span class="p-cur"><img class="px" data-item="EXPERIENCE_BOTTLE" alt=""><b id="p-bal">30</b> <span id="p-curname">Levels</span></span>
+          <button class="p-x" type="button" id="p-close" aria-label="Close the panel">X</button>
+        </div>
+      </div>
+      <div class="p-body">
+        <div class="p-tree">
+          <div class="p-view" id="p-view"><svg id="p-svg" role="group" aria-label="Upgrade tree"></svg></div>
+          <ol class="p-chat" id="p-chat" aria-live="polite"></ol>
+          <div class="p-progress"><p id="p-prog"><b class="t-hi">0/33</b> completed</p><span class="p-bar"><i id="p-bar"></i></span></div>
+        </div>
+        <aside class="p-card" id="p-card" aria-live="polite"></aside>
+      </div>
+      <p class="p-foot">Hover <span>»</span> <b>Aim</b> <span>·</span> Click <span>»</span> <b>Buy</b></p>
+      <div class="p-closed" id="p-closed" hidden><p>The panel is closed.</p><button class="btn btn-sm" type="button" id="p-open">/tigo</button></div>
+    </div>
+    <div class="demo-ctrl">
+      <div class="seg" role="group" aria-label="menu.style in config.yml">
+        <span class="seg-k">style:</span>
+        <button type="button" data-set-style="NIGHT" aria-pressed="true">NIGHT</button>
+        <button type="button" data-set-style="CELESTIAL" aria-pressed="false">CELESTIAL</button>
+        <button type="button" data-set-style="MINIMAL" aria-pressed="false">MINIMAL</button>
+        <button type="button" data-set-style="WOOD" aria-pressed="false">WOOD</button>
+      </div>
+      <div class="seg" role="group" aria-label="menu.background in config.yml">
+        <span class="seg-k">background:</span>
+        <button type="button" data-set-bg="IMAGE" aria-pressed="true">IMAGE</button>
+        <button type="button" data-set-bg="STARS" aria-pressed="false">STARS</button>
+        <button type="button" data-set-bg="PLANKS" aria-pressed="false">PLANKS</button>
+        <button type="button" data-set-bg="NONE" aria-pressed="false">NONE</button>
+      </div>
+      <button class="btn btn-sm btn-xp" type="button" id="p-xp"><img class="px" data-item="LEVELS" alt="">+10 Levels</button>
+    </div>
+  </div>
+  <div class="grass-edge" aria-hidden="true"></div>
+</section>
+
+<section class="band band-dirt" id="features">
+  <div class="wrap">
+    <div class="band-head">
+      <p class="ylevel">Y: <b>62</b> · Dirt</p>
+      <h2>What's in the jar</h2>
+      <p class="sub">Upgrades, abilities, chests and loot bags in one plugin. Every cost, effect and drop chance lives in a YAML file you can edit and reload.</p>
+    </div>
+    <div class="gui">
+      <p class="gui-title">UpgradeTree 2.4</p>
+      <ul class="feats">
+        <li><span class="slot"><img class="px" data-item="NETHER_STAR" alt=""></span><div><h3>Hexagon panel</h3><p>A 3D panel opens in front of the player and only they see it. Each frame shows whether an upgrade can be bought, is owned or is finished.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="OAK_SAPLING" alt=""></span><div><h3>Progressive reveal</h3><p>An upgrade appears once something it needs is bought, so the tree grows out of the Origin as players progress.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="ENCHANTED_BOOK" alt=""></span><div><h3>Four styles</h3><p>NIGHT, CELESTIAL, MINIMAL and WOOD colour the panel, the chest menus and the chat messages together.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="FEATHER" alt=""></span><div><h3>Free movement</h3><p>The panel stays where it opened. Players walk around it, look away to play, and walk off to close it.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="DIAMOND_SWORD" alt=""></span><div><h3>Sixteen effect types</h3><p>Attributes, potions, XP boost, double drops, crits, lifesteal, dodge, auto smelt, vein miner, tree feller, keep XP or items, and console commands.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="WIND_CHARGE" alt=""></span><div><h3>Active abilities</h3><p>Dash, Leap, Heal, Shield, Speed Burst and Shockwave on Sneak + F, a double sneak or Sneak + Jump.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="CHEST" alt=""></span><div><h3>Chests</h3><p>CS2-style cases bought with the tree's currency. The prize strip spins over the chest itself, right where the player stands.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="BAG_RARE" alt=""></span><div><h3>Loot bags</h3><p>Seven rarities from Common to Secret drop from player kills. Rare finds glow on the ground and are announced to the server.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="TOTEM_OF_UNDYING" alt=""></span><div><h3>Prestige and respec</h3><p>A finished tree can be prestiged for permanent bonuses, up to prestige 10. A reset refunds 75% of what was spent.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="EXPERIENCE_BOTTLE" alt=""></span><div><h3>Three currencies</h3><p>XP levels, Vault money, or the plugin's own points from kills, playtime, ores, advancements and a daily reward.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="GOLD_INGOT" alt=""></span><div><h3>Leaderboard</h3><p><code>/tigo top</code> ranks players by prestige or by levels, and a floating hologram shows the top ten in the world.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="ENDER_EYE" alt=""></span><div><h3>Bedrock players</h3><p>Geyser and Floodgate players get a chest menu automatically. Anyone can switch with <code>/tigo menu</code>.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="IRON_BLOCK" alt=""></span><div><h3>Admin panel</h3><p>Operators edit points, prestige and every upgrade level in <code>/tigo admin</code>, or change a player's tree right on the hexagon panel.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="ENDER_CHEST" alt=""></span><div><h3>Storage</h3><p>YAML, SQLite or MySQL with batched saves. Old YAML data moves into a new, empty database by itself.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="BOOK" alt=""></span><div><h3>PlaceholderAPI</h3><p>Placeholders for scoreboards, tab lists and holograms, from the balance to the state of a single upgrade.</p></div></li>
+        <li><span class="slot"><img class="px" data-item="SHIELD" alt=""></span><div><h3>Safe updates</h3><p><code>/tigo update</code> installs the newest release. Player data, the old jar and every plugin file are backed up first.</p></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="band band-stone" id="abilities">
+  <div class="wrap">
+    <div class="band-head">
+      <p class="ylevel">Y: <b>40</b> · Stone</p>
+      <h2>Six abilities, three keys</h2>
+      <p class="sub">Every trigger holds one ability, so each pair is a choice: buying one blocks the other. Cooldowns drop as the ability levels up.</p>
+    </div>
+    <div class="abil">
+      <article class="abil-col">
+        <p class="keys"><kbd>Shift</kbd>+<kbd>F</kbd></p>
+        <h3>Sneak + F</h3>
+        <ul>
+          <li><img class="px" data-item="WIND_CHARGE" alt="" width="44" height="44"><div><b>Dash</b><span>Dash the way you look.</span></div><em>14s → 10s</em></li>
+          <li class="or">or</li>
+          <li><img class="px" data-item="SUGAR" alt="" width="44" height="44"><div><b>Speed Burst</b><span>Speed I, then Speed II.</span></div><em>35s → 25s</em></li>
+        </ul>
+      </article>
+      <article class="abil-col">
+        <p class="keys"><kbd>Shift</kbd><kbd>Shift</kbd></p>
+        <h3>Double Sneak</h3>
+        <ul>
+          <li><img class="px" data-item="GLISTERING_MELON_SLICE" alt="" width="44" height="44"><div><b>Heal</b><span>Heal 2 to 3 hearts at once.</span></div><em>45s → 33s</em></li>
+          <li class="or">or</li>
+          <li><img class="px" data-item="SHIELD" alt="" width="44" height="44"><div><b>Shield</b><span>Up to 4 extra hearts and resistance.</span></div><em>40s → 30s</em></li>
+        </ul>
+      </article>
+      <article class="abil-col">
+        <p class="keys"><kbd>Shift</kbd>+<kbd>Space</kbd></p>
+        <h3>Sneak + Jump</h3>
+        <ul>
+          <li><img class="px" data-item="GOAT_HORN" alt="" width="44" height="44"><div><b>Leap</b><span>Launch up, no fall damage.</span></div><em>15s → 9s</em></li>
+          <li class="or">or</li>
+          <li><img class="px" data-item="TNT" alt="" width="44" height="44"><div><b>Shockwave</b><span>Knock nearby monsters back.</span></div><em>25s → 17s</em></li>
+        </ul>
+      </article>
+    </div>
+    <p class="abil-note">Cooldowns are shown at level 1 and level 3. Either choice of a pair leads to the same follow-up upgrade: Master Fighter, Holy Light or Wind Spirit.</p>
+  </div>
+</section>
+
+<section class="band band-ore" id="chests">
+  <div class="wrap">
+    <div class="band-head">
+      <p class="ylevel">Y: <b>16</b> · Stone</p>
+      <h2>Chests that open like CS2 cases</h2>
+      <p class="sub">A chest is bought with the tree's currency and appears in front of the player. A right click shakes it, opens the lid and spins a strip of prizes that slows down on the winner.</p>
+    </div>
+    <div class="case">
+      <div class="case-pick" role="radiogroup" aria-label="Chest">
+        <button class="case-card is-on" type="button" role="radio" aria-checked="true" data-chest="iron" style="--c:#8E96A3"><img class="px" data-item="CHEST_IRON" alt=""><b>Iron Chest</b><span>5 Levels</span></button>
+        <button class="case-card" type="button" role="radio" aria-checked="false" data-chest="diamond" style="--c:#5E9A94"><img class="px" data-item="CHEST_DIAMOND" alt=""><b>Diamond Chest</b><span>15 Levels</span></button>
+        <button class="case-card" type="button" role="radio" aria-checked="false" data-chest="netherite" style="--c:#8E7FB8"><img class="px" data-item="CHEST_NETHERITE" alt=""><b>Netherite Chest</b><span>35 Levels</span></button>
+      </div>
+      <div class="case-stage">
+        <div class="case-big" id="case-big" aria-hidden="true"></div>
+        <div class="strip" id="strip"><div class="strip-track" id="strip-track"></div><i class="strip-line" aria-hidden="true"></i></div>
+        <button class="btn btn-grass" type="button" id="case-open">Open the Iron Chest</button>
+        <div class="chat" id="case-chat" aria-live="polite"><p class="chat-hint">The prize shows up here, like in the game chat.</p></div>
+      </div>
+      <div class="case-info">
+        <h3>Contents</h3>
+        <ul class="slots" id="case-slots" aria-label="Prizes of this chest"></ul>
+        <h3>Odds</h3>
+        <ul class="odds">
+          <li style="--r:#9AA4B2"><b>Common</b><span>79.92%</span></li>
+          <li style="--r:#5F8FC4"><b>Rare</b><span>15.98%</span></li>
+          <li style="--r:#9A6BC4"><b>Epic</b><span>3.2%</span></li>
+          <li style="--r:#D27A33"><b>Legendary</b><span>0.64%</span></li>
+          <li style="--r:#E0B54A"><b>Mythic</b><span>0.26%</span></li>
+        </ul>
+        <p class="odds-note">A rarity is picked first, then one prize of that rarity. Legendary and Mythic prizes are announced in chat.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band-deep" id="loot">
+  <div class="wrap">
+    <div class="band-head">
+      <p class="ylevel">Y: <b>-12</b> · Deepslate</p>
+      <h2>Loot bags from every kill</h2>
+      <p class="sub">Any mob a player kills can drop a bag, and monsters drop them twice as often. A right click opens a bag into 5 to 10 different items.</p>
+    </div>
+    <div class="loot">
+      <div class="table-scroll">
+        <table class="bags">
+          <thead><tr><th>Bag</th><th>Animal</th><th>Monster</th><th>About 1 in</th><th>Inside</th><th><span class="dim">Try</span></th></tr></thead>
+          <tbody>
+            <tr><td><span class="bag" style="color:#B4BCC8"><img class="px" data-item="BAG_COMMON" alt="">Common</span></td><td class="num">1.5%</td><td class="num">3%</td><td class="num">33</td><td><span class="loot-row"><img class="px" data-item="BREAD" alt=""><img class="px" data-item="COAL" alt=""><img class="px" data-item="FEATHER" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="common">Open</button></td></tr>
+            <tr><td><span class="bag" style="color:#5BD35B"><img class="px" data-item="BAG_UNCOMMON" alt="">Uncommon</span></td><td class="num">0.6%</td><td class="num">1.2%</td><td class="num">83</td><td><span class="loot-row"><img class="px" data-item="IRON_INGOT" alt=""><img class="px" data-item="EXPERIENCE_BOTTLE" alt=""><img class="px" data-item="IRON_PICKAXE" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="uncommon">Open</button></td></tr>
+            <tr><td><span class="bag" style="color:#4FA3FF"><img class="px" data-item="BAG_RARE" alt="">Rare</span></td><td class="num">0.25%</td><td class="num">0.5%</td><td class="num">200</td><td><span class="loot-row"><img class="px" data-item="DIAMOND" alt=""><img class="px" data-item="ENDER_PEARL" alt=""><img class="px" data-item="GOLDEN_APPLE" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="rare">Open</button></td></tr>
+            <tr><td><span class="bag" style="color:#B062FF"><img class="px" data-item="BAG_EPIC" alt="">Epic</span></td><td class="num">0.08%</td><td class="num">0.16%</td><td class="num">625</td><td><span class="loot-row"><img class="px" data-item="GOLD_BLOCK" alt=""><img class="px" data-item="NETHERITE_SCRAP" alt=""><img class="px" data-item="ENCHANTED_BOOK" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="epic">Open</button></td></tr>
+            <tr><td><span class="bag" style="color:#FFA41C"><img class="px" data-item="BAG_LEGENDARY" alt="">Legendary</span><span class="flag">Glows · Announced</span></td><td class="num">0.025%</td><td class="num">0.05%</td><td class="num">2,000</td><td><span class="loot-row"><img class="px" data-item="TOTEM_OF_UNDYING" alt=""><img class="px" data-item="TRIDENT" alt=""><img class="px" data-item="HEART_OF_THE_SEA" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="legendary">Open</button></td></tr>
+            <tr><td><span class="bag bag-bold" style="color:#FF4F6B"><img class="px" data-item="BAG_MYTHIC" alt="">Mythic</span><span class="flag">Glows · Announced</span></td><td class="num">0.006%</td><td class="num">0.012%</td><td class="num">8,333</td><td><span class="loot-row"><img class="px" data-item="NETHERITE_INGOT" alt=""><img class="px" data-item="ENCHANTED_GOLDEN_APPLE" alt=""><img class="px" data-item="ELYTRA" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="mythic">Open</button></td></tr>
+            <tr><td><span class="bag"><img class="px" data-item="BAG_SECRET" alt=""><span class="bag-secret">Secret</span></span><span class="flag">Glows · Announced</span></td><td class="num">0.0012%</td><td class="num">0.0024%</td><td class="num">41,667</td><td><span class="loot-row"><img class="px" data-item="BEACON" alt=""><img class="px" data-item="NETHER_STAR" alt=""><img class="px" data-item="NETHERITE_SWORD" alt=""></span></td><td><button class="btn btn-open" type="button" data-bag="secret">Open</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="loot-side">
+        <div class="chat" id="loot-chat" aria-live="polite"><p class="chat-hint">Open a bag to see what falls out.</p></div>
+        <ul class="facts">
+          <li>"About 1 in" counts monster kills. All bags together drop from about 2.5% of animals and 4.9% of monsters.</li>
+          <li>Mobs from spawners, spawn eggs, slime splits and built golems never drop bags, and neither do baby animals.</li>
+          <li>The bags are bundles in the rarity's colour, so no resource pack is needed.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band-deep2" id="commands">
+  <div class="wrap">
+    <div class="band-head">
+      <p class="ylevel">Y: <b>-30</b> · Deepslate</p>
+      <h2>Commands</h2>
+      <p class="sub">Everything runs under <code>/tigo</code>. Players have <code>upgradetree.use</code> by default, operators get <code>upgradetree.admin</code>.</p>
+    </div>
+    <div class="cmds">
+      <div class="cmd-col">
+        <h3>Players <code>upgradetree.use</code></h3>
+        <ul class="cmd-list">
+          <li><code>/tigo</code><span>Opens or closes the panel</span></li>
+          <li><code>/chest</code><span>Opens the Chests section (also <code>/chests</code>)</span></li>
+          <li><code>/tigo info <i>[player]</i></code><span>Shows the upgrades and the command list</span></li>
+          <li><code>/tigo respec <i>[confirm]</i></code><span>Resets your tree with a 75% refund</span></li>
+          <li><code>/tigo prestige <i>[confirm]</i></code><span>Prestiges a finished tree</span></li>
+          <li><code>/tigo top <i>[prestige|levels]</i></code><span>Leaderboard</span></li>
+          <li><code>/tigo menu <i>&lt;panel|chest|auto&gt;</i></code><span>Picks the 3D panel or the chest menu</span></li>
+          <li><code>/tigo daily</code><span>Daily reward (POINTS currency)</span></li>
+        </ul>
+      </div>
+      <div class="cmd-col">
+        <h3>Admins <code>upgradetree.admin</code></h3>
+        <ul class="cmd-list">
+          <li><code>/tigo admin <i>[player]</i></code><span>Admin panel: points, prestige, levels, settings</span></li>
+          <li><code>/tigo reload</code> · <code>/tigo check</code><span>Reloads the files · finds cycles, unreachable upgrades and overlapping hexagons</span></li>
+          <li><code>/tigo set <i>&lt;player&gt; &lt;upgrade&gt; &lt;level&gt;</i></code><span>Sets one upgrade's level</span></li>
+          <li><code>/tigo points <i>&lt;give|take|set&gt; &lt;player&gt; &lt;amount&gt;</i></code><span>Changes points</span></li>
+          <li><code>/tigo reset <i>&lt;player&gt;</i></code> · <code>/tigo prestige set <i>&lt;player&gt; &lt;level&gt;</i></code><span>Resets a player · sets a prestige level</span></li>
+          <li><code>/tigo chests give <i>&lt;player&gt; &lt;chest&gt; [amount]</i></code><span>Gives unopened chests, offline players too</span></li>
+          <li><code>/tigo lootbag give <i>&lt;player&gt; &lt;rarity&gt; [amount]</i></code><span>Gives loot bag items</span></li>
+          <li><code>/tigo npc</code> · <code>/tigo top <i>place|remove</i></code><span>Tags the entity you look at · places the hologram</span></li>
+          <li><code>/tigo update <i>[restart]</i></code><span>Installs the newest release with a backup</span></li>
+          <li><code>/tigo cleanup <i>&lt;player|all&gt;</i></code><span>Removes the plugin's bonuses before uninstalling</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ph-head">
+      <h3>PlaceholderAPI</h3>
+      <p>Ids are the keys of the files: upgrades such as <code>sharp_sword</code>, trees <code>main</code>, <code>abilities</code>, <code>gatherer</code>, chests such as <code>iron</code>.</p>
+    </div>
+    <div class="table-scroll ph-wrap">
+      <table class="ph">
+        <tbody>
+          <tr><td><code>%upgradetree_points%</code></td><td>Upgrade points</td></tr>
+          <tr><td><code>%upgradetree_balance%</code> <code>%upgradetree_balance_formatted%</code></td><td>Balance of the active currency (<code>25</code> / <code>25 Levels</code>)</td></tr>
+          <tr><td><code>%upgradetree_levels%</code> <code>%upgradetree_max_levels%</code></td><td>Levels bought / levels there are</td></tr>
+          <tr><td><code>%upgradetree_owned%</code> <code>%upgradetree_maxed%</code> <code>%upgradetree_total%</code></td><td>Upgrades owned / finished / there are</td></tr>
+          <tr><td><code>%upgradetree_progress%</code> <code>%upgradetree_affordable%</code></td><td>Percent of the reachable levels owned / upgrades that can be bought now</td></tr>
+          <tr><td><code>%upgradetree_prestige%</code> <code>%upgradetree_prestige_roman%</code></td><td>Prestige level (<code>3</code> / <code>III</code>)</td></tr>
+          <tr><td><code>%upgradetree_rank%</code> <code>%upgradetree_rank_levels%</code></td><td>Place on the prestige / levels leaderboard</td></tr>
+          <tr><td><code>%upgradetree_respec_ready%</code> <code>%upgradetree_daily_ready%</code></td><td>Respec possible / daily reward ready</td></tr>
+          <tr><td><code>%upgradetree_ability_&lt;trigger&gt;_cooldown%</code></td><td>Seconds until the ability on <code>sneak_swap</code>, <code>double_sneak</code> or <code>sneak_jump</code> is ready</td></tr>
+          <tr><td><code>%upgradetree_level_&lt;upgrade&gt;%</code> <code>%upgradetree_cost_&lt;upgrade&gt;%</code></td><td>Level of an upgrade / cost of its next level</td></tr>
+          <tr><td><code>%upgradetree_state_&lt;upgrade&gt;%</code></td><td><code>locked</code>, <code>blocked</code>, <code>available</code>, <code>owned</code> or <code>maxed</code></td></tr>
+          <tr><td><code>%upgradetree_progress_&lt;tree&gt;%</code> <code>%upgradetree_owned_&lt;tree&gt;%</code></td><td>Percent of a tree's levels / upgrades owned in it</td></tr>
+          <tr><td><code>%upgradetree_chests%</code> <code>%upgradetree_chest_price_&lt;chest&gt;%</code></td><td>Unopened chests / price of a chest</td></tr>
+          <tr><td><code>%upgradetree_top_&lt;n&gt;_name%</code> <code>%upgradetree_toplevels_&lt;n&gt;_name%</code></td><td>Leaderboards by prestige and by levels (also <code>_prestige</code>, <code>_levels</code>)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="band band-deep" id="setup">
+  <div class="wrap">
+    <div class="band-head">
+      <p class="ylevel">Y: <b>-50</b> · Deepslate</p>
+      <h2>Set it up</h2>
+    </div>
+    <ol class="steps">
+      <li><h3>Run Paper 26.3 on Java 25</h3><p>Purpur and Leaf work too. Vault, PlaceholderAPI, Geyser and Floodgate are optional and picked up by themselves.</p></li>
+      <li><h3>Drop the jar into plugins</h3><p>Put <code>UpgradeTree-2.4.0.jar</code> in the <code>plugins</code> folder and restart. Later versions install with <code>/tigo update</code>.</p></li>
+      <li><h3>Edit, reload, check</h3><p>Change <code>config.yml</code> or a tree, run <code>/tigo reload</code>, then <code>/tigo check</code> to catch mistakes in the trees.</p></li>
+    </ol>
+    <div class="setup-grid">
+      <div class="box">
+        <h3>The plugin folder</h3>
+        <ul class="tree">
+          <li>plugins/UpgradeTree/
+            <ul>
+              <li>config.yml <span>currency, menu, storage</span></li>
+              <li>trees/ <span>one tab per file</span>
+                <ul><li>main.yml</li><li>abilities.yml</li><li>gatherer.yml</li></ul>
+              </li>
+              <li>chests.yml</li>
+              <li>lootbags.yml</li>
+              <li>messages.yml</li>
+              <li>background.jpg <span>panel picture</span></li>
+            </ul>
+          </li>
+        </ul>
+        <h3 style="margin-top:20px">Panel picture</h3>
+        <p>The plugin cuts the picture to the panel's shape and sends it in a small resource pack.</p>
+        <ul class="modes">
+          <li><b>SELF_HOST</b>Served by the plugin on port 8164 (default)</li>
+          <li><b>URL</b>You upload resourcepack.zip and set its address</li>
+          <li><b>EXTERNAL</b>You merge it into your own server pack</li>
+          <li><b>OFF</b>No picture: the style's plain colour</li>
+        </ul>
+      </div>
+      <div class="code" data-tabs>
+        <div class="code-tabs" role="tablist" aria-label="Example files">
+          <button type="button" role="tab" id="t-tree" aria-selected="true" aria-controls="c-tree">trees/main.yml</button>
+          <button type="button" role="tab" id="t-chest" aria-selected="false" aria-controls="c-chest" tabindex="-1">chests.yml</button>
+          <button type="button" role="tab" id="t-bag" aria-selected="false" aria-controls="c-bag" tabindex="-1">lootbags.yml</button>
+          <button type="button" role="tab" id="t-config" aria-selected="false" aria-controls="c-config" tabindex="-1">config.yml</button>
+        </div>
+        <pre id="c-tree" role="tabpanel" aria-labelledby="t-tree"><code class="lang-yaml">nodes:
+  sharp_sword:
+    name: "Sharp Sword"
+    icon: IRON_SWORD
+    x: 1
+    y: 0
+    max-level: 5
+    cost: 2
+    cost-increase: 1
+    requires: [origin]
+    color: "#A8452F"
+    description:
+      - "&lt;body&gt;All your attacks"
+      - "&lt;body&gt;deal more damage."
+    bonus: "+{value} damage"
+    effects:
+      - type: ATTRIBUTE
+        attribute: attack_damage
+        amount: 0.3</code></pre>
+        <pre id="c-chest" role="tabpanel" aria-labelledby="t-chest" hidden><code class="lang-yaml">chests:
+  diamond:
+    name: "Diamond Chest"
+    icon: CHEST
+    price: 15
+    look: { body: DARK_OAK_PLANKS, trim: DIAMOND_BLOCK, latch: GOLD_BLOCK }
+    rewards:
+      - { item: DIAMOND, amount: 4, rarity: rare }
+      - { levels: 20, rarity: rare }
+      - item: DIAMOND_SWORD
+        name: "Sharp Diamond Sword"
+        enchantments: { sharpness: 5, unbreaking: 3 }
+        rarity: epic</code></pre>
+        <pre id="c-bag" role="tabpanel" aria-labelledby="t-bag" hidden><code class="lang-yaml">rarities:
+  rare:
+    name: "&lt;#4FA3FF&gt;Rare Loot Bag"
+    color: "#4FA3FF"
+    chance: 0.25
+    model: minecraft:light_blue_bundle
+    loot:
+      - { item: DIAMOND, amount: 1-2, weight: 0.6 }
+      - { item: ENDER_PEARL, amount: 2-4 }
+      - { item: BOW, enchantments: { power: 2 } }
+      - { levels: 3-6 }</code></pre>
+        <pre id="c-config" role="tabpanel" aria-labelledby="t-config" hidden><code class="lang-yaml">currency:
+  type: XP_LEVELS        # XP_LEVELS, VAULT or POINTS
+menu:
+  style: NIGHT           # NIGHT, CELESTIAL, MINIMAL, WOOD
+  background: IMAGE      # IMAGE, NONE, STARS, PLANKS
+  progressive-reveal: true
+  confirm-cost: 10
+respec:
+  refund-percent: 75
+prestige:
+  max: 10
+storage:
+  type: YAML             # YAML, SQLITE or MYSQL</code></pre>
+      </div>
+    </div>
+    <div class="setup-grid">
+      <div class="box">
+        <h3>Updating from 2.2 or older</h3>
+        <p>Everything converts on the first start. Old upgrade and chest ids move to the new ones, edited files are kept, and <code>config.yml</code> gets the new settings with every value kept.</p>
+        <p>Before removing the plugin, run <code>/tigo cleanup all</code> so the health and damage bonuses leave the players.</p>
+      </div>
+      <div class="box">
+        <h3>For developers</h3>
+        <div class="code"><pre><code><span class="j-t">int</span> level = UpgradeTreeAPI.level(player, <span class="j-s">"sharp_sword"</span>);
+UpgradeTreeAPI.addPoints(player, <span class="y-n">5</span>);
+UpgradeTreeAPI.purchase(player, <span class="j-s">"miner"</span>);
+UpgradeTreeAPI.openMenu(player);</code></pre></div>
+        <ul class="events">
+          <li><code>UpgradePurchaseEvent</code> can be cancelled and its cost changed</li>
+          <li><code>UpgradeLevelChangeEvent</code>, <code>UpgradeResetEvent</code>, <code>PrestigeEvent</code>, <code>AbilityUseEvent</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="final">
+      <div><strong>Ready to plant it?</strong><p>Put the jar in <code>plugins</code>, restart, and type <code>/tigo</code> in game.</p></div>
+      <a class="btn btn-grass" href="https://github.com/TIGO124/mcupgradetree/releases/latest">Download 2.4.0</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="band band-bedrock">
+  <div class="wrap foot">
+    <p class="ylevel">Y: <b>-64</b> · Bedrock</p>
+    <div class="foot-row">
+      <a class="brand" href="#top">
+        <svg viewBox="0 0 28 32" aria-hidden="true"><polygon points="14,1 27,8.5 27,23.5 14,31 1,23.5 1,8.5" fill="#e3c27a"/><polygon points="14,4.5 24,10.3 24,21.7 14,27.5 4,21.7 4,10.3" fill="#2f5f5b"/><path d="M14 8.5 15.7 14.3 21.5 16 15.7 17.7 14 23.5 12.3 17.7 6.5 16 12.3 14.3Z" fill="#eef3fa"/></svg>
+        UpgradeTree 2.4.0
+      </a>
+      <ul class="foot-links">
+        <li><a href="https://github.com/TIGO124/mcupgradetree/releases">Releases</a></li>
+        <li><a href="https://github.com/TIGO124/mcupgradetree">Source</a></li>
+        <li><a href="#tree">Live tree</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#setup">Setup</a></li>
+      </ul>
+    </div>
+    <p class="legal">Made by TIGO124 for Paper servers. The item icons on this page are drawn for it. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+  </div>
+</footer>
+
+<script src="js/icons.js" defer></script>
+<script src="js/data.js" defer></script>
+<script src="js/textures.js" defer></script>
+<script src="js/rules.js" defer></script>
+<script src="js/panel.js" defer></script>
+<script src="js/chests.js" defer></script>
+<script src="js/site.js" defer></script>
+</body>
+</html>
